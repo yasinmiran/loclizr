@@ -30,7 +30,10 @@ import * as m from './loclizr/messages'
 m.cart_greeting({ name: 'Ada' })
 ```
 
-No bundler plugin. No AST transform of app code. Ever.
+No bundler plugin is required, and app code is never transformed. A project may
+wire the compiler into its own dev server for the edit loop (section 16's M13
+does), but that plugin only reruns `build`; nothing anywhere rewrites a source
+file.
 
 ### Invariants
 
@@ -84,16 +87,23 @@ These are the repo's settings and this spec assumes them everywhere.
   v0.1, run once, and never part of the build. This follows from "no AST
   transform of app code, ever" and is stated here so the retrofit reader is not
   left to infer it.
-- **The context record delivers three of the five fields the pitch names.**
-  Render site, argument types and the enclosing declaration ship in v0.1.
-  Surrounding copy and glossary hits do not. Glossary is the cheap deterministic
-  one and is the first candidate for v0.2; the number that motivates it is
-  single-vendor and unreproduced, so it does not gate v0.1.
+- **The context record delivers two of the five fields the pitch names.** The
+  render site, as the file plus the enclosing scope, and the argument types ship
+  in v0.1. **Element role does not**: the record never says whether a string is
+  a button label, a page title or a tooltip, because the scan is a tokenizer and
+  cannot read a JSX tree. Surrounding copy and glossary hits do not ship either.
+  Glossary is the cheap deterministic one and is the first candidate for v0.2;
+  the number that motivates it is single-vendor and unreproduced, so it does not
+  gate v0.1.
 - **SSR covers Web Fetch handlers only** (Vite SSR, Hono, TanStack Start, Bun,
-  Deno, Workers with `nodejs_als`). Next App Router is v0.2, because middleware
-  runs in a different runtime and cannot wrap a render; the entry there will be
-  `enterWith` from a root layout. Nothing in v0.1 emits a `'use client'`
-  directive; an app that needs one puts it on its own component file.
+  Deno, Workers with `nodejs_als`). A framework with no Fetch `Request` in hand
+  feeds `localeFromHeaders` instead (section 11.2), which is how Express and
+  Fastify reach `runWithLocale`. **Next.js is not a first-class SSR target in
+  v0.1**, neither the App Router nor Pages Router middleware: there is no test,
+  no example and no promise. Middleware runs in a different runtime and cannot
+  wrap a render, and the App Router entry, `enterWith` from a root layout, is a
+  v0.2 question. Nothing in v0.1 emits a `'use client'` directive; an app that
+  needs one puts it on its own component file.
 - **URL-prefix locale routing is out of scope.** Section 11's hydration
   agreement assumes the locale comes from a cookie or from `Accept-Language`,
   never from the path.
@@ -102,8 +112,11 @@ These are the repo's settings and this spec assumes them everywhere.
   supported (section 11.1 makes the store work with no `document`), but Hermes
   on Android needs the `intl` build of the runtime. That is a one-line project
   setting, and it is named here rather than discovered in a crash report.
-- **No `--watch`.** The tight loop is `loclizr build` in `predev`, plus
-  `nodemon -w locales -x 'loclizr build'` for people who want one. A watcher is
+- **No `--watch`.** The tight loop is `loclizr build --no-fail` in `predev`,
+  plus, for people who want the catalog edit to land in the running app, either
+  `nodemon -w locales -x 'loclizr build --no-fail'` or the twenty-line Vite
+  plugin section 16's M13 ships inside its own `vite.config.ts`. Both are
+  supported patterns and neither is a published package. A watcher is
   a second code path through the compiler with platform-dependent recursive
   `fs.watch` behaviour and a bespoke severity semantic to defend, and nothing
   else in v0.1 depends on it. It comes back in v0.2 once the build's real cost
@@ -111,10 +124,43 @@ These are the repo's settings and this spec assumes them everywhere.
 
 ## 2. Catalogs
 
-`locales/{locale}.json` is plain i18next JSON: nested keys, `{{var}}`
-interpolation, `_one` / `_other` plural suffixes. The compiler reads it, never
-writes it, and never requires an edit to it. The native format is ICU
-MessageFormat; an i18next catalog is converted to ICU at read time.
+`locales/{locale}.json` is a JSON tree of nested keys. The native format is ICU
+MessageFormat; an i18next catalog, with `{{var}}` interpolation and
+`_one` / `_other` plural suffixes, is converted to ICU at read time. The
+compiler reads the file, never writes it, and never requires an edit to it.
+
+**The format is decided per file, not per project.** `catalogFormat` defaults to
+`'auto'`, and under `'auto'` M2 classifies each catalog file on its own,
+**after flattening and before any conversion**, by looking at that one file's
+entries:
+
+- the file is **i18next** when any string value contains `{{`, or when any key
+  carries a CLDR plural suffix that section 2.1 step 4 would fold;
+- otherwise the file is **ICU**.
+
+A file is exactly one format. There is no hybrid parse: ICU argument syntax
+inside a file read as i18next is literal text, and `{{name}}` inside a file read
+as ICU is a literal brace around an argument, exactly as the ICU grammar says.
+That is the whole point of deciding per file rather than per value, because a
+per-value guess turns a translator's stray `{{` into a silent change of meaning.
+`catalogFormat: 'icu'` and `catalogFormat: 'i18next'` force every file and skip
+classification entirely.
+
+Section 2.1 steps 1 through 4, and `LZ1012` through `LZ1017`, apply **only to a
+file read as i18next**. An `X_one` with no `X_other` in an ICU file is an
+ordinary key and raises nothing; `$t(` in an ICU file is ordinary text.
+
+The format a file was read as is recorded on its `RawCatalog.format`, so
+everything downstream, `LZ2001`'s span composition most of all, reads the
+decision rather than re-deriving it.
+
+A file read as i18next that contains a single-brace run shaped like a typed ICU
+argument, `{x, plural ...}`, `{x, select ...}`, `{x, selectordinal ...}`,
+`{x, number ...}`, `{x, date ...}` or `{x, time ...}`, raises
+`LZ1020 icu-in-i18next-file` at warn. The hint names the first `{{` or plural
+suffix key that classified the file, states that the run will render as literal
+text, and gives the fix: convert that file to ICU, or set `catalogFormat`. This
+is the one mistake `'auto'` can make invisible, so it is the one it reports.
 
 A key path is the dotted join of its nesting. `{"nav": {"home": "Home"}}` is the
 key `nav.home`. A dotted key at any level flattens the same way, so
@@ -174,7 +220,7 @@ changing meaning.
    `LZ1016 i18next-markup-literal` as a warning, so the conversion is visible
    rather than silent. A team that wants those tags lowered to real markup
    arguments sets `i18nextMarkup: 'tags'`, which skips `<` in this step for the
-   whole catalog set. `catalogFormat: 'icu'` is unaffected by any of this.
+   whole catalog set. A file read as ICU is unaffected by any of this.
 
 2. **Rewrite placeholders.** `{{ name }}` becomes `{name}`. Surrounding
    whitespace inside the braces is trimmed. A placeholder carrying an i18next
@@ -185,8 +231,11 @@ changing meaning.
    `string | number`, and is never rewritten to `#` and never formatted through
    `Intl.NumberFormat`. i18next stringifies placeholders unformatted, so
    auto-formatting would turn `1000 items` into `1,000 items` on import day and
-   make "your i18next catalog works unchanged" false. The upgrade is one
-   character: write `{count, number}` to opt into formatting.
+   make "your i18next catalog works unchanged" false. The upgrade is not a
+   character inside this file, because `{count, number}` written into a file
+   read as i18next renders as literal text and raises `LZ1020`. It is a file
+   conversion: rewrite that catalog as ICU, at which point `{count, number}`
+   means what it says.
 
 4. **Fold plural suffixes.** Match the ordinal infix `X_ordinal_<cat>` **before**
    the plain suffix `X_<cat>`, or `place_ordinal_one` folds as a cardinal on the
@@ -236,13 +285,14 @@ changing meaning.
    time with `t('friend', { context: gender })`, and after import they are
    `m.friend_male` and `m.friend_female` selected by nothing. The typed lookup
    tier is prefix based and cannot reach a suffix, so the hint prints the exact
-   one-line ICU rewrite instead:
-   `{context, select, male {...} female {...} other {...}}`. That turns a silent
+   one-line rewrite instead:
+   `{context, select, male {...} female {...} other {...}}`, **together with the
+   instruction to convert this file to ICU first**, because that line pasted
+   into a file read as i18next is literal text and `LZ1020`. That turns a silent
    behaviour loss into a punch list, and the rewrite lands in the catalog the
    user already owns.
 
-An ICU-native catalog (`catalogFormat: 'icu'`) skips steps 1 through 4 entirely
-and is parsed as written.
+A file read as ICU skips steps 1 through 4 entirely and is parsed as written.
 
 ### 2.2 Descriptions and placeholder notes
 
@@ -331,7 +381,7 @@ Defaults, applied field by field:
 | `locales` | every locale discovered by globbing `catalogs` |
 | `sourceLocale` | `'en'` if discovered, else the single discovered locale, else `LZ1004` |
 | `catalogs` | `'locales/{locale}.json'` |
-| `catalogFormat` | `'i18next'` |
+| `catalogFormat` | `'auto'`, deciding per file (section 2) |
 | `i18nextMarkup` | `'literal'` |
 | `meta` | `'locales/{sourceLocale}.meta.json'` |
 | `outDir` | `'src/loclizr'` |
@@ -437,11 +487,29 @@ One representation, three consumers. It lives in `src/types.ts`, owned by M1,
 and is written out in full in section 15.
 
 Every locale's lowered form is kept, not just the source locale's. `Body` holds
-`nodes`, `args` and `markupTags` for one locale, and `Message.bodies` holds one
-`Body` per declared locale. That is what lets M5 compare argument sets across
-locales without re-parsing anything, which invariant 5 in section 1 requires.
-`Message.args` is the **unified** set used by emit for the declaration file; the
-per-locale sets live in `Body.args`.
+`nodes`, `args` and `markupTags` for one locale. That is what lets M5 compare
+argument sets across locales without re-parsing anything, which invariant 5 in
+section 1 requires. `Message.args` is the **unified** set used by emit for the
+declaration file; the per-locale sets live in `Body.args`.
+
+**`Message.bodies` holds each locale's own lowered body and nothing else.** A
+locale whose catalog is missing this key, whose value is blank, or whose value
+failed to lower has **no entry in `bodies` at all**. `bodies` is not padded, not
+back-filled and never contains a copy of another locale's nodes. A locale whose
+value lowered cleanly does have an entry even when that body is wrong in some
+cross-locale way, because M5 needs `Body.args` and `Body.markupTags` in hand to
+say so.
+
+**The fallback decision lives in M4 alone, and it is recorded in
+`Message.origins`.** M4 walks the chain, decides which locale's body each
+declared locale renders, and stamps one `Origin` per declared locale. M6 then
+emits arm *N* from `bodies[origin.from ?? locale]`: a `translated` origin
+carries no `from` and reads its own body, and an `inherited` or `fallback`
+origin names the locale whose body to print. **M6 makes no fallback decision of
+its own and never inspects `bodies` for absence.** That is the seam: one module
+decides, one module prints, and M8's `RecordTranslation` is a transcription of
+the same `origins` array, so the emitted arms, the record's statuses and
+`Summary.fellBack` cannot disagree.
 
 ### 5.1 Argument types
 
@@ -489,10 +557,21 @@ Two halves, both load bearing:
   usable declaration to print even for a broken catalog.
 
 The other half of the typo case is what the German arm renders. Emitting
-`${args.nmae}` would ship the literal string `undefined` to users, so **emit
-substitutes the source body for any target arm that references a name absent
-from `Message.args`**. The worst case is untranslated text, which is visible and
-recoverable, rather than `undefined` in the UI, which is neither.
+`${args.nmae}` would ship the literal string `undefined` to users, so that arm
+must render the source body instead. The worst case is untranslated text, which
+is visible and recoverable, rather than `undefined` in the UI, which is neither.
+
+**That decision belongs to M4, not to emit.** A locale whose body references a
+name absent from `Message.args` is a locale M4 resolves to the source locale: it
+stamps that locale's origin
+`{ status: 'fallback', from: sourceLocale, reason: 'invalid' }`, the same shape
+a value that failed to lower gets, because in both cases the locale's own body
+is unusable. M6 then prints `bodies[origin.from]` by the ordinary rule in
+section 5 and makes no substitution decision. The locale **keeps its `Body`**,
+so M5 still reads `Body.args` and raises `LZ3005 arg-extra` against it, and M8
+records `status: 'fallback'`, `from: 'en'`, `reason: 'invalid'` rather than
+claiming a translation the app never renders. One decision, one place, three
+consumers that agree.
 
 `Message.args` order is semantic, derived from one array (the source body), so
 it is deterministic without sorting. M6 prints it verbatim in the declaration
@@ -636,9 +715,11 @@ message's tagless arm returns a one-element array, `` [`Lies unsere AGB...`] ``.
 
 A tag name is an argument of kind `markup`, which means the opposite direction
 needs no new rule: a target arm introducing a tag the source lacks references a
-name absent from `Message.args`, so `LZ3005 arg-extra` fires and section 5.1's
-substitution makes that arm emit the source body. Coercion and substitution are
-the same rule seen from two sides.
+name absent from `Message.args`, so `LZ3005 arg-extra` fires and M4 resolves
+that locale to the source body per section 5.1. The two directions are handled
+by different modules and that is deliberate. **Coercion is M6's**, because only
+emit knows what shape it is about to print. **Substitution is M4's**, because it
+is a fallback decision and section 5 keeps every one of those in one place.
 
 Generated markup code builds a plain array literal and calls no runtime helper.
 `loclizr/react` exports `Parts` to render one.
@@ -739,11 +820,21 @@ $configure1({ locales, sourceLocale, cookie }): (options?: MessageOptions) => st
 It does two things:
 
 1. Returns a resolver bound to that generated directory's own `locales` and
-   `sourceLocale`. The resolver reads the **raw requested tag** from the store
-   (or from `options.locale` when given) and matches it against its own locale
-   list. It never routes through the public `getLocale()`, so a second generated
-   directory declaring a locale the first does not know still resolves its own
-   messages correctly.
+   `sourceLocale`. The resolver reads the **raw requested tag** through
+   `getRawLocale()` (or takes `options.locale` when given) and matches it
+   against its own locale list with `matchLocale`. It never routes through the
+   public `getLocale()`, so a second generated directory declaring a locale the
+   first does not know still resolves its own messages correctly.
+
+   **`getRawLocale()` is exactly the first three steps of `getLocale()`'s
+   resolution order** in section 11.1: an active `AsyncLocalStorage` scope, then
+   the stored tag if `setLocale` has run, then lazy client detection where a DOM
+   exists. It performs **no matching**, consults no locale list and applies no
+   source-locale default; a generated resolver matches against its own list, and
+   that division is what makes two generated directories work. When all three
+   steps miss it returns the empty string, and `matchLocale('', locales,
+   sourceLocale)` returns `sourceLocale`, so a resolver still yields a declared
+   locale.
 2. Registers `locales`, `sourceLocale` and `cookie` as the process default for
    the public `getLocale()`, **first call wins**. A second registration with a
    different set is ignored and warns once outside production.
@@ -822,7 +913,9 @@ written inside it, so the app's root ignore file is never touched. The research
 records generated code in `src/` as one of Paraglide's loudest complaints, and
 the artifact that belongs in the pull request is the context record, not
 several hundred lines of machine-written JavaScript. `loclizr init` prints the
-`prepare`, `predev` and `prebuild` scripts that keep a fresh clone working. A
+`prepare`, `predev`, `prebuild` and `pretypecheck` scripts that keep a fresh
+clone working, with `prepare` and `predev` on `loclizr build --no-fail` and the
+two gate hooks on plain `loclizr build` (section 10). A
 team that would rather commit the tree deletes that one `.gitignore`;
 `LZ5002 output-stale` then starts checking those files, because the rule fires
 only when the files exist on disk.
@@ -834,14 +927,36 @@ comparison and `LZ5002`. That is what makes deleting it an escape hatch rather
 than a wish: recreating it unconditionally would let the documented escape
 survive exactly one build.
 
-**`build` prunes.** After writing, it deletes every file under `outDir` that
-this emit did not produce, except the `.gitignore`. Without that, renaming a
-top-level key leaves `messages/old.js` and `messages/old.d.ts` behind forever,
-and removing the last `groups` entry leaves a `groups.js` importing from a
-namespace module that may also be gone, which is a hard module-resolution
-failure in the app's build rather than a stale-file annoyance. `check` reports
-the same set as `LZ5002` with reason `orphaned`. The delete is bounded because
-`LZ1007` already requires `outDir` to resolve inside the project root.
+**Every emitted file except the `.gitignore` begins with the generated header**,
+`// @generated by loclizr abi=1. Do not edit; run \`loclizr build\`.`, byte for
+byte, as line 1. That includes every `.d.ts`, where it sits above the imports.
+The header is not decoration; it is the token the prune step keys on.
+
+**`build` prunes, and it prunes only what it wrote.** After writing, it deletes
+every file under `outDir` that carries the generated header and that this emit
+did not produce. Without a prune, renaming a top-level key leaves
+`messages/old.js` and `messages/old.d.ts` behind forever, and removing the last
+`groups` entry leaves a `groups.js` importing from a namespace module that may
+also be gone, which is a hard module-resolution failure in the app's build
+rather than a stale-file annoyance.
+
+**A file under `outDir` that does not carry the header is never deleted and
+never overwritten.** `outDir` is a directory path a user can point anywhere
+inside the project, `init` does not create it, and a recursive delete of
+whatever it finds there is the one bug in this design that destroys work rather
+than merely annoying someone. So a headerless file is reported as
+`LZ1021 outdir-foreign-file` at warn, naming the path, in **both** `build` and
+`check`, and it is left exactly as it is. If emit wanted to write that same
+path, the write is skipped and the same diagnostic is raised: the generated tree
+is then incomplete and the app's own build will say so, which is recoverable,
+while silently clobbering a hand-written file is not. The `.gitignore` is
+outside this entirely, per the paragraph above: written only when absent, never
+compared, never pruned.
+
+`check` reports a **headered** file that emit did not produce as `LZ5002` with
+reason `orphaned`, and a headerless one as `LZ1021`, so `check` never fails on a
+file `build` tolerates. The delete is bounded twice over: by the header, and by
+`LZ1007` already requiring `outDir` to resolve inside the project root.
 
 ### 7.2 Identifiers
 
@@ -1060,16 +1175,14 @@ Source catalogs.
 }
 ```
 
-`locales/de.json`, in i18next form to show the conversion:
+`locales/de.json`, ICU throughout:
 
 ```json
 {
   "nav": { "home": "Startseite", "cart": "Warenkorb" },
   "cart": {
-    "greeting": "Hallo {{name}}, dein Warenkorb ist fertig",
-    "items_zero": "Dein Warenkorb ist leer",
-    "items_one": "{{count}} Artikel in deinem Warenkorb",
-    "items_other": "{{count}} Artikel in deinem Warenkorb",
+    "greeting": "Hallo {name}, dein Warenkorb ist fertig",
+    "items": "{count, plural, =0 {Dein Warenkorb ist leer} one {{count} Artikel in deinem Warenkorb} other {{count} Artikel in deinem Warenkorb}}",
     "total": "Summe: {amount, number, ::currency/USD}",
     "updated": "Aktualisiert {at, date, medium}"
   },
@@ -1085,7 +1198,8 @@ Source catalogs.
 }
 ```
 
-`locales/de-AT.json`, a sparse overlay:
+`locales/de-AT.json`, a sparse overlay still in i18next form, which is what
+makes this example show `'auto'` doing its job:
 
 ```json
 { "cart": { "greeting": "Servus {{name}}, dein Warenkorb ist fertig" } }
@@ -1115,15 +1229,29 @@ export default defineConfig({
 })
 ```
 
-Note what the `de` catalog does. `items_other` is present and `items_zero` and
-`items_one` sit beside it, so the three keys fold into one plural whose ICU form
-is `{count, plural, =0 {...} one {...} other {...}}`. `_zero` became the exact
-branch `=0` rather than the keyword `zero`, because German has no CLDR `zero`
-category and a `zero` branch would never be selected. `{{count}}` inside the
-folded plural becomes a plain `{count}` argument, not `#`, so German renders
-`1000 Artikel` exactly as i18next did. English uses `#`, so English renders
-`1,000 items`. That difference is the honest consequence of not silently
-reformatting an imported catalog, and the fix is one character in `de.json`.
+Note what the two German files do, because between them they are the whole of
+`catalogFormat: 'auto'`.
+
+`de.json` holds no `{{` and no plural-suffixed key, so it is read as ICU and
+parsed as written. Its `cart.items` is the exact shape the i18next form
+`items_zero` / `items_one` / `items_other` would have converted to: the `_zero`
+suffix becomes the exact branch `=0` rather than the keyword `zero`, because
+German has no CLDR `zero` category and a `zero` branch would never be selected,
+and the `{{count}}` those arms carried becomes a plain `{count}` argument rather
+than `#`. Writing it out as ICU is the conversion's own output, which is why the
+emitted German arm below is identical either way. `<link>` in `terms.accept`
+lowers to real markup here, because ICU is ICU; had this file been read as
+i18next, section 2.1 step 1 would have escaped it to literal text and raised
+`LZ1016`.
+
+`de-AT.json` does hold `{{`, so it is read as i18next and `{{name}}` is
+converted. One catalog set, two formats, no configuration.
+
+German therefore renders `1000 Artikel` while English renders `1,000 items`,
+because German's argument is a bare `{count}` and English's is `#` through
+`Intl.NumberFormat`. That difference is the honest consequence of a catalog
+imported from i18next keeping i18next's rendering, and in an ICU file the fix
+really is one character: write `{count, number}`.
 
 Now the output.
 
@@ -1141,6 +1269,7 @@ export const $l = $configure1({ locales, sourceLocale, cookie: 'locale' })
 `src/loclizr/messages/_locale.d.ts`:
 
 ```ts
+// @generated by loclizr abi=1. Do not edit; run `loclizr build`.
 import type { LocaleResolver } from 'loclizr'
 export declare const locales: readonly ['de', 'de-AT', 'en']
 export declare const sourceLocale: 'en'
@@ -1195,6 +1324,7 @@ not one arm per locale.
 `src/loclizr/messages/nav.d.ts`:
 
 ```ts
+// @generated by loclizr abi=1. Do not edit; run `loclizr build`.
 import type { EmptyArgs, MessageOptions } from 'loclizr'
 /** en: "Cart" */
 export declare function nav_cart(args?: EmptyArgs, opts?: MessageOptions): string
@@ -1311,6 +1441,7 @@ emits the conditional chain above, in the same branch order.
 `src/loclizr/messages/cart.d.ts`:
 
 ```ts
+// @generated by loclizr abi=1. Do not edit; run `loclizr build`.
 import type { MessageOptions } from 'loclizr'
 /** en: "Hi {name}, your cart is ready" */
 export declare function cart_greeting(args: { name: string | number }, opts?: MessageOptions): string
@@ -1356,6 +1487,7 @@ export function order_status(args, opts) {
 `src/loclizr/messages/order.d.ts`:
 
 ```ts
+// @generated by loclizr abi=1. Do not edit; run `loclizr build`.
 import type { MessageOptions } from 'loclizr'
 /** en: "{state, select, shipped {On its way} delivered {Delivered} other {Processing}}" */
 export declare function order_status(args: { state: 'delivered' | 'shipped' }, opts?: MessageOptions): string
@@ -1381,6 +1513,7 @@ export function terms_accept(args, opts) {
 `src/loclizr/messages/terms.d.ts`:
 
 ```ts
+// @generated by loclizr abi=1. Do not edit; run `loclizr build`.
 import type { MessageOptions } from 'loclizr'
 /** en: "Read our <link>terms</link> before you continue." */
 export declare function terms_accept<T>(
@@ -1460,6 +1593,7 @@ export const errors = /*#__PURE__*/ Object.freeze({
 `src/loclizr/groups.d.ts`:
 
 ```ts
+// @generated by loclizr abi=1. Do not edit; run `loclizr build`.
 import type { EmptyArgs, MessageOptions } from 'loclizr'
 
 export type ErrorsKey = 'forbidden' | 'not_found' | 'rate_limited'
@@ -1489,6 +1623,7 @@ export * from './messages/terms.js'
 `src/loclizr/messages.d.ts`, the barrel declarations:
 
 ```ts
+// @generated by loclizr abi=1. Do not edit; run `loclizr build`.
 import type { SetLocaleOptions } from 'loclizr'
 
 export type AppLocale = 'de' | 'de-AT' | 'en'
@@ -1560,6 +1695,46 @@ function Switcher() {
 }
 ```
 
+**A component that calls `m.*()` does not subscribe to the locale.** A message
+call is a plain function call that reads the store once and returns a string;
+there is no context, no provider and no hook inside it. `Cart` above re-renders
+when React re-renders it and at no other time, so `setLocale('de')` on its own
+changes nothing on screen in that subtree. This is the direct cost of "generated
+code is framework free", and it is stated here rather than under a React
+Compiler heading, because it is true with no compiler anywhere near the project.
+
+So the root keys the tree on the locale:
+
+```tsx
+import { createRoot } from 'react-dom/client'
+import { useLocale } from 'loclizr/react'
+
+function Root() {
+  return <App key={useLocale()} />
+}
+
+createRoot(document.getElementById('root')!).render(<Root />)
+```
+
+`Root` subscribes through `useLocale`, and the `key` change remounts `App`, so
+every string below it is computed again. **The cost is named, not hidden: a
+remount discards local component state.** Open accordions collapse, uncommitted
+form input is lost, scroll position inside a virtualized list resets. For most
+apps a language switch is a page-level event and that is acceptable. For a
+component where it is not, the per-call override is the escape and it needs no
+remount:
+
+```tsx
+function Draft({ count }: { count: number }) {
+  const locale = useLocale()
+  return <p>{m.cart_items({ count }, { locale })}</p>
+}
+```
+
+That component subscribes to the locale itself, re-renders in place on a switch,
+and keeps its state. Section 11.4 has the same two patterns with the React
+Compiler reason for the second one.
+
 ## 9. Emit-on-error policy
 
 Stated once, because everything else depends on it.
@@ -1607,16 +1782,38 @@ Argument parsing uses `node:util.parseArgs`. No argument-parsing dependency.
 | Command | Behaviour |
 | --- | --- |
 | `loclizr init` | writes `loclizr.config.ts` and `locales/{sourceLocale}.json` if absent, never overwrites, then prints the `package.json` scripts and the CI snippet rather than editing `package.json` |
-| `loclizr build` | read, lower, analyze, check, emit, scan, write the record, prune orphans |
-| `loclizr check` | everything `build` does, with no writes, plus `LZ5002` and `LZ5003` |
+| `loclizr build` | read, lower, analyze, check, emit, scan, write the record, prune orphans. Takes `--no-fail` |
+| `loclizr check` | everything `build` does, with no writes, plus `LZ5002` and `LZ5003`. Does **not** take `--no-fail`: it is the gate |
 
 Global flags: `--cwd <dir>`, `--config <path>`, `--reporter human|json`,
 `--max-warnings <n>`, `--quiet`.
 
-There is no `--watch`. Section 1 says why, and the README documents
-`nodemon -w locales -x 'loclizr build'` for anyone who wants the loop today.
+**`build --no-fail` is the dev loop's flag, and it changes the exit code and
+nothing else.** Every diagnostic is produced, re-levelled and printed exactly as
+without it: same text, same severities, same count, same reporter. What changes
+is that a build which got as far as writing output exits 0 instead of 1. One
+untranslated key must not stop `vite dev` from starting, and the alternative
+people reach for otherwise is deleting the `predev` hook, which loses them the
+generated tree entirely.
 
-`loclizr init` writes two things beyond the config skeleton. It sets
+The flag is not an escape from the gate, because the gate is elsewhere:
+`prebuild` and `pretypecheck` run plain `loclizr build`, CI runs
+`loclizr check`, and neither takes the flag. `predev` and `prepare` are the two
+hooks whose job is to make a working tree exist, so those two run
+`loclizr build --no-fail`. That is the split `init` prints:
+
+```json
+"prepare": "loclizr build --no-fail",
+"predev": "loclizr build --no-fail",
+"prebuild": "loclizr build",
+"pretypecheck": "loclizr build"
+```
+
+There is no `--watch`. Section 1 says why, and the README documents both
+`nodemon -w locales -x 'loclizr build --no-fail'` and the inline Vite plugin
+that section 16's M13 ships, for anyone who wants the loop today.
+
+`loclizr init` makes two decisions inside the config skeleton. It sets
 `augmentLocale: false` when it finds an existing generated tree in the
 workspace, per section 6.2. And it decides the `ambiguous-source` line by
 looking at the catalog it is pointed at: a greenfield project (no existing
@@ -1626,6 +1823,15 @@ commit and costs nothing; a retrofit gets the same line commented out with a
 note to enable it once descriptions are in. The rule's default is `warn`
 (section 13), so a user who never runs `init` gets the punch list rather than a
 red first build.
+
+**The seed catalog `init` writes is ICU**, and the config it writes never
+carries `catalogFormat`. A greenfield project's first `en.json` gets an ICU
+example, a plural written `{count, plural, one {...} other {...}}` rather than
+an `_one` / `_other` pair, so the file classifies as ICU under `'auto'` from the
+first commit and the first message the user writes by hand is in the format the
+compiler calls native. `init` never emits a `catalogFormat` line, because
+`'auto'` is right for a greenfield tree and stays right after the user drops an
+imported i18next file in beside it.
 
 The CI snippet `init` prints runs **`loclizr check`**, not `loclizr build`.
 `prebuild` running `build` is there to make a fresh clone work, and it is not
@@ -1640,6 +1846,18 @@ Exit codes, three of them, matching the `tsc` and `eslint` mental model:
 | 0 | clean, or warnings only and at or under `--max-warnings` |
 | 1 | at least one error, or warnings over `--max-warnings` |
 | 2 | the tool could not run: invalid usage, invalid config, unsafe `outDir`, unwritable output |
+
+**`--no-fail` moves exactly one of those three, and only downward.** With the
+flag, a run that reached the write step, meaning nothing fatal survived and
+output was produced, exits **0** even when errors were reported and even when
+warnings went over `--max-warnings`. Exit **2** is untouched: the tool could not
+run at all, so there is nothing to keep working with. A run that produced no
+output still exits **1**, because `LZ4001`, `LZ4005`, `LZ1003` and their
+siblings mean no generated tree was written and `vite dev` is going to fail on a
+missing module anyway; reporting 0 there would be a lie the next command
+uncovers. Write-if-changed writing zero bytes is still a run that reached the
+write step. `exitCodeFor` computes the ordinary code and M10 lowers 1 to 0 under
+this rule; the flag is never consulted by any other module.
 
 **`--max-warnings` defaults to no cap**, matching eslint's `-1`, so warnings
 alone never produce exit 1. `exitCodeFor` receives `Number.POSITIVE_INFINITY`
@@ -1759,6 +1977,20 @@ exactly what the current example app does. It warns once outside production,
 naming the missing generated-module import.
 `matchLocale(requested, [], fallback)` returns `fallback`.
 
+**`getRawLocale()` is steps 1 through 3 of that list and stops there.** It runs
+the active `AsyncLocalStorage` scope, then the stored tag if `setLocale` has
+run, then lazy client detection where a DOM exists, and returns the **raw
+requested tag** with no matching against any locale list, no source-locale
+default and no warning. When all three miss it returns the empty string. It is
+the store's contract with generated code: `$configure1`'s resolver calls it and
+matches the result against its own `locales`, which is what lets two generated
+directories with different locale lists each resolve correctly from one store
+(section 6.2). `matchLocale('', locales, sourceLocale)` returns `sourceLocale`,
+so the resolver still yields a declared locale when nothing has been requested.
+Section 11.3's step 2, "`document.documentElement.lang`, if it is a known
+locale", reads as "if it is a plausible tag" here: deciding whether a tag is
+known is the matching step, and matching belongs to the caller.
+
 ### 11.2 Server
 
 `loclizr/server` exports:
@@ -1771,7 +2003,23 @@ withLocale<A extends unknown[]>(
 ): (request: Request, ...rest: A) => Promise<Response>
 negotiate(accepted: readonly string[], options: NegotiateOptions): string
 localeFromRequest(request: Request, options: NegotiateOptions): string
+localeFromHeaders(
+  headers: { readonly cookie?: string | undefined; readonly acceptLanguage?: string | undefined },
+  options: NegotiateOptions,
+): string
 ```
+
+**`localeFromHeaders` is the primitive and `localeFromRequest` is a wrapper over
+it**, reading `request.headers.get('cookie')` and
+`request.headers.get('accept-language')` and passing them straight through. The
+two cannot drift, because there is only one implementation. It takes a plain
+object of two optional strings rather than a `Headers`, so nothing outside a
+Fetch runtime has to construct one: Express hands it
+`{ cookie: req.headers.cookie, acceptLanguage: req.headers['accept-language'] }`,
+Fastify the same, and a Next Pages Router handler the same, and each then wraps
+its render in `runWithLocale`. Section 1 excludes Next as a first-class target
+and this does not change that; it removes the reason the exclusion would have
+been a wall rather than a missing example.
 
 **Every function here takes its locale list explicitly, in `NegotiateOptions`,
 and that is by construction rather than by accident.** `loclizr` and
@@ -1829,8 +2077,9 @@ gracefully is the wrong trade, and behaviour that depends on whether a request
 has run yet is worse than either consistent choice.
 
 `negotiate` implements RFC 4647 lookup by subtag truncation, hand-rolled, no
-dependency. `localeFromRequest` reads the configured cookie first, then
-`Accept-Language`, then the source locale.
+dependency. `localeFromHeaders` reads the configured cookie first, then
+`Accept-Language`, then the source locale, and `localeFromRequest` inherits that
+order by construction.
 
 ### 11.3 Client initial value and hydration
 
@@ -1901,15 +2150,30 @@ by construction.
 only for an array passed as a single child, so a positional spread needs no keys
 and warns about nothing. That is the whole component.
 
-**React Compiler.** The hazard is not in `useLocale`. It is that `m.greeting()`
-reads mutable external state with no arguments, so a memoizing compiler may
-legitimately cache its result across renders of one component instance. Two
-sanctioned patterns:
+**`useLocale` is the only subscription there is.** A message call is not one. `m.cart_items({ count })` is a plain function call into generated code that reads
+the store once and returns a string, so a component that calls messages and no
+hook re-renders when its parent re-renders it and at no other time. Nothing in
+`loclizr/react` can change that, because generated code imports nothing from
+React by design (invariant 2). An app therefore has to arrange its own
+re-render, and there are exactly two sanctioned ways to do it. This is true with
+no React Compiler in the project; the compiler only adds a second reason for the
+second pattern.
 
 | Pattern | Shape | Cost |
 | --- | --- | --- |
-| Whole tree | `<App key={useLocale()} />` | remounts on switch; no per-component discipline |
-| Precise | `m.cart_items({ count }, { locale: useLocale() })` | the locale is a visible reactive dependency; only that subtree re-renders |
+| Whole tree | `<App key={useLocale()} />` at the root | the tree remounts, so local component state resets on a switch |
+| Precise | `m.cart_items({ count }, { locale: useLocale() })` | that component subscribes and re-renders in place, keeping its state |
+
+Section 8 shows both. The whole-tree pattern is the default because it needs no
+per-component discipline and switches every visible string; the precise form is
+the escape for a component that cannot afford to lose its state.
+
+**React Compiler.** The hazard is not in `useLocale`. It is that `m.greeting()`
+reads mutable external state with no arguments, so a memoizing compiler may
+legitimately cache its result across renders of one component instance. The two
+patterns above are the answer to that as well, for a different reason: the
+precise form makes the locale a visible reactive dependency the compiler can
+see.
 
 The whole-tree pattern is sound because React Compiler's memo caches are
 per-instance and a remount discards them, so a cached string cannot survive the
@@ -1943,8 +2207,26 @@ payload. Full string lexing stays for `.ts`, `.js`, `.mts` and `.mjs`.
 
 Pass one binds the generated module per file: `import * as m from '<spec>'`
 records the namespace alias, and `import { nav_home as h }` records the bare
-binding `h`, where `<spec>` resolves to `outDir/messages`, `outDir/groups` or a
-file inside `outDir/messages/`.
+binding `h`.
+
+**A specifier binds by suffix, not by resolution.** Strip any extension from
+`<spec>`, then bind it when what remains **ends with**
+`<basename(outDir)>/messages`, `<basename(outDir)>/groups` or
+`<basename(outDir)>/messages/<ns>`, whatever comes before. With the default
+`outDir` that basename is `loclizr`, so `./loclizr/messages`,
+`../../loclizr/messages`, `@/loclizr/messages`, `~/loclizr/messages` and
+`#app/loclizr/groups` all bind, and no `tsconfig.json`, `vite.config.ts` or
+`package.json` `imports` map is read to get there. Path aliases are the norm in
+every app template the scan will meet, and a resolver that handled them
+correctly would be a second module resolution implementation to keep in step
+with four bundlers.
+
+This errs toward false positives, which is the direction section 12 has already
+chosen once: a file importing `other-package/loclizr/messages` binds too, and
+the cost is a usage site attributed to a message that may not exist, which the
+`ids` set filters out anyway. The cost of the other direction is the record's
+highest-value field going silently empty for every project that aliases its
+imports, which is most of them.
 
 Pass two records every `m.<id>` member access and every bound bare identifier
 followed by `(`. Each site carries the file (POSIX, relative to `root`), 1-based
@@ -1967,15 +2249,24 @@ matches neither of pass two's two plain rules on its own.
 
 Documented limits: renamed re-exports are not followed and computed access on a
 plain namespace is not resolved. That is exactly what the typed lookup tier
-exists for. Because the scan is a heuristic, every rule that depends on it
-defaults to `off` or `warn` and none of them can fail a build by default.
+exists for.
+
+**Because the scan is a heuristic, nothing it produces can fail a build by
+default, and that is a promise the record gate has to keep too.** The two rules
+that read the scan directly, `LZ5004` and `LZ5005`, default to `warn` and `off`.
+The third path is indirect and was the one that could break the promise: the
+scan's output lands in the record's `usage` field, and `LZ5003` is an error. So
+`LZ5003` and `LZ5007` compare the record with `usage` projected out entirely
+(section 13). A renamed component, a moved file or a tokenizer improvement
+therefore cannot fail anyone's build, and the sentence above is true rather than
+nearly true.
 
 `outDir` is always excluded from the scan, since generated files reference their
 own identifiers.
 
 ## 13. Rule catalog
 
-Fifty-four rules. Every code is stable forever. `severity` in the config
+Fifty-six rules. Every code is stable forever. `severity` in the config
 re-levels any of them to `off`, `warn` or `error`, except `LZ1001`, `LZ1007` and
 `LZ5001`, which are not re-levelable (section 3).
 
@@ -2009,6 +2300,24 @@ claim one. Ranges are thematic and a range may span two owners.
 | LZ1017 | `i18next-context-detected` | warn | never | M2 | a key set `X_<suffix>` beside a bare `X`, which i18next selected at run time and nothing selects now |
 | LZ1018 | `locale-base-missing` | warn | never | M9 | a declared locale carries a region subtag whose base tag is not also declared |
 | LZ1019 | `icu-data-incomplete` | warn | never | M10 | the build machine's `Intl` has truncated ICU data |
+| LZ1020 | `icu-in-i18next-file` | warn | never | M2 | a file read as i18next contains a single-brace run shaped like a typed ICU argument, which will render as literal text |
+| LZ1021 | `outdir-foreign-file` | warn | never | M10 | a file under `outDir` does not carry the generated header, so it was neither overwritten nor pruned |
+
+`LZ1020` is the one mistake `catalogFormat: 'auto'` can make invisible, so it is
+the one it reports. A run is any `{`, not doubled, followed by an argument name,
+a comma and one of `plural`, `select`, `selectordinal`, `number`, `date` or
+`time`. The hint names the first `{{` or CLDR-suffixed key in that file, which
+is **why** the file classified as i18next, states that the run will render as
+literal text because section 2.1 step 1 quoted it, and gives the fix: convert
+that file to ICU, or pin `catalogFormat` if the literal text is what you meant.
+It is a warning rather than an error because the output is well defined and
+matches what i18next itself rendered; it is not silent because nobody writes
+`{count, plural, ...}` meaning it literally.
+
+`LZ1021` is the prune step's safety catch (section 7.1). It fires in both
+`build` and `check`, it never blocks anything, and its existence is what lets
+`build` delete files at all: the compiler deletes what it can prove it wrote and
+reports everything else.
 
 `LZ1019` is a single startup probe:
 `new Intl.PluralRules('ru').resolvedOptions().pluralCategories.length < 4`. A
@@ -2034,9 +2343,10 @@ so a truncated ICU makes **no** category claims rather than wrong ones.
 | LZ2008 | `pound-literal` | warn | never | M3 | a literal text node containing `#` lexically inside a plural body (section 5.3) |
 | LZ2009 | `arg-type-conflict-local` | error | message | M3 | one name used at two irreconcilable types inside **one** value, such as `{x, number} of {x, date, short}` |
 
-`LZ2001`'s span depends on the catalog format, and this is stated rather than
-left to guesswork. For `catalogFormat: 'icu'`, M3 composes `context.span` with
-the parser's offset into the ICU string. For `'i18next'`, M3 reports
+`LZ2001`'s span depends on the format the file was read as, which
+`RawCatalog.format` carries and `LowerContext.catalogFormat` passes through, so
+it is never re-derived. For a file read as ICU, M3 composes `context.span` with
+the parser's offset into the ICU string. For one read as i18next, M3 reports
 `context.span` verbatim and appends the parser's own message to the hint,
 because section 2.1 rewrote the value twice and JSON unescaping had already
 shifted everything before that, so any offset arithmetic would point at the
@@ -2119,26 +2429,60 @@ retrofit. Section 10 has the exact behaviour.
 | --- | --- | --- | --- | --- | --- |
 | LZ5001 | `output-unwritable` | error | always, exit 2 | M10 | a generated file or the record could not be written |
 | LZ5002 | `output-stale` | error | never | M10 | `check` only: an emitted file that exists on disk differs, or a file under `outDir` this emit did not produce, reason `orphaned` |
-| LZ5003 | `record-stale` | error | never | M10 | `check` only: the committed context record differs from the record this build would write |
+| LZ5003 | `record-stale` | error | never | M10 | `check` only: the committed context record differs from the record this build would write, **compared with every message's `usage` and `translations` projected out** |
 | LZ5004 | `scan-found-nothing` | warn | never | M7 | the scan matched files but found zero generated-module imports anywhere |
 | LZ5005 | `unused-message` | off | never | M7 | a message the scan never saw referenced |
 | LZ5006 | `missing-description` | off | never | M8 | a message with arguments or markup and no description |
-| LZ5007 | `record-rewritten` | warn | never | M10 | `build` only: the committed record differed from the one this build just wrote |
+| LZ5007 | `record-rewritten` | warn | never | M10 | `build` only: the committed record differed from the one this build just wrote, under the same projection as `LZ5003` |
 
 `LZ5003` is what makes "context lands in the same pull request as the string
 change" a gate rather than an aspiration. The record is committed, so `check`
 always compares it.
 
+**The gate compares a projection, and the file on disk is still the whole
+record.** Both `LZ5003` and `LZ5007` drop every message's `usage` array and
+every message's `translations` array from both sides before comparing, and
+compare what is left: keys, ids, modules, kinds, sources, hashes, descriptions,
+args, variants, markup, and the header fields. That residue is the contract
+between code and translations, and it is the only thing a stale record actually
+loses.
+
+The two arrays come out because neither tracks a change to source copy, and both
+move on their own:
+
+- `usage` moves when a component is renamed, a file is moved, or the tokenizer
+  gets better. Section 12 promises no scan-dependent rule can fail a build by
+  default, and with `usage` in the comparison that promise was false.
+- `translations` moves when a translator commits, when a TMS sync bot lands a
+  batch, or when a locale's coverage changes for any reason other than the
+  source. A pull request that adds twelve German strings and touches no source
+  copy would otherwise fail `check` and be told to regenerate a file it has no
+  reason to think about.
+
+Neither projection weakens the gate. Editing copy changes `source` and
+`sourceHash`, adding or removing a message changes the message list, and
+changing an argument changes `args`: every one of those is in the residue.
+
+**`build` still writes the full record whenever any byte differs**, `usage` and
+`translations` included, so the committed file stays complete and a
+translator-facing tool reading it gets coverage and render sites as always. The
+write decision is a byte comparison; the rule decision is the projected
+comparison. They are deliberately different questions and the spec keeps them
+apart.
+
 `LZ5007` is the same comparison in `build`, and it exists because the documented
-wiring is `prepare` / `predev` / `prebuild` running `loclizr build`. A pipeline
-whose only invocation is `pnpm build` would rewrite the record in the CI
-workspace and pass, so a pull request that changed copy without regenerating
-would land with a stale record and the context would never arrive with the
-string change, which is precisely the punchline the thesis claims to defeat. M10
-already holds both byte strings at write time, so the comparison is free. It is
-a separate code rather than `LZ5003` at a different severity because
-`applySeverity` resolves severity from `RULES` and one rule cannot hold two
-defaults.
+wiring is `prepare` / `predev` / `prebuild` / `pretypecheck` running
+`loclizr build`. A pipeline whose only invocation is `pnpm build` would rewrite
+the record in the CI workspace and pass, so a pull request that changed copy
+without regenerating would land with a stale record and the context would never
+arrive with the string change, which is precisely the punchline the thesis
+claims to defeat. `--no-fail` does not move this: that flag changes an exit code
+and nothing else, and a `predev` run still rewrites the record and still warns.
+M10 already holds the committed bytes and the fresh record at write time, so the
+comparison costs one parse of the committed file. A committed record that fails
+to parse counts as differing. It is a separate code rather than `LZ5003` at a
+different severity because `applySeverity` resolves severity from `RULES` and
+one rule cannot hold two defaults.
 
 `LZ5005` is suppressed entirely whenever `LZ5004` fires. A wrong `scan.include`
 glob then costs one warning instead of four hundred.
@@ -2170,6 +2514,23 @@ Which is to say the gettext fuzzy signal is a two-file diff, and the record
 changes only when the contract changes. Per-locale status is carried because
 coverage is part of the contract; per-locale text is not, because polishing a
 German sentence is not a contract change.
+
+**The file carries more than the gate compares, and the difference is
+deliberate.** `LZ5003` in `check` and `LZ5007` in `build` compare the committed
+record against the fresh one with every message's `usage` and `translations`
+projected out of both, and `build` writes the whole record whenever any byte
+differs. So the committed file keeps coverage and render sites for any tool
+reading it, while the thing that can fail a pull request is only the contract:
+keys, ids, modules, kinds, `source`, `sourceHash`, descriptions, args, variants
+and markup.
+
+Both projected fields move without any source copy changing. `usage` moves when
+a component is renamed or a file is moved, and section 12 already promises no
+scan-dependent rule fails a build by default. `translations` moves when a
+translator commits or a TMS sync bot lands a batch, and failing that pull
+request would punish the exact contribution the record exists to make easier.
+Neither projection can hide an edited string, because an edited string changes
+`source` and `sourceHash`, which are in the comparison.
 
 Determinism rules: messages sorted by key by code point, locales sorted,
 arguments printed in `Message.args` order verbatim, usage sites deduplicated and
@@ -2299,6 +2660,8 @@ export type RuleName =
   | 'i18next-context-detected'
   | 'locale-base-missing'
   | 'icu-data-incomplete'
+  | 'icu-in-i18next-file'
+  | 'outdir-foreign-file'
   | 'icu-syntax'
   | 'icu-style-unknown'
   | 'icu-skeleton-invalid'
@@ -2497,7 +2860,12 @@ export interface Message {
   readonly markupTags: readonly string[]
   readonly description: string | null
   readonly placeholders: readonly PlaceholderNote[]
+  // Each locale's OWN lowered body, and nothing else. A locale whose key is
+  // missing, whose value is blank, or whose value failed to lower has no entry
+  // here. Never padded, never back-filled with another locale's nodes.
   readonly bodies: readonly Body[]
+  // One entry per declared locale, always. M4 decides every fallback here and
+  // M6 emits arm N from bodies[origin.from ?? locale].
   readonly origins: readonly LocaleOrigin[]
   readonly spans: readonly LocaleSpan[]
 }
@@ -2542,9 +2910,9 @@ export interface RawEntry {
   // `{ns}`. This is the key every diagnostic, the meta sidecar and the record
   // print.
   readonly key: string
-  // Always ICU MessageFormat. For catalogFormat 'i18next', M2 has already
-  // applied section 2.1; for 'icu' it is the catalog text verbatim. M4 lowers
-  // this directly and never calls toIcu.
+  // Always ICU MessageFormat. In a file read as i18next, M2 has already applied
+  // section 2.1; in a file read as ICU it is the catalog text verbatim. M4
+  // lowers this directly and never calls toIcu.
   readonly value: string
   readonly span: Span
 }
@@ -2553,6 +2921,10 @@ export interface RawCatalog {
   readonly locale: string
   readonly ns: string | null
   readonly file: string
+  // The format this one file was read as. Under catalogFormat 'auto' M2
+  // classified it per section 2; otherwise it is the configured value. M4
+  // passes it into LowerContext and nobody re-derives it.
+  readonly format: 'icu' | 'i18next'
   readonly entries: readonly RawEntry[]
 }
 
@@ -2600,7 +2972,9 @@ export interface Config {
   readonly locales: readonly string[]
   readonly sourceLocale: string
   readonly catalogs: string
-  readonly catalogFormat: 'i18next' | 'icu'
+  // 'auto' decides per file in M2, per section 2. 'icu' and 'i18next' force
+  // every file.
+  readonly catalogFormat: 'auto' | 'icu' | 'i18next'
   readonly i18nextMarkup: 'literal' | 'tags'
   readonly meta: string | false
   readonly outDir: string
@@ -2619,7 +2993,7 @@ export interface LoclizrConfig {
   readonly locales?: readonly string[] | undefined
   readonly sourceLocale?: string | undefined
   readonly catalogs?: string | undefined
-  readonly catalogFormat?: 'i18next' | 'icu' | undefined
+  readonly catalogFormat?: 'auto' | 'icu' | 'i18next' | undefined
   readonly i18nextMarkup?: 'literal' | 'tags' | undefined
   readonly meta?: string | false | undefined
   readonly outDir?: string | undefined
@@ -2987,6 +3361,13 @@ export declare function foldPluralSuffixes(
   locale: string,
   file: string,
 ): { readonly entries: readonly RawEntry[]; readonly diagnostics: readonly Diagnostic[] }
+
+export declare function classifyFormat(entries: readonly RawEntry[]): {
+  readonly format: 'icu' | 'i18next'
+  // The first `{{` value or CLDR-suffixed key that decided 'i18next', verbatim,
+  // for LZ1020's hint. Null when the file classified as ICU.
+  readonly because: string | null
+}
 ```
 
 `parseJsonWithSpans` is a hand-rolled JSON scanner, not `JSON.parse`, because
@@ -2996,10 +3377,25 @@ steps 1 through 3 using M1's `escapeIcuLiteral`, and `foldPluralSuffixes` does
 step 4 using M1's `requiredCategories`. `readCatalogs` returns one `RawCatalog`
 per matched **file**, so a `{ns}` pattern yields several per locale.
 
+**M2 decides each file's format and records it on `RawCatalog.format`.** Under
+`catalogFormat: 'auto'`, `readCatalogs` runs `classifyFormat` over the file's
+**flattened** entries, after `flatten` and before `toIcu` or
+`foldPluralSuffixes`, so both of those run only on a file classified as
+i18next. Under an explicit `'icu'` or `'i18next'`, `classifyFormat` is not
+called and the configured value is stamped on every catalog. `classifyFormat` is
+pure and takes only the entries, which is what makes section 2's rule unit
+testable: `{{` anywhere in a value, or a key the fold step would fold, means
+i18next; otherwise ICU.
+
+Section 2.1 and `LZ1012` through `LZ1017` therefore apply to a file classified
+as i18next and to no other. `readCatalogs` raises `LZ1020` per entry of such a
+file whose value holds a single-brace run shaped like a typed ICU argument, with
+`because` in the hint.
+
 `RawEntry.value` is always ICU: M2 has converted it before anyone downstream
 sees it, and M4, which does not depend on M2, never calls `toIcu` itself.
 
-Raises LZ1008 through LZ1017, and is the only module that passes
+Raises LZ1008 through LZ1017 and LZ1020, and is the only module that passes
 `fields.fatal` to `diag`, for LZ1008 and LZ1009 when the file is the source
 catalog.
 
@@ -3014,6 +3410,8 @@ export interface LowerContext {
   readonly locale: string
   readonly file: string
   readonly span: Span
+  // The format the entry's own file was read as: RawCatalog.format, passed
+  // through by M4. Never re-derived here.
   readonly catalogFormat: 'i18next' | 'icu'
   readonly formats: FormatsConfig
 }
@@ -3038,7 +3436,9 @@ export declare const NAMED_TIME_STYLES: Readonly<Record<string, IntlOptions>>
 
 `LowerContext` carries `catalogFormat`, because `LZ2001`'s span composition
 differs between the two (section 13), and `formats.timeZone` reaches it through
-`FormatsConfig`.
+`FormatsConfig`. It is the **file's** format from `RawCatalog.format`, so under
+`catalogFormat: 'auto'` two locales of one project can reach `lower` with
+different values in the same run.
 
 `lower` never throws. On a failed parse it returns `nodes: []` with a diagnostic
 whose rule is message-scoped fatal, so M4 drops that message when the failure is
@@ -3076,8 +3476,32 @@ export declare function confusableSkeleton(value: string): string
 `analyze` produces a `Program` with `usages: []`; M10 fills usages from M7 and
 hands the completed `Program` to M6 and M8. It groups the catalogs it receives
 by locale, since a `{ns}` pattern gives several per locale. It calls M3's
-`lower` once per message per locale and keeps every result as a `Body`, so
-`Body.args` and `Body.markupTags` survive for M5 to compare.
+`lower` once per message per locale, passing that catalog's own
+`RawCatalog.format` as `LowerContext.catalogFormat`, and keeps every result as a
+`Body`, so `Body.args` and `Body.markupTags` survive for M5 to compare.
+
+**M4 is the only module that decides a fallback, and `Message.origins` is where
+it says so** (section 5). `Message.bodies` gets one `Body` per locale that had a
+lowerable value of its own and nothing more: a locale whose key is missing,
+whose value is blank, or whose value failed to lower contributes no `Body` at
+all, and M4 never copies another locale's nodes into the gap. `origins` then
+carries one entry per **declared** locale, always, naming which locale's body
+that arm renders.
+
+Three cases produce a `fallback` origin, and M4 resolves all three:
+
+- `reason: 'missing'`, the locale has no value for this key anywhere in its
+  chain;
+- `reason: 'blank'`, the value is empty or whitespace only;
+- `reason: 'invalid'`, the locale's value failed to lower, **or** it lowered but
+  references a name absent from `Message.args`, per section 5.1.
+
+That last case is the only one where the locale keeps its `Body`: the body
+exists and M5 needs its `args` to raise `LZ3005`, but nothing may render it, so
+the origin points at the source locale. M6 then prints the source body by the
+ordinary rule and makes no decision of its own, and M8 transcribes the same
+origin into `RecordTranslation`, so the emitted arm, the record and
+`Summary.fellBack` cannot disagree about what a user will see.
 
 `Program.messages` is keyed by the **source** catalog's post-fold key set. A key
 present only in a target catalog has no source body, so no `source`, no
@@ -3106,7 +3530,18 @@ filled. It calls M3's `unify` to detect `LZ3006` and M1's `requiredCategories`
 for `LZ3007` and `LZ3013`. `LZ3001` for a key absent from a target catalog has
 no entry in `Message.spans`, so its `file` is `config.catalogs` with `{locale}`
 substituted, which it can do because section 3 fixes what that pattern is
-relative to. Raises LZ3001 through LZ3013.
+relative to.
+
+`Message.bodies` is sparse by design (section 5), so every comparison here
+iterates `bodies` rather than `locales` and a locale with no entry is simply not
+compared; `Message.origins` already says why it has none. A locale whose origin
+M4 stamped `fallback` / `invalid` **for an unknown argument** does still have a
+`Body`, and `LZ3005 arg-extra` is raised from its `Body.args` exactly as before.
+M5 raises no additional diagnostic for the fallback itself, because `LZ3001` and
+`LZ3002` cover the reasons that carry one and M3 already reported a lowering
+failure against that locale's own file.
+
+Raises LZ3001 through LZ3013.
 
 ### M6, emit
 
@@ -3121,7 +3556,18 @@ export declare function reverseForReplay(program: Program): Program
 Returns every file in section 7.1 as `{ path, contents }` with `path` relative
 to `config.outDir`, POSIX separators, **including the self-ignoring
 `.gitignore`**, which is an `EmittedFile` like any other so that nothing in the
-layout has two authors.
+layout has two authors. Every file except that `.gitignore` starts with the
+generated header of section 7.1 as line 1, `.d.ts` files included, because M10's
+prune keys on it.
+
+**M6 makes no fallback decision.** It emits arm *N* from
+`bodies[origin.from ?? locale]`, where a `translated` origin carries no `from`
+and reads the locale's own body, and it never inspects `bodies` for a missing
+entry: M4 guarantees the body an origin names exists. One arm per **distinct
+body** is still the output shape, so locales resolving to one body share a
+`case` (section 7.6). What stays M6's is **coercion**: an arm whose body is a
+different `kind` from `Message.kind` is coerced to the message's kind, per
+section 5.4, because only emit knows what shape it is about to print.
 
 `reverseForReplay` reverses exactly the arrays section 7.5 names and nothing
 else, so that set is one list in code rather than a recursive walk. `emit` calls
@@ -3177,6 +3623,14 @@ to attribute `errors[code]` to anything. A computed access on a bound group
 records a usage against every `memberId`; a static member access records it
 against the one id `memberProps` maps that property to.
 
+**Pass one binds a specifier by suffix**, per section 12: strip any extension,
+then bind when the remainder ends with `<basename(outDir)>/messages`,
+`<basename(outDir)>/groups` or `<basename(outDir)>/messages/<ns>`, whatever the
+prefix. `scanFile` already receives `outDir` and needs nothing more, so no
+signature changes and no `tsconfig.json` is ever read. Named test:
+`import * as m from '@/loclizr/messages'` followed by `m.nav_home()` yields the
+usage, alongside the `~/`, `../../` and bare-relative forms.
+
 Raises LZ5004 and LZ5005. `scanFile` is synchronous and pure so it can be unit
 tested against string literals with no filesystem, and its tests include a
 `.tsx` fixture with an apostrophe in JSX text above a usage.
@@ -3194,9 +3648,17 @@ export declare function checkDescriptions(program: Program): readonly Diagnostic
 
 Implements section 14. It reads `Message.module` and `Message.args` rather than
 deriving either, which is what keeps the record and the emitted tree from
-drifting apart. `serializeRecord` produces the exact bytes written to disk,
-including the trailing newline, so M10 can byte-compare it for LZ5003 and
-LZ5007. Raises LZ5006.
+drifting apart. **`RecordTranslation` is a transcription of `Message.origins`**,
+one entry per declared locale, with `status`, `from` and `reason` copied across:
+M8 makes no fallback decision and never consults `Message.bodies` to infer one,
+so the record's coverage and the emitted arms come from the same array
+(section 5).
+
+`serializeRecord` produces the exact bytes written to disk, including the
+trailing newline, and M10 byte-compares those bytes to decide whether to
+**write**. The `LZ5003` and `LZ5007` **rules** are a different comparison, over
+the projection in section 13, and M10 owns it; M8's signatures are unchanged by
+it. Raises LZ5006.
 
 ### M9, config
 
@@ -3255,6 +3717,9 @@ export interface BuildOptions {
   readonly configPath?: string | undefined
   readonly emit?: boolean | undefined
   readonly maxWarnings?: number | undefined
+  // Default true. False is `build --no-fail`: diagnostics are unchanged and a
+  // run that reached the write step reports exit 0. `check` ignores it.
+  readonly failOnError?: boolean | undefined
 }
 
 export declare function build(options?: BuildOptions): Promise<BuildResult>
@@ -3286,21 +3751,55 @@ module that touches the filesystem for **output**, the only one that reads
 7. `buildRecord` and `serializeRecord` (M8).
 8. `applySeverity` over every diagnostic collected, then `exitCodeFor`.
 9. If nothing fatal survives and `emit !== false`, write. Writes are
-   write-if-changed and atomic through a temporary file plus rename. The
-   `.gitignore` M6 emitted is written **only when the path does not already
+   write-if-changed and atomic through a temporary file plus rename. A path
+   already occupied by a file that does **not** carry the generated header is
+   not written: the write is skipped and `LZ1021 outdir-foreign-file` names it.
+   The `.gitignore` M6 emitted is written **only when the path does not already
    exist** and is excluded from both the changed comparison and `LZ5002`. Then
-   prune: delete every file under `outDir` that this emit did not produce,
-   excluding that `.gitignore`. The record is compared against what is on disk
-   before it is written, and a difference is `LZ5007`.
+   prune: delete every file under `outDir` that **carries the generated header**
+   and that this emit did not produce, excluding that `.gitignore`; a headerless
+   file is left alone and reported as `LZ1021`. The record is compared against
+   what is on disk before it is written, and a difference under the section 13
+   projection is `LZ5007`.
+10. Resolve the exit code. `exitCodeFor` gives the ordinary answer; when
+    `failOnError` is false and step 9 ran, a 1 becomes a 0. A 2 is never
+    lowered, and a 1 from a run that emitted nothing is never lowered.
 
-Raises LZ1019 and LZ5001 through LZ5003 and LZ5007. Under `check`, step 9
-compares instead of writing, reports a file emit did not produce as `LZ5002`
-with reason `orphaned`, and reports a differing record as `LZ5003`.
+Raises LZ1019, LZ1021 and LZ5001 through LZ5003 and LZ5007. Under `check`, step
+9 compares instead of writing, reports a **headered** file emit did not produce
+as `LZ5002` with reason `orphaned`, reports a headerless one as `LZ1021` exactly
+as `build` does, and reports a record differing under the projection as
+`LZ5003`. `check` ignores `failOnError`.
 
-One integration assertion belongs here and nowhere else: every
-`RecordMessage.module` appears in `EmitResult.files`. It is the one place both
-halves of the build are in hand at once, and it is the cheapest guard on the
-record naming a file emit did not write.
+**The record gate's comparison lives here.** `serializeRecord` gives the bytes
+to write and the byte comparison decides *whether to write*. `LZ5003` and
+`LZ5007` are decided separately: parse the committed record, drop every
+message's `usage` and `translations` from both it and the fresh one, compare
+what is left. A committed record that fails to parse counts as differing. The
+projection is M10's own, inline, and adds nothing to M8's signatures.
+
+Integration assertions that belong here and nowhere else, because this is the
+one place every half of the build is in hand at once.
+
+- Every `RecordMessage.module` appears in `EmitResult.files`, the cheapest guard
+  on the record naming a file emit did not write.
+- **`fallback-seam`**: three locales, `en` (source), `de`, `de-AT`, and three
+  keys. `de-AT` is missing key one, which `de` has. `de` has a blank value for
+  key two. `de` references an unknown argument on key three. Assert, exactly:
+  key one's `de-AT` arm renders `de`'s body with origin `inherited` from `de`
+  and no diagnostic; key two's `de` arm renders the source body with origin
+  `fallback` from `en` reason `blank`, one `LZ3002`, and `de-AT` inherits that
+  same resolution; key three's `de` arm renders the source body with origin
+  `fallback` from `en` reason `invalid` and exactly one `LZ3005`. Each
+  diagnostic appears **exactly once** across the whole run. The three
+  `RecordTranslation.status` values for `de` are `translated`, `fallback`,
+  `fallback`, and `Summary.fellBack` is `de: 2`, `de-AT: 2`. A locale whose only
+  ancestor itself fell back records its own reason, not the ancestor's: `de-AT`
+  has no value of its own on keys two and three, so its reason is `missing`.
+- **`prune-keeps-foreign`**: `outDir` contains `keep.ts`, written by the user
+  and carrying no generated header. After `build`, `keep.ts` still exists
+  byte-identical, the build reports `LZ1021` naming it, and the exit code is
+  unchanged by it.
 
 ### M11, cli
 
@@ -3312,6 +3811,16 @@ export declare function run(argv: readonly string[]): Promise<number>
 `src/cli/bin.ts` is the shebang wrapper that calls `run(process.argv.slice(2))`
 and sets `process.exitCode`. Owns `node:util.parseArgs`, the `init` templates and
 the printed `package.json` scripts and CI snippet. Implements section 10.
+
+`--no-fail` is parsed here and nowhere else: `run` accepts it on `build` only,
+rejects it on `check` as invalid usage (exit 2), and passes
+`failOnError: false` into `build`. M11 does not compute exit codes; it forwards
+the flag and returns what M10 decided.
+
+The `init` templates write an **ICU** seed catalog and never emit a
+`catalogFormat` line, per section 10, and the `package.json` scripts it prints
+are the four in that section: `prepare` and `predev` on
+`loclizr build --no-fail`, `prebuild` and `pretypecheck` on `loclizr build`.
 
 ### M12, runtime and bindings
 
@@ -3343,6 +3852,9 @@ import type { Locale, LocaleListener, SetLocaleOptions } from '../types'
 export declare function getLocale(): Locale
 export declare function setLocale(locale: Locale, options?: SetLocaleOptions): void
 export declare function subscribe(listener: LocaleListener): () => void
+// The first three steps of getLocale's order in section 11.1: active scope,
+// stored tag, lazy client detection. No matching, no locale list, no default;
+// the empty string when all three miss.
 export declare function getRawLocale(): string
 export declare function registerDefaults(setup: {
   readonly locales: readonly string[]
@@ -3376,6 +3888,15 @@ export declare function withLocale<A extends unknown[]>(
 ): (request: Request, ...rest: A) => Promise<Response>
 export declare function negotiate(accepted: readonly string[], options: NegotiateOptions): string
 export declare function localeFromRequest(request: Request, options: NegotiateOptions): string
+// The primitive. localeFromRequest is a thin wrapper that reads the two headers
+// off a Fetch Request and calls this, so the two cannot drift.
+export declare function localeFromHeaders(
+  headers: {
+    readonly cookie?: string | undefined
+    readonly acceptLanguage?: string | undefined
+  },
+  options: NegotiateOptions,
+): string
 ```
 
 ```ts
@@ -3406,6 +3927,18 @@ nobody else:
   entry is reduced to re-exports.
 - React tests carry `// @vitest-environment jsdom` as a file docblock, so the
   shared `vitest.config.ts` stays on `node` and is never edited.
+- **`getRawLocale` is the store's contract with generated code** (sections 6.2
+  and 11.1) and carries two named tests. **`als-scopes-are-isolated`**: two
+  interleaved `runWithLocale('de')` and `runWithLocale('en')` scopes, each
+  awaiting inside the other's window, each observing its own locale through a
+  resolver built by `$configure1`, with no leakage either way.
+  **`cookie-without-prior-getLocale`**: with `document.cookie = 'locale=de'` set
+  and `getLocale()` never called, a `$configure1` resolver returns `de`, which is
+  what proves detection is lazy in `getRawLocale` rather than latched by the
+  public `getLocale()`.
+- `localeFromRequest` is implemented **as** a call to `localeFromHeaders`, and a
+  test asserts the two agree on a request carrying both headers, both, and
+  neither.
 
 Its one obligation to any other module is keeping `src/index.ts`'s type
 re-export list intact, because that re-export is what makes the
@@ -3419,21 +3952,36 @@ Owns `examples/vite-react/**`: the catalogs under `examples/vite-react/locales/`
 tree. Depends only on the published entries, never on `packages/loclizr/src`.
 
 Delivers a Vite 8 plus React 19 single-page app with three locales
-(`en`, `de`, `de-AT`), a working language switcher that changes language with no
-reload, and at least one message of every kind in section 7.6.
+(`en`, `de`, `de-AT`), a working language switcher, and at least one message of
+every kind in section 7.6. Acceptance: **after switching language, every visible
+string changes, with no reload.** That is the section 8 root pattern,
+`<App key={useLocale()} />`, and the example uses it rather than describing it,
+with one component carrying the per-call `{ locale: useLocale() }` form so both
+patterns are on screen.
 
 `examples/vite-react/package.json` belongs to M13 outright, because no other
 module reads it and the three scripts it must gain are not there today. Its
 dependency list stays frozen; these three entries are added:
 
 ```json
-"predev": "loclizr build",
+"predev": "loclizr build --no-fail",
 "prebuild": "loclizr build",
 "pretypecheck": "loclizr build"
 ```
 
+`predev` carries `--no-fail` for the reason section 10 gives: one untranslated
+key must not stop `vite dev`. The two gate hooks do not.
+
 `vite.config.ts`, `index.html` and `tsconfig.json` are also this module's to
-change. Note the ordering consequence: the root `check` script runs `pnpm build`
+change, and `vite.config.ts` carries **the edit loop**: a small inline plugin,
+declared in that file, no published package and no new dependency, whose
+`configureServer` adds `locales/` to the dev server's watcher and calls `build`
+from `loclizr/compiler` when a file under it changes. The compiler rewrites
+`src/loclizr/**`, which is inside Vite's own module graph, so HMR picks the
+change up with no further help. Editing a catalog then updates the running app.
+It reruns the compiler and touches no app source, so section 1's narrowed
+promise holds exactly: no plugin is required, and app code is never
+transformed. Note the ordering consequence: the root `check` script runs `pnpm build`
 before `pnpm typecheck`, which is what makes a `loclizr` binary exist for those
 hooks to call, and it is why M13's test command cannot pass on day one. Its
 **first commit still can**: the three scripts above, `loclizr.config.ts` and the
