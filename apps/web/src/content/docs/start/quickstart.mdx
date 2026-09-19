@@ -1,0 +1,89 @@
+---
+title: Quickstart
+description: From an empty project to typed message functions, catalog checks and a context record, in one command and one import.
+---
+
+import { Aside } from '@astrojs/starlight/components'
+
+<Aside type="caution">
+There is no published package yet. This page describes the v0.1 contract the implementation is
+being built against, so the commands below are the shape you will run, not something you can run
+today.
+</Aside>
+
+## Install and initialise
+
+```bash
+npm i -D loclizr
+npx loclizr init
+```
+
+`init` writes `loclizr.config.ts` and, if you have no catalogs yet, an empty
+`locales/en.json`. It never overwrites a file that already exists. It then prints the
+`package.json` scripts and the CI snippet rather than editing `package.json` for you.
+
+## Write a catalog
+
+A catalog is plain i18next JSON: nested keys, `{{var}}` interpolation, `_one` and `_other` plural
+suffixes. loclizr reads it, converts it to ICU MessageFormat in memory, and never writes it back.
+
+```json title="locales/en.json"
+{
+  "nav": { "home": "Home", "cart": "Cart" },
+  "cart": {
+    "greeting": "Hi {name}, your cart is ready",
+    "items": "{count, plural, =0 {Your cart is empty} one {# item in your cart} other {# items in your cart}}"
+  }
+}
+```
+
+Descriptions live in a separate sidecar, so a translation management system never ships your notes
+to a translator as copy.
+
+```json title="locales/en.meta.json"
+{
+  "cart.items": {
+    "description": "Badge under the cart icon on every page",
+    "placeholders": { "count": "Number of line items, not total quantity" }
+  }
+}
+```
+
+## Build
+
+```bash
+npx loclizr build
+```
+
+That single pass writes `src/loclizr/`, runs all fifty-four checks against your catalogs, and writes
+`locales/loclizr.context.json` beside them. The generated tree is gitignored by default through a
+self-ignoring `.gitignore` written inside it; the context record is not, because the record is the
+artifact that belongs in the pull request.
+
+## Use the messages
+
+```tsx title="src/Cart.tsx"
+import * as m from './loclizr/messages'
+import { useLocale } from 'loclizr/react'
+
+export function Cart({ count }: { count: number }) {
+  return <p>{m.cart_items({ count }, { locale: useLocale() })}</p>
+}
+```
+
+The locale is resolved when the function is called, so switching language needs no reload. Passing
+it explicitly as the second argument makes it a visible reactive dependency, which is what keeps a
+memoizing compiler from caching the rendered string across a switch.
+
+## Gate the build
+
+```yaml title=".github/workflows/ci.yml"
+- run: npx loclizr check
+```
+
+`check` does everything `build` does, writes nothing, and compares the committed context record
+against the one this tree would produce. Use it rather than `build`, since `build` would rewrite the
+record in the CI workspace and pass.
+
+Next: [How it works](/start/how-it-works/) for the pipeline, or
+[Catalog checks](/reference/checks/) for the rule set and the exit codes.

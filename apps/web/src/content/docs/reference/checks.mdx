@@ -1,0 +1,90 @@
+---
+title: Catalog checks
+description: Every loclizr build runs the whole rule set. There is no separate lint command to wire up and no flag that turns the set off wholesale.
+---
+
+import { Aside } from '@astrojs/starlight/components'
+
+Every `loclizr build` runs the whole rule set. There is no separate lint command to wire up and no
+flag that turns the set off wholesale.
+
+## What runs, and when
+
+Checks read the same lowered representation the emitter reads, so a rule can never disagree with the
+code that was generated. Most run per message. The cross-locale rules in the `LZ3xxx` range run once
+the whole catalog set is resolved, because that is the first moment at which `de.json` and `en.json`
+can be compared.
+
+A **fatal** diagnostic blocks emission: invalid config, a missing source catalog, an identifier
+collision, nondeterministic output. Everything else still writes files. Twelve missing German
+translations emit `messages.js` anyway, fill those twelve from the fallback chain, print twelve
+`LZ3001` diagnostics and exit 1. Emitting nothing would bury the real error under a hundred
+missing-module errors from your typecheck.
+
+```ts title="loclizr.config.ts"
+import { defineConfig } from 'loclizr'
+
+export default defineConfig({
+  locales: ['en', 'de', 'de-AT'],
+  sourceLocale: 'en',
+  severity: {
+    // the rule an imported i18next catalog hits first
+    'ambiguous-source': 'warn',
+    'unused-message': 'error',
+  },
+})
+```
+
+<Aside type="note">
+`severity` is read once, at the end, by the reporter. No analysis module reads your config, which is
+why a re-levelled rule cannot change what the compiler emitted.
+</Aside>
+
+### Levelling a rule
+
+Each rule has a stable code and a name. Either one works as the key in `severity`, and the three
+values are `'off'`, `'warn'` and `'error'`. Levelling a fatal rule down to `'warn'` also stops it
+being fatal, so the build emits.
+
+Three rules are not re-levelable at all. `LZ1001 config-invalid`, `LZ1007 outdir-unsafe` and
+`LZ5001 output-unwritable` name failures where turning the rule down would let the tool do something
+it should never do quietly, such as writing outside the project root and still exiting 0. A
+`severity` entry naming one of the three is itself `LZ1001`.
+
+```bash
+npx loclizr check --reporter json | jq '.summary'
+```
+
+```json
+{
+  "errors": 2,
+  "warnings": 1,
+  "messages": 412,
+  "locales": 3,
+  "fellBack": { "de": 1 }
+}
+```
+
+`fellBack` maps a locale to the number of messages that resolved all the way through to source text.
+The rest of the JSON reporter's output is `{ "schema": 1, "diagnostics": [...], "summary": {...} }`,
+with diagnostics sorted by severity, then code, then file, then locale, then key, then offset.
+
+<Aside type="caution">
+Put `loclizr check` in CI, not `loclizr build`. `build` writes the context record; `check` compares
+the committed one and raises `LZ5003 record-stale` when they differ. A pipeline whose only
+invocation is `pnpm build` would rewrite the record in the CI workspace and pass, which is exactly
+the case that lets a copy change land without its context.
+</Aside>
+
+## Exit codes
+
+| code | meaning |
+| --- | --- |
+| 0 | Clean, or warnings only and at or under `--max-warnings`. |
+| 1 | At least one error, or warnings over `--max-warnings`. |
+| 2 | The tool could not run at all: invalid usage, invalid config, unsafe `outDir`, unwritable output. |
+
+Three codes, matching what `tsc` and `eslint` already taught your CI to expect. `--max-warnings`
+defaults to no cap, the same as eslint's `-1`, so warnings alone never produce exit 1. That default
+is what decides whether a freshly imported i18next catalog exits 0 or 1, since nine rules ship at
+`warn`.

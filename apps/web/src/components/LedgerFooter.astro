@@ -1,0 +1,66 @@
+---
+/** Landing-page footer. Docs pages keep Starlight's own footer, which carries
+ *  pagination and the edit link, so this one is not a replacement for it. */
+const columns = [
+  {
+    heading: 'start',
+    links: [
+      ['Introduction', '/start/introduction/'],
+      ['Quickstart', '/start/quickstart/'],
+      ['How it works', '/start/how-it-works/'],
+      ['Catalogs and ICU messages', '/guides/catalogs/'],
+    ],
+  },
+  {
+    heading: 'reference',
+    links: [
+      ['CLI', '/reference/cli/'],
+      ['Configuration', '/reference/configuration/'],
+      ['Checks', '/reference/checks/'],
+      ['Context record', '/reference/context-record/'],
+    ],
+  },
+  {
+    heading: 'project',
+    links: [
+      ['Why loclizr', '/project/why/'],
+      ['Comparison', '/project/comparison/'],
+      ['Honest limits', '/project/limits/'],
+      ['GitHub', 'https://github.com/loclizr/loclizr'],
+    ],
+  },
+]
+---
+
+<footer class="lz-foot">
+  <div class="rail">
+    <div class="fgrid">
+      <div>
+        <p class="fbrand">loclizr</p>
+        <p class="fnote">
+          Typed message functions, catalog checks that run inside the build, and a context record
+          that lands in the pull request with the string.
+        </p>
+      </div>
+      {
+        columns.map((column) => (
+          <div>
+            <h3>{column.heading}</h3>
+            <ul>
+              {column.links.map(([label, href]) => (
+                <li>
+                  <a href={href}>{label}</a>
+                </li>
+              ))}
+            </ul>
+          </div>
+        ))
+      }
+    </div>
+    <p class="flast">
+      <span>MIT</span>
+      <span>v0.1, a day-zero release</span>
+      <span>ICU MessageFormat parsed at build time only</span>
+    </p>
+  </div>
+</footer>

@@ -1,0 +1,612 @@
+---
+/**
+ * The whole landing page.
+ *
+ * It is registered as Starlight's `Hero` override rather than as MDX body
+ * content. In Page.astro the hero branch renders
+ * `<ContentPanel><Hero/><MarkdownContent/><Footer/></ContentPanel>`, so taking
+ * the Hero slot means no PageTitle above it, no second content panel, and no
+ * hairline between the two. Cost: one override.
+ *
+ * Every fenced block here is hand authored rather than Expressive Code,
+ * because the terminal plates carry per-token colouring (severity word, rule
+ * code, rule name, path) that no syntax grammar produces.
+ */
+import LedgerFooter from './LedgerFooter.astro'
+
+const heroLines = [
+  `<span class="cmdline">loclizr build</span>`,
+  ``,
+  `<span class="sev-e">error</span>  <span class="code">LZ3004</span>  <span class="rule-n">arg-missing</span>  <span class="loc">locales/de.json:4:5</span>`,
+  ``,
+  `  cart.greeting takes {name} in en. The de value has no {name},`,
+  `  so German would render without the customer's name.`,
+  ``,
+  `  <span class="fix">fix</span>  add {{name}} to locales/de.json:4:5  <span class="dim">i18next form</span>`,
+  ``,
+  `<span class="sev-e">error</span>  <span class="code">LZ3001</span>  <span class="rule-n">missing-translation</span>  <span class="loc">locales/de.json</span>`,
+  ``,
+  `  checkout.pay_now has no value in de. The build emitted the`,
+  `  English text for it.`,
+  ``,
+  `    source  <span class="loc">locales/en.json:58:3</span>  <span class="dim">"Pay now"</span>`,
+  ``,
+  `<span class="dim">412 messages, 3 locales. de fell back to en on 1.</span>`,
+  `<span class="dim">2 errors, 0 warnings.</span>`,
+]
+
+const heroTranscript = heroLines
+  .map((line, i) => `<span class="ln" style="--i:${i}">${line}\n</span>`)
+  .join('')
+  .replace(/\n<\/span>$/, '</span>')
+
+const checkTranscript = [
+  `<span class="cmdline">loclizr check</span>`,
+  ``,
+  `<span class="sev-e">error</span>  <span class="code">LZ3012</span>  <span class="rule-n">ambiguous-source</span>  <span class="loc">locales/en.json:12:5</span>`,
+  ``,
+  `  Three keys share the source text "Open" and two have no description.`,
+  `  A translator cannot tell a verb from an adjective.`,
+  ``,
+  `    dialog.open    <span class="loc">locales/en.json:12:5</span>     <span class="dim">no description</span>`,
+  `    file.open      <span class="loc">locales/en.json:31:7</span>     <span class="dim">no description</span>`,
+  `    status.open    <span class="loc">locales/en.json:58:3</span>     <span class="dim">"Badge on a ticket that is not closed"</span>`,
+  ``,
+  `  <span class="fix">fix</span>  add descriptions in locales/en.meta.json:`,
+  `         <span class="dim">"dialog.open": { "description": "Button that opens the selected file" }</span>`,
+  `         <span class="dim">"file.open":   { "description": "Menu item under File" }</span>`,
+  `  <span class="fix">or</span>   turn the rule down in loclizr.config.ts:`,
+  `         <span class="dim">severity: { 'ambiguous-source': 'warn' }</span>`,
+  ``,
+  `<span class="dim">412 messages, 3 locales.</span>`,
+  `<span class="dim">1 error, 0 warnings.</span>`,
+  ``,
+  `<span class="cmdline">echo $?</span>`,
+  `<span class="dim">1</span>`,
+].join('\n')
+
+const callsiteCode = [
+  `<span class="kw">import</span> * <span class="kw">as</span> m <span class="kw">from</span> './loclizr/messages'`,
+  `<span class="kw">import</span> { useLocale } <span class="kw">from</span> 'loclizr/react'`,
+  ``,
+  `<span class="kw">export function</span> <span class="id">Cart</span>({ count }: { count: <span class="kw">number</span> }) {`,
+  `  <span class="kw">const</span> locale = <span class="id">useLocale</span>()`,
+  `  <span class="kw">return</span> &lt;p&gt;{<span class="id">m.cart_items</span>({ count }, { locale })}&lt;/p&gt;`,
+  `}`,
+].join('\n')
+
+/* The doc comment is one line in the real file: M6 replaces CR and LF in
+   doc-comment text with a single space, so it never wraps at source. */
+const dtsCode = [
+  `<span class="co">/** en: "{count, plural, =0 {Your cart is empty} one {# item in your cart} other {# items in your cart}}" */</span>`,
+  `<span class="kw">export declare function</span> <span class="id">cart_items</span>(`,
+  `  args: { count: <span class="kw">number</span> },`,
+  `  opts?: MessageOptions,`,
+  `): <span class="kw">string</span>`,
+].join('\n')
+
+const k = (s: string): string => `<span class="jk">"${s}"</span>`
+const v = (s: string): string => `<span class="jv">"${s}"</span>`
+const h = (s: string): string => `<span class="jh">"${s}"</span>`
+const n = (s: string): string => `<span class="jn">${s}</span>`
+
+const recordJson = [
+  `{`,
+  `  ${k('schema')}: ${n('1')},`,
+  `  ${k('sourceLocale')}: ${v('en')},`,
+  `  ${k('locales')}: [${v('de')}, ${v('de-AT')}, ${v('en')}],`,
+  `  ${k('messages')}: [`,
+  `    {`,
+  `      ${k('key')}: ${v('cart.items')},`,
+  `      ${k('id')}: ${v('cart_items')},`,
+  `      ${k('module')}: ${v('messages/cart.js')},`,
+  `      ${k('kind')}: ${v('text')},`,
+  `      ${k('source')}: ${v('{count, plural, =0 {Your cart is empty} one {# item in your cart} other {# items in your cart}}')},`,
+  `      ${k('sourceHash')}: ${v('a826cf6a40d3293e')},`,
+  `      ${k('description')}: ${h('Badge under the cart icon on every page')},`,
+  `      ${k('args')}: [`,
+  `        {`,
+  `          ${k('name')}: ${v('count')},`,
+  `          ${k('type')}: ${v('number')},`,
+  `          ${k('options')}: ${n('null')},`,
+  `          ${k('note')}: ${h('Number of line items, not total quantity')}`,
+  `        }`,
+  `      ],`,
+  `      ${k('variants')}: [`,
+  `        { ${k('arg')}: ${v('count')}, ${k('kind')}: ${v('plural')}, ${k('matches')}: [${v('=0')}, ${v('one')}, ${v('other')}] }`,
+  `      ],`,
+  `      ${k('markup')}: [],`,
+  `      ${k('translations')}: [`,
+  `        { ${k('locale')}: ${v('de')}, ${k('status')}: ${v('translated')}, ${k('from')}: ${n('null')}, ${k('reason')}: ${n('null')} },`,
+  `        { ${k('locale')}: ${v('de-AT')}, ${k('status')}: ${v('inherited')}, ${k('from')}: ${v('de')}, ${k('reason')}: ${n('null')} },`,
+  `        { ${k('locale')}: ${v('en')}, ${k('status')}: ${v('translated')}, ${k('from')}: ${n('null')}, ${k('reason')}: ${n('null')} }`,
+  `      ],`,
+  `      ${k('usage')}: [{ ${k('file')}: ${v('src/Cart.tsx')}, ${k('scope')}: ${v('Cart')} }]`,
+  `    }`,
+  `  ]`,
+  `}`,
+].join('\n')
+
+const diffText = [
+  `<span class="d-meta">--- a/locales/loclizr.context.json</span>`,
+  `<span class="d-meta">+++ b/locales/loclizr.context.json</span>`,
+  `<span class="d-meta">@@ -412,4 +412,4 @@</span>`,
+  `       "key": "cart.items",`,
+  `<span class="d-del">-      "source": "{count, plural, =0 {Your cart is empty} one {# item in your cart} other {# items in your cart}}",</span>`,
+  `<span class="d-add">+      "source": "{count, plural, =0 {Nothing in your cart yet} one {# item in your cart} other {# items in your cart}}",</span>`,
+  `<span class="d-del">-      "sourceHash": "a826cf6a40d3293e",</span>`,
+  `<span class="d-add">+      "sourceHash": "c6f5418d286f2cfb",</span>`,
+  `       "description": "Badge under the cart icon on every page",`,
+].join('\n')
+
+const rules = [
+  ['LZ3001', 'missing-translation', 'A locale resolved by falling all the way through to the source locale.', 'error'],
+  ['LZ3004', 'arg-missing', 'A source argument is absent from a translation, so that locale renders without it.', 'error'],
+  ['LZ3006', 'arg-type-conflict', 'Two locales disagree about what an argument is. <code>&#123;count&#125;</code> as a number in one and a date in another.', 'error'],
+  ['LZ3010', 'markup-mismatch', 'A translation dropped a <code>&lt;link&gt;</code> the source has, or introduced one it does not.', 'error'],
+  ['LZ1011', 'duplicate-key', 'Nested and dotted forms of one key. <code>JSON.parse</code> keeps the last, which is how a translation vanishes with no diff.', 'error'],
+  ['LZ4003', 'confusable-key', 'Two keys that differ only by a homoglyph. Cyrillic <code>&#x43E;</code> against Latin <code>o</code>.', 'error'],
+  ['LZ3012', 'ambiguous-source', 'Keys sharing byte-identical source text where at least one has no description.', 'warn'],
+  ['LZ3007', 'plural-category-incomplete', "The locale's CLDR categories need a branch the message does not provide. Arabic wants <code>many</code> for 11 through 99.", 'warn'],
+  ['LZ5005', 'unused-message', 'A message the usage scan never saw called. Off by default, because the scan is a scan.', 'off'],
+] as const
+---
+
+<div class="ledger">
+  <section class="lz-hero" id="top">
+    <div class="rail">
+      <div class="hero-grid">
+        <div class="hero-copy">
+          <h1 id="_top">Checking your catalog shouldn't be a tool you remember to add.</h1>
+
+          <p class="lede">
+            <code>loclizr build</code> reads your JSON catalogs and writes typed ESM message
+            functions. Plain files you can open, no bundler plugin, nothing that rewrites your
+            source.
+          </p>
+          <p class="lede">
+            The same pass checks those catalogs against each other: missing and blank translations,
+            ICU syntax, arguments that do not line up across locales, two keys sharing text a
+            translator cannot tell apart. There is no configuration in which your messages got
+            generated and your catalogs went unchecked.
+          </p>
+          <p class="lede">
+            Every message also leaves a context record beside the catalog, so the string and the
+            context a translator needs land in the same pull request.
+          </p>
+
+          <div class="actions">
+            <div class="cmd">
+              <code id="lz-cmd">npx loclizr init</code>
+              <button class="copy" type="button" id="lz-copy" aria-describedby="lz-copy-status">Copy</button>
+            </div>
+            <div class="actions-links">
+              <a class="btn" href="/start/quickstart/">Read the quickstart</a>
+              <a class="btn btn-ghost" href="#limits">What it does not do</a>
+            </div>
+            <span class="sr" role="status" id="lz-copy-status"></span>
+          </div>
+
+          <p class="dayzero">
+            Day zero. No users yet, no track record, and no promise about how long this stays
+            maintained. MIT, and the maintenance situation is written down in the repository rather
+            than implied by a landing page.
+          </p>
+        </div>
+
+        <div class="specimen">
+          <div>
+            <p class="f"><span>locales/en.json</span></p>
+            <p class="s">"Hi <span class="arg">&#123;name&#125;</span>, your cart is ready"</p>
+          </div>
+          <div>
+            <p class="f"><span>src/loclizr/messages/cart.d.ts</span><span class="gen">generated</span></p>
+            <p class="s">cart_greeting(args: &#123; <span class="arg">name: string</span> &#125;)</p>
+          </div>
+          <div>
+            <p class="f"><span>src/Cart.tsx</span></p>
+            <p class="s">m.cart_greeting(&#123; <span class="arg">name</span> &#125;)</p>
+          </div>
+        </div>
+      </div>
+
+      <div class="pair">
+        <figure class="plate plate-hero">
+          <figcaption class="plate-bar">
+            <span class="path">~/acme-web</span>
+            <span>zsh</span>
+            <span class="exit">exit 1</span>
+          </figcaption>
+          <pre tabindex="0" aria-label="Terminal output of a failing loclizr build" set:html={heroTranscript} />
+        </figure>
+
+        <div class="callsite">
+          <div class="cap"><span>src/Cart.tsx</span></div>
+          <pre tabindex="0" set:html={callsiteCode} />
+          <div class="cap split">
+            <span>src/loclizr/messages/cart.d.ts</span>
+            <span class="gen">generated</span>
+          </div>
+          <pre tabindex="0" set:html={dtsCode} />
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section class="band" id="pipeline">
+    <div class="rail">
+      <div class="head-block">
+        <h2>One pass. Three outputs.</h2>
+        <p class="prose">
+          The compiler reads <code>locales/*.json</code>, lowers every message to a single
+          representation, and hands that representation to three consumers. Nothing after that point
+          parses ICU a second time and the browser never sees a parser at all, because the only thing
+          that reaches it is a function with a <code>switch</code> in it.
+        </p>
+        <p class="prose">
+          There is no bundler plugin and no transform of your source, so there is no
+          transform-ordering problem to lose a day to when a framework ships a new compiler.
+        </p>
+      </div>
+
+      <div class="io">
+        <div class="io-in">
+          <p class="col-head">in</p>
+          <div class="io-row">
+            <p class="f">locales/en.json</p>
+            <p class="n">
+              Plain i18next JSON. Nested keys, <code>&#123;&#123;var&#125;&#125;</code>,
+              &#32;<code>_one</code> and <code>_other</code> suffixes. Converted to ICU on read, never
+              written back.
+            </p>
+          </div>
+          <div class="io-row">
+            <p class="f">locales/de-AT.json</p>
+            <p class="n">
+              One file per locale. A file holding twelve overrides on top of a complete German
+              catalog is a valid catalog, not 388 errors.
+            </p>
+          </div>
+          <div class="io-row">
+            <p class="f">locales/en.meta.json <span class="x">optional</span></p>
+            <p class="n">
+              Descriptions and placeholder notes for the source locale. Separate from the catalog so
+              a TMS never ships your notes to a translator as copy.
+            </p>
+          </div>
+        </div>
+
+        <div class="io-out">
+          <p class="col-head">out</p>
+          <div class="io-row">
+            <p class="f">src/loclizr/messages/*.js <span class="x">+ .d.ts</span></p>
+            <p class="n">
+              Plain ESM, one module per top-level key segment, declarations printed as text rather
+              than compiled. The same output runs in a Vite SPA, in RSC, in React Native and in Node.
+            </p>
+          </div>
+          <div class="io-row">
+            <p class="f">diagnostics <span class="x">+ exit code</span></p>
+            <p class="n">
+              Fifty-four rules, every code stable. A non-fatal error still emits, so twelve missing
+              German strings do not bury your typecheck under missing-module noise.
+            </p>
+          </div>
+          <div class="io-row">
+            <p class="f">locales/loclizr.context.json</p>
+            <p class="n">
+              One record per message. Committed, diffable, and a pure function of the tree it was
+              built from.
+            </p>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section class="band" id="checks">
+    <div class="rail">
+      <div class="head-block">
+        <h2>The checks run because the codegen ran.</h2>
+        <p class="prose">
+          Other tools check catalogs, and they are good at it. <code>i18next-cli</code> exits
+          non-zero on missing keys, Intlayer fails the build on missing content,
+          &#32;<code>@lingual/i18n-check</code> validates ICU across locales and ships a GitHub Action for
+          it. Each one is a command somebody has to remember to wire into CI, which is the step that
+          gets skipped on the week it would have mattered.
+        </p>
+        <p class="prose">
+          Here it is the same command that generates the code. <code>loclizr check</code> is the one
+          that belongs in CI: it does everything the build does, writes nothing, and compares the
+          committed context record instead of quietly rewriting it.
+        </p>
+      </div>
+
+      <figure class="plate" style="margin: 1.875rem 0 0; border-top: 1px solid var(--rule-strong)">
+        <figcaption class="plate-bar">
+          <span class="path">~/acme-web</span>
+          <span>zsh</span>
+          <span class="exit">exit 1</span>
+        </figcaption>
+        <pre
+          tabindex="0"
+          aria-label="Terminal output for rule LZ3012 ambiguous-source, ending in exit code 1"
+          set:html={checkTranscript}
+        />
+      </figure>
+      <p class="plate-cap">
+        That transcript is from a greenfield project, where <code>loclizr init</code> writes the
+        rule in at <code>error</code>. Left at its shipped default the same diagnostic prints
+        &#32;<code>warn</code> in the severity column, the last line names <code>'error'</code> instead,
+        and the build exits 0. Which is the point of it being the rule an imported catalog hits
+        first.
+      </p>
+
+      <div class="rules" role="table" aria-label="Nine of the fifty-four rules">
+        <div class="lrow lhead" role="row">
+          <span role="columnheader">code</span>
+          <span role="columnheader">rule</span>
+          <span role="columnheader">catches</span>
+          <span role="columnheader" style="text-align: right">default</span>
+        </div>
+        {
+          rules.map(([code, name, catches, severity]) => (
+            <div class="lrow" role="row">
+              <span class="c" role="cell">{code}</span>
+              <span class="r" role="cell">{name}</span>
+              <span class="d" role="cell" set:html={catches} />
+              <span class={`s s-${severity}`} role="cell">{severity}</span>
+            </div>
+          ))
+        }
+      </div>
+      <p class="rules-note">
+        Fifty-four rules, and every code is stable. One line in <code>loclizr.config.ts</code> levels
+        any of them down to <code>'warn'</code>, or to <code>'off'</code> if you would rather it
+        stopped talking altogether. Three cannot be levelled at all: a build that could write outside
+        your project root and still exit 0 is not something to leave configurable.
+      </p>
+    </div>
+  </section>
+
+  <section class="band" id="context">
+    <div class="rail">
+      <div class="head-block">
+        <h2>Every string ships with its context. Automatically.</h2>
+        <p class="prose">
+          <code>locales/loclizr.context.json</code> sits beside the catalogs and gets committed. It
+          is a pure function of the tree it was built from: the catalogs, the descriptions sidecar,
+          your scanned sources, the config. Same inputs, same bytes. It never reads its own previous
+          value, so two branches editing two different strings do not meet in a merge conflict inside
+          a generated file.
+        </p>
+        <p class="prose">
+          An agent that reads your repository can write context too, and Crowdin ships one that does.
+          The difference is in the properties rather than the capability. This record costs nothing
+          per run, comes out the same every time, travels to a human, an LLM or a TMS without anybody
+          holding a vendor account, and shows up in review as a diff sitting next to the string that
+          changed. Context is a build output, not a checkbox nobody ticks.
+        </p>
+      </div>
+
+      <div class="rec">
+        <div class="rec-json">
+          <div class="cap"><span>locales/loclizr.context.json</span><span class="gen">committed</span></div>
+          <pre tabindex="0" set:html={recordJson} />
+        </div>
+
+        <div class="rec-read">
+          <div class="cap"><span>the same record, as a translator reads it</span></div>
+          <div class="field">
+            <span class="k">source</span>
+            <div class="v-m">
+              &#123;count, plural, =0 &#123;Your cart is empty&#125; one &#123;# item in your
+              cart&#125; other &#123;# items in your cart&#125;&#125;
+            </div>
+          </div>
+          <div class="field">
+            <span class="k">description</span>
+            <div class="v-t">Badge under the cart icon on every page</div>
+          </div>
+          <div class="field">
+            <span class="k">arguments</span>
+            <div class="argline">
+              <span class="an">count</span>
+              <span class="at">number</span>
+              <span class="anote">Number of line items, not total quantity</span>
+            </div>
+          </div>
+          <div class="field">
+            <span class="k">variants</span>
+            <div class="argline">
+              <span class="an">count</span>
+              <span class="at">plural</span>
+              <span class="v-m">=0 &nbsp;one &nbsp;other</span>
+            </div>
+          </div>
+          <div class="field">
+            <span class="k">called from</span>
+            <div class="v-m">src/Cart.tsx <span class="dimtail">in</span> Cart</div>
+            <p class="field-note">
+              No line or column, on purpose. Adding one import at the top of a file shifts every
+              line below it, and a record that moved on a pull request touching no string would make
+              the staleness check unusable.
+            </p>
+          </div>
+          <div class="field">
+            <span class="k">coverage</span>
+            <div class="loc-row"><span class="lt">de</span><span class="st st-translated">translated</span></div>
+            <div class="loc-row">
+              <span class="lt">de-AT</span><span class="st st-inherited">inherited <span class="via">from de</span></span>
+            </div>
+            <div class="loc-row"><span class="lt">en</span><span class="st st-translated">translated</span></div>
+          </div>
+          <div class="field">
+            <span class="k">sourceHash</span>
+            <div class="v-m">
+              a826cf6a40d3293e <span class="dimtail">sha256 of the normalized ICU source, first 16</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="diffbox">
+        <div class="cap"><span>git diff, on a pull request that reworded one English string</span></div>
+        <pre tabindex="0" set:html={diffText} />
+        <p class="diffcap">
+          The record carries no translation text, so a pull request that edits English copy moves
+          &#32;<code>sourceHash</code> and leaves <code>de.json</code> alone, and a pull request that
+          translates moves <code>de.json</code> and leaves the record alone unless coverage changed.
+          Polishing a German sentence is not a change to the contract, and the diff says so.
+        </p>
+      </div>
+    </div>
+  </section>
+
+  <section class="band" id="compare">
+    <div class="rail">
+      <div class="head-block">
+        <h2>Where the others are stronger</h2>
+        <p class="prose">
+          Every one of these is a working library with users, and each does at least one thing this
+          does not. <a href="/project/comparison/">The full comparison</a> is in the docs; this is
+          the short version.
+        </p>
+      </div>
+
+      <div class="ledger-rows rows-named">
+        <div class="lim">
+          <p class="what">Paraglide</p>
+          <p class="cost">
+            Per-locale delivery. Its build owns the metaframework's app build, so a page ships the
+            one locale it needs. loclizr inlines every locale into every message function and makes
+            no claim here.
+          </p>
+        </div>
+        <div class="lim">
+          <p class="what">Intlayer</p>
+          <p class="cost">
+            The nearest thing to this design that already exists. Build failure on missing content,
+            generated strict types, context passed to the AI translator, and five frameworks against
+            one here.
+          </p>
+        </div>
+        <div class="lim">
+          <p class="what">next-intl</p>
+          <p class="cost">
+            The Next App Router, today. loclizr's Next entry is v0.2, because middleware runs in a
+            different runtime and cannot wrap a render.
+          </p>
+        </div>
+        <div class="lim">
+          <p class="what">Lingui</p>
+          <p class="cost">
+            Extraction from your source, which this does not do at all. Catalogs here are authored or
+            imported, and finding the hardcoded strings in an existing app is somebody else's job.
+          </p>
+        </div>
+        <div class="lim">
+          <p class="what">i18next</p>
+          <p class="cost">
+            Breadth, a runtime catalog loader, and a decade of plugins. If you need that breadth, or
+            you are already productive in it, staying put is a reasonable decision.
+          </p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section class="band" id="limits">
+    <div class="rail">
+      <div class="head-block">
+        <h2>What v0.1 does not do</h2>
+        <p class="prose">
+          Written down here, where you can read it before you install anything, rather than
+          discovered three weeks in when the bundle report comes back and somebody asks why the
+          French copy is in the German chunk.
+        </p>
+      </div>
+
+      <div class="ledger-rows">
+        <div class="lim">
+          <p class="what">Every locale is inlined into every message function.</p>
+          <p class="cost">
+            Your bundle grows with locale count. Per-locale delivery needs to own the
+            metaframework's build step, which this does not do, so v0.1 makes no claim there.
+          </p>
+        </div>
+        <div class="lim">
+          <p class="what">One framework at launch.</p>
+          <p class="cost">
+            React with Vite gets the demo, the locale negotiation and the hydration agreement. The
+            generated messages are plain ESM and run anywhere JavaScript does, but outside that demo
+            you wire the locale in yourself.
+          </p>
+        </div>
+        <div class="lim">
+          <p class="what">The locale never comes from the URL.</p>
+          <p class="cost">
+            No <code>/de/pricing</code>. It is read from a cookie, then from
+            &#32;<code>Accept-Language</code>, and the hydration agreement depends on exactly that order.
+            Prefix routing is out of scope rather than unfinished.
+          </p>
+        </div>
+        <div class="lim">
+          <p class="what">Catalogs are a build input.</p>
+          <p class="cost">
+            A translation fix ships with a deploy. If you need copy to change without one, you want a
+            runtime catalog loader, and i18next has spent a decade being good at exactly that.
+          </p>
+        </div>
+        <div class="lim">
+          <p class="what">No extraction and no instrumentation.</p>
+          <p class="cost">
+            v0.1 does not find hardcoded strings in your source and does not rewrite them into
+            message calls. That follows from never transforming your code, and it means a retrofit
+            starts from a catalog you wrote or imported.
+          </p>
+        </div>
+        <div class="lim">
+          <p class="what">The usage scan is a scan, not a type checker.</p>
+          <p class="cost">
+            It tokenizes, so renamed re-exports and computed member access go unseen. Every rule that
+            depends on it defaults to <code>off</code> or <code>warn</code>, and none of them can
+            fail your build.
+          </p>
+        </div>
+      </div>
+
+      <p class="rules-note">
+        Maintainer count, release cadence and what happens if this stops being maintained are on
+        &#32;<a href="/project/continuity/">a documentation page</a>, because every library death worth
+        studying in this category was governance rather than design.
+      </p>
+    </div>
+  </section>
+
+  <LedgerFooter />
+</div>
+
+<script>
+  const copy = document.getElementById('lz-copy')
+  const cmd = document.getElementById('lz-cmd')
+  const status = document.getElementById('lz-copy-status')
+
+  copy?.addEventListener('click', () => {
+    const text = cmd?.textContent ?? ''
+    const done = (): void => {
+      copy.textContent = 'Copied'
+      if (status) status.textContent = `Copied ${text} to the clipboard`
+      window.setTimeout(() => {
+        copy.textContent = 'Copy'
+      }, 1800)
+    }
+    if (navigator.clipboard) {
+      void navigator.clipboard.writeText(text).then(done, done)
+    } else {
+      done()
+    }
+  })
+
+  document.querySelector('.ledger')?.classList.add('is-live')
+</script>

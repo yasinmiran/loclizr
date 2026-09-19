@@ -1,0 +1,80 @@
+---
+title: Introduction
+description: What loclizr is, what it refuses to do, and who it is for.
+---
+
+import { Aside } from '@astrojs/starlight/components'
+
+loclizr is a command line compiler. `loclizr build` reads the JSON catalogs you keep under
+`locales/` and writes typed ESM message functions into your source tree. Your app imports them and
+calls them like any other function.
+
+```ts title="src/Cart.tsx"
+import * as m from './loclizr/messages'
+
+m.cart_greeting({ name: 'Ada' })   // "Hi Ada, your cart is ready"
+m.cart_items({ count: 3 })         // "3 items in your cart"
+m.cart_items({ count: '3' })       // type error: count is a number
+```
+
+Nothing rewrites your application code. There is no bundler plugin and no AST pass over your
+source, so there is no transform ordering for a framework's next compiler release to break, and the
+same generated functions run in a Vite SPA, in a server render, in React Native and in plain Node.
+ICU MessageFormat is parsed during the build, which is why the browser ships no parser. The locale
+is read when a message function is called, so switching language at runtime needs no reload.
+
+<Aside type="caution">
+Nothing is published to npm yet. v0.1 is in development, and these pages describe the contract the
+implementation is being built against.
+</Aside>
+
+## What one build produces
+
+**Message modules.** One module per top-level key segment, each message a function whose first
+parameter is exactly its ICU argument set. A renamed placeholder, or a plural argument handed a
+string, fails your typecheck at the call site rather than rendering `undefined` to somebody.
+
+**Diagnostics, from the same pass.** Checking is part of `build`, on from the first run, and an
+error exits 1. Missing and blank translations, ICU syntax errors, arguments that differ between two
+locales, plural categories a locale can never select, keys that differ only by a homoglyph. Every
+rule has a stable code and can be re-levelled to `off`, `warn` or `error`. Other tools check
+catalogs too, usually as a step you remember to wire up; what is claimed here is the default, not
+the capability.
+
+**A context record**, written to `locales/loclizr.context.json` and meant to be committed. Per
+message it carries the canonical source text and a hash of it, the argument names and types, the
+plural or select shape, the file and enclosing function where the message is used, per-locale
+translation status, and your description if you wrote one. It holds no timestamps and no line
+numbers, so it moves when the contract moves, in the same pull request as the string edit. Whoever
+translates next reads it, whether that is a person, a model or a TMS.
+
+## Who it is for
+
+A new app is the easy case. Catalogs exist from the first commit, the gate is hard from the first
+commit, and there is nothing to unlearn. The more common case is an app whose strings are still
+English literals sitting in JSX, where the thing you are replacing is not another library.
+
+If you already run i18next, you can try this against your real catalogs without touching your
+setup: point `catalogs` at the files you have. `{{name}}` interpolation is converted to ICU in
+memory, `_one` and `_other` keys fold into a plural, and the format is decided per file, so an
+imported catalog and an ICU-native one sit side by side. Your catalogs are read and never written
+back, so i18next keeps serving the app while you read the diagnostics.
+
+## What it deliberately does not do
+
+- **No per-locale delivery.** Every declared locale of every used message is inlined into that
+  message function, so bundle size grows with locale count. Shipping one locale's strings per
+  request is what Paraglide is built around, and it is not what this does.
+- **No extraction, no codemod.** v0.1 never reads your components looking for strings and never
+  rewrites one. Catalogs are authored or imported, and the retrofit work is yours.
+- **One framework at launch.** React with Vite is the example that exists and is tested. The
+  message layer itself is framework free, server rendering covers Web Fetch handlers, and Next.js
+  is not a first-class target in v0.1; next-intl is built for that stack.
+- **Catalogs are a build input.** A translation fix is a commit and a deploy. Wired to a TMS that
+  opens pull requests that is fine, but it is not a dashboard where somebody fixes a typo in
+  production at 4pm.
+- **Day zero.** No published release, no track record, no promise about stability.
+
+[Quickstart](/start/quickstart/) is one command and one import. [Honest
+limits](/project/limits/) is the same list as above with the reasoning attached, and
+[Comparison](/project/comparison/) puts loclizr beside the tools it is nearest to.
