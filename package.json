@@ -1,0 +1,19 @@
+{
+  "name": "loclizr-workspace",
+  "private": true,
+  "type": "module",
+  "packageManager": "pnpm@9.12.0",
+  "engines": {
+    "node": ">=20.19"
+  },
+  "scripts": {
+    "build": "pnpm --filter loclizr build",
+    "test": "pnpm --filter loclizr test",
+    "typecheck": "pnpm --filter loclizr --filter vite-react-example typecheck",
+    "example:dev": "pnpm --filter vite-react-example dev",
+    "example:build": "pnpm --filter vite-react-example build",
+    "web:dev": "pnpm --filter web dev",
+    "web:build": "pnpm --filter web build",
+    "check": "pnpm build && pnpm typecheck && pnpm test && pnpm example:build && pnpm web:build"
+  }
+}
