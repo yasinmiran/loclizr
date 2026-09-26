@@ -3,10 +3,34 @@
   "version": "0.0.0",
   "description": "Typed message functions and default-on catalog checks, generated from your translation files.",
   "license": "MIT",
+  "keywords": [
+    "i18n",
+    "icu",
+    "messageformat",
+    "typescript",
+    "codegen",
+    "react",
+    "translations"
+  ],
   "type": "module",
   "sideEffects": false,
+  "engines": {
+    "node": ">=20.19"
+  },
+  "publishConfig": {
+    "access": "public"
+  },
   "bin": {
     "loclizr": "./dist/cli/bin.js"
+  },
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "typesVersions": {
+    "*": {
+      "react": ["./dist/react/index.d.ts"],
+      "server": ["./dist/server/index.d.ts"],
+      "compiler": ["./dist/compiler/index.d.ts"]
+    }
   },
   "exports": {
     ".": {
