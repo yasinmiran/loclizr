@@ -1,8 +1,8 @@
 import { isAbsolute, relative, resolve } from 'node:path'
-import { diag, hasFatal } from '../diagnostics'
-import type { Config, Diagnostic, DiscoveredCatalog, LoclizrConfig } from '../types'
+import { RULES, diag } from '../diagnostics'
+import type { Config, Diagnostic, DiscoveredCatalog, LoclizrConfig, RuleName } from '../types'
 import { compareCodepoint, toPosix } from '../util'
-import { readFields } from './fields'
+import { isLocaleTag, readFields } from './fields'
 import { literalMatcher, substituteLocale } from './pattern'
 
 export interface LoadConfigResult {
@@ -45,22 +45,59 @@ export function resolveConfig(input: {
   const meta = fields.meta === false ? false : normalize(root, fields.meta)
   const record = fields.record === false ? false : normalize(root, fields.record)
 
+  const swallowed = swallowedByOutDir(outDir, { meta, record })
+  if (swallowed.length > 0) {
+    return {
+      config: null,
+      diagnostics: swallowed.map(([field, path]) =>
+        diag('config-invalid', {
+          message: `\`outDir\` is \`${outDir}\`, which holds the resolved \`${field}\` path \`${path}\`.`,
+          hint: `the generated tree writes a self-ignoring .gitignore into outDir, so ${path} would stop being committed. Give outDir a directory of its own, such as 'src/loclizr'.`,
+        }),
+      ),
+    }
+  }
+
+  // A rule the user took out of error stops being fatal (section 9), and M10
+  // never gets the chance to apply that override on a null config, so the three
+  // re-levelable `always` rules are resolved here and resolution carries on
+  // wherever the remaining fields still describe a buildable project.
+  const blocks = (rule: RuleName): boolean =>
+    (fields.severity[rule] ?? RULES[rule].severity) === 'error'
+
   const usable = usableCatalogs(input.discovered, [meta, record], diagnostics)
   if (usable.length === 0) {
     diagnostics.push(
       diag('no-catalogs-found', {
-        message: `No catalog file matched \`${catalogs}\` under ${root}.`,
+        message: `No catalog file matched \`${catalogs}\`.`,
         hint: `write locales/${fields.sourceLocale ?? 'en'}.json, or point \`catalogs\` at the layout you already have, such as 'public/locales/{locale}/{ns}.json'.`,
       }),
     )
-    return { config: null, diagnostics }
+    if (blocks('no-catalogs-found')) return { config: null, diagnostics }
   }
 
   const discoveredLocales = unique(usable.map((catalog) => catalog.locale)).sort(compareCodepoint)
-  const locales = fields.locales === undefined ? discoveredLocales : unique(fields.locales)
+  if (fields.locales === undefined) {
+    const named = new Set<string>()
+    for (const catalog of usable) {
+      if (named.has(catalog.locale) || !isReservedPrimarySubtag(catalog.locale)) continue
+      named.add(catalog.locale)
+      diagnostics.push(
+        diag('catalog-undeclared', {
+          message: `${catalog.file} matched \`${catalogs}\`, so \`${catalog.locale}\` is now a declared locale, and BCP 47 registers no language subtag of five to eight letters.`,
+          hint: 'declare `locales` explicitly so discovery stops deciding, or move the file out of the catalog pattern.',
+          file: catalog.file,
+          locale: catalog.locale,
+        }),
+      )
+    }
+  }
+  const declared = fields.locales === undefined ? discoveredLocales : unique(fields.locales)
+  const rejected = new Set<string>()
   if (fields.locales !== undefined) {
-    for (const tag of locales) {
+    for (const tag of declared) {
       if (isLocaleTag(tag)) continue
+      rejected.add(tag)
       diagnostics.push(
         diag('locale-tag-invalid', {
           message: `\`locales\` declares \`${tag}\`, which is not a valid BCP 47 language tag.`,
@@ -70,39 +107,57 @@ export function resolveConfig(input: {
       )
     }
   }
-  if (fields.sourceLocale !== undefined && !isLocaleTag(fields.sourceLocale)) {
-    diagnostics.push(
-      diag('locale-tag-invalid', {
-        message: `\`sourceLocale\` is \`${fields.sourceLocale}\`, which is not a valid BCP 47 language tag.`,
-        hint: 'Intl.getCanonicalLocales rejects it, so no formatter could be built for it.',
-        locale: fields.sourceLocale,
-      }),
-    )
+  const invalidSource =
+    fields.sourceLocale !== undefined && !isLocaleTag(fields.sourceLocale) ? fields.sourceLocale : null
+  if (invalidSource !== null) {
+    if (!rejected.has(invalidSource)) {
+      diagnostics.push(
+        diag('locale-tag-invalid', {
+          message: `\`sourceLocale\` is \`${invalidSource}\`, which is not a valid BCP 47 language tag.`,
+          hint: 'Intl.getCanonicalLocales rejects it, so no formatter could be built for it.',
+          locale: invalidSource,
+        }),
+      )
+    }
+    rejected.add(invalidSource)
   }
-  if (hasFatal(diagnostics)) return { config: null, diagnostics }
+  if (rejected.size > 0 && blocks('locale-tag-invalid')) return { config: null, diagnostics }
+  const declaredSource = invalidSource === null ? fields.sourceLocale : undefined
 
-  const sourceLocale = fields.sourceLocale ?? inferSourceLocale(locales)
-  if (sourceLocale === null) {
+  // A tag no formatter can be built for is dropped rather than carried, because
+  // every locale here reaches `Intl.PluralRules` in generated code.
+  const locales = declared.filter((tag) => !rejected.has(tag))
+  const [firstLocale] = locales
+  // Nothing is inferable from an empty locale set, and a second fatal stacked on
+  // the one the user already saw is noise.
+  if (firstLocale === undefined) return { config: null, diagnostics }
+
+  // With nothing on disk, LZ1003 has already said the only thing there is to
+  // say, and a source catalog nobody has is the same fact a second time.
+  const emptyTree = usable.length === 0
+  const inferred = declaredSource ?? inferSourceLocale(locales)
+  if (inferred === null && !emptyTree) {
     diagnostics.push(
       diag('source-catalog-missing', {
         message: `The source locale cannot be inferred: no \`en\` catalog and ${locales.length} locales to choose between.`,
-        hint: pasteableConfig(locales),
+        hint: pasteableConfig(locales, usable),
       }),
     )
-    return { config: null, diagnostics }
+    if (blocks('source-catalog-missing')) return { config: null, diagnostics }
   }
+  const sourceLocale = inferred ?? firstLocale
 
   const localesWithCatalog = new Set(usable.map((catalog) => catalog.locale))
-  if (!localesWithCatalog.has(sourceLocale)) {
+  if (inferred !== null && !emptyTree && !localesWithCatalog.has(sourceLocale)) {
     diagnostics.push(
       diag('source-catalog-missing', {
         message: `No catalog file for the source locale \`${sourceLocale}\`.`,
-        hint: pasteableConfig(discoveredLocales),
+        hint: pasteableConfig(discoveredLocales, usable),
         file: substituteLocale(catalogs, sourceLocale),
         locale: sourceLocale,
       }),
     )
-    return { config: null, diagnostics }
+    if (blocks('source-catalog-missing')) return { config: null, diagnostics }
   }
   if (!locales.includes(sourceLocale)) {
     diagnostics.push(
@@ -116,7 +171,7 @@ export function resolveConfig(input: {
   }
 
   for (const locale of locales) {
-    if (locale === sourceLocale || localesWithCatalog.has(locale)) continue
+    if (localesWithCatalog.has(locale)) continue
     diagnostics.push(
       diag('catalog-missing', {
         message: `\`locales\` declares \`${locale}\` and no catalog file exists for it.`,
@@ -127,9 +182,9 @@ export function resolveConfig(input: {
     )
   }
 
-  const declared = new Set(locales)
+  const declaredSet = new Set(locales)
   for (const locale of discoveredLocales) {
-    if (declared.has(locale)) continue
+    if (declaredSet.has(locale)) continue
     diagnostics.push(
       diag('catalog-undeclared', {
         message: `A catalog exists for \`${locale}\` and \`locales\` does not declare it, so it is ignored.`,
@@ -143,7 +198,7 @@ export function resolveConfig(input: {
   for (const locale of locales) {
     if (locale === sourceLocale) continue
     const base = baseTagOf(locale)
-    if (base === null || declared.has(base)) continue
+    if (base === null || declaredSet.has(base)) continue
     diagnostics.push(
       diag('locale-base-missing', {
         message: `\`${locale}\` is declared and its base tag \`${base}\` is not, so a browser sending \`Accept-Language: ${base}\` gets \`${sourceLocale}\`.`,
@@ -177,13 +232,16 @@ export function resolveConfig(input: {
   }
 }
 
-export function isLocaleTag(tag: string): boolean {
-  try {
-    Intl.getCanonicalLocales(tag)
-    return true
-  } catch {
-    return false
+function swallowedByOutDir(
+  outDir: string,
+  paths: Readonly<Record<string, string | false>>,
+): readonly (readonly [string, string])[] {
+  const inside: (readonly [string, string])[] = []
+  for (const [field, path] of Object.entries(paths)) {
+    if (path === false) continue
+    if (path === outDir || path.startsWith(`${outDir}/`)) inside.push([field, path])
   }
+  return inside
 }
 
 function usableCatalogs(
@@ -217,12 +275,33 @@ function inferSourceLocale(locales: readonly string[]): string | null {
   return locales.length === 1 ? (locales[0] ?? null) : null
 }
 
-function pasteableConfig(locales: readonly string[]): string {
-  const list = locales.map((locale) => `'${locale}'`).join(', ')
+// Intl accepts any five-to-eight-letter primary subtag, so `settings.json` and
+// `shared/` both canonicalize and both become locales. No ISO 639 code is that
+// long, so the shape names the mistake with no registry lookup.
+function isReservedPrimarySubtag(locale: string): boolean {
+  const [primary = ''] = locale.split('-')
+  return /^[A-Za-z]{5,8}$/.test(primary)
+}
+
+// Every locale carries the file it was discovered from, because the block is
+// meant to be pasted and a junk basename is invisible inside a one-line array.
+function pasteableConfig(
+  locales: readonly string[],
+  catalogs: readonly DiscoveredCatalog[],
+): string {
+  const cells = locales.map((locale) => `'${locale}',`)
+  const width = cells.reduce((widest, cell) => Math.max(widest, cell.length), 0)
+  const lines = locales.map((locale, index) => {
+    const cell = cells[index] ?? ''
+    const file = firstFileFor(catalogs, locale)
+    return file === undefined ? `    ${cell}` : `    ${cell.padEnd(width)}  // ${file}`
+  })
   return [
     'name the source locale in loclizr.config.ts:',
     'export default defineConfig({',
-    `  locales: [${list}],`,
+    '  locales: [',
+    ...lines,
+    '  ],',
     `  sourceLocale: '${locales[0] ?? 'en'}',`,
     '})',
   ].join('\n')

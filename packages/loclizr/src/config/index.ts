@@ -1,14 +1,20 @@
-import { stat } from 'node:fs/promises'
-import { relative, resolve } from 'node:path'
-import { pathToFileURL } from 'node:url'
+import { readFile, stat } from 'node:fs/promises'
+import { relative, resolve, sep } from 'node:path'
 import { createJiti } from 'jiti'
 import type { Jiti } from 'jiti'
 import { glob } from 'tinyglobby'
 import { diag } from '../diagnostics'
-import type { Diagnostic, DiscoveredCatalog, LoclizrConfig } from '../types'
+import type { Config, Diagnostic, DiscoveredCatalog, LoclizrConfig } from '../types'
 import { compareCodepoint, toPosix } from '../util'
 import { DEFAULT_CATALOGS } from './fields'
-import { catalogMatcher, patternToGlob } from './pattern'
+import {
+  catalogMatcher,
+  literalMatcher,
+  looseCatalogMatcher,
+  patternBase,
+  patternToGlob,
+  withNamespaceToken,
+} from './pattern'
 import { resolveConfig } from './resolve'
 import type { LoadConfigResult } from './resolve'
 
@@ -37,11 +43,23 @@ export async function loadConfig(input: {
     user = loaded.user
   }
 
-  const discovered = await discoverCatalogs(root, catalogsPatternOf(user))
-  const resolved = resolveConfig({ user, root, discovered })
-  return {
-    config: resolved.config,
-    diagnostics: stampConfigFile(resolved.diagnostics, located.file),
+  // A config assembled from getters, a Proxy or a class instance throws where a
+  // field is read rather than where the module is evaluated, and this result
+  // type promises diagnostics rather than a rejected promise.
+  try {
+    const pattern = catalogsPatternOf(user)
+    const { spelled, unspelled } = await discover(root, pattern)
+    const discovered = [...spelled, ...unspelled]
+    const resolved = resolveConfig({ user, root, discovered })
+    const stray =
+      resolved.config === null ? [] : await strayCatalogs(root, pattern, discovered.map(fileOf))
+    const diagnostics = [
+      ...stampConfigFile(resolved.diagnostics, located.file),
+      ...unreachableCatalogs(stray, resolved.config),
+    ]
+    return { config: resolved.config, diagnostics }
+  } catch (error) {
+    return { config: null, diagnostics: [threw(located.file, error, root)] }
   }
 }
 
@@ -49,39 +67,126 @@ export async function discoverCatalogs(
   root: string,
   pattern: string,
 ): Promise<readonly DiscoveredCatalog[]> {
-  const base = toPosix(resolve(root))
-  const relativePattern = toPosix(relative(base, resolve(base, toPosix(pattern))))
-  const match = catalogMatcher(relativePattern)
-  if (match === null) return []
+  return (await discover(root, pattern)).spelled
+}
 
-  let files: readonly string[]
+interface Discovery {
+  readonly spelled: readonly DiscoveredCatalog[]
+  // Matched by the glob, with a `{locale}` segment the token cannot spell:
+  // `locales/en_US.json`, which Java, Rails and gettext exports all write.
+  // `resolveConfig` reports each as LZ1006 once the meta and record paths are
+  // out, rather than a locale going missing in silence.
+  readonly unspelled: readonly DiscoveredCatalog[]
+}
+
+async function discover(root: string, pattern: string): Promise<Discovery> {
+  const base = toPosix(resolve(root))
+  const relativePattern = relativeTo(base, pattern)
+  const match = catalogMatcher(relativePattern)
+  const matchLoosely = looseCatalogMatcher(relativePattern)
+  if (match === null || matchLoosely === null) return { spelled: [], unspelled: [] }
+
+  const files = await jsonFiles(base, patternToGlob(relativePattern))
+  if (files === null) return { spelled: [], unspelled: [] }
+
+  const spelled: DiscoveredCatalog[] = []
+  const unspelled: DiscoveredCatalog[] = []
+  for (const file of files) {
+    const parts = match(file)
+    if (parts !== null) {
+      spelled.push({ locale: parts.locale, ns: parts.ns, file })
+      continue
+    }
+    const loose = matchLoosely(file)
+    if (loose !== null) unspelled.push({ locale: loose.locale, ns: loose.ns, file })
+  }
+  return { spelled: byFile(spelled), unspelled: byFile(unspelled) }
+}
+
+// Every .json under the pattern's own base directory that neither matcher
+// claimed: `locales/fr/common.json` beside a `locales/{locale}.json` pattern,
+// which is every namespaced i18next tree one step into a migration.
+async function strayCatalogs(
+  root: string,
+  pattern: string,
+  claimed: readonly string[],
+): Promise<readonly string[]> {
+  const base = toPosix(resolve(root))
+  const directory = patternBase(relativeTo(base, pattern))
+  if (directory === null) return []
+  const found = await jsonFiles(base, `${directory}/**/*.json`)
+  if (found === null) return []
+  const read = new Set(claimed)
+  return found.filter((file) => !read.has(file))
+}
+
+function relativeTo(base: string, pattern: string): string {
+  return toPosix(relative(base, resolve(base, toPosix(pattern))))
+}
+
+async function jsonFiles(base: string, pattern: string): Promise<readonly string[] | null> {
   try {
-    files = await glob(patternToGlob(relativePattern), {
+    const found = await glob(pattern, {
       cwd: base,
       absolute: false,
       onlyFiles: true,
       dot: false,
       expandDirectories: false,
+      ignore: ['**/node_modules/**'],
     })
+    return found.map(toPosix).sort(compareCodepoint)
   } catch {
-    return []
+    return null
   }
+}
 
-  const found: DiscoveredCatalog[] = []
-  for (const file of files) {
-    const posix = toPosix(file)
-    const parts = match(posix)
-    if (parts === null) continue
-    found.push({ locale: parts.locale, ns: parts.ns, file: posix })
+function byFile(catalogs: DiscoveredCatalog[]): readonly DiscoveredCatalog[] {
+  return catalogs.sort((a, b) => compareCodepoint(a.file, b.file))
+}
+
+// The meta sidecar and the record are the compiler's own artifacts sitting in
+// the same directory, so only a resolved config can tell a stray catalog from
+// the two files the pattern is meant to miss.
+function unreachableCatalogs(
+  stray: readonly string[],
+  config: Config | null,
+): readonly Diagnostic[] {
+  if (config === null) return []
+  const reserved = [config.meta, config.record]
+    .filter((path): path is string => path !== false)
+    .map((path) => literalMatcher(path))
+  const unreachable = stray.filter((file) => !reserved.some((matcher) => matcher.test(file)))
+  const [first] = unreachable
+  if (first === undefined) return []
+  const rest = unreachable.length - 1
+  const tail = rest === 0 ? '' : ` ${rest} more .json ${rest === 1 ? 'file' : 'files'} beside it.`
+  return [
+    diag('catalog-undeclared', {
+      message: `${first} does not match \`${config.catalogs}\`, so no locale reads it.${tail}`,
+      hint: namespaceHint(config.catalogs, first),
+      file: first,
+    }),
+  ]
+}
+
+function namespaceHint(pattern: string, stray: string): string {
+  const namespaced = withNamespaceToken(pattern)
+  const match = namespaced === null ? null : catalogMatcher(namespaced)
+  if (namespaced !== null && match !== null && match(stray) !== null) {
+    return `the split layout is one token away: catalogs: '${namespaced}'`
   }
-  return found.sort((a, b) => compareCodepoint(a.file, b.file))
+  return `point \`catalogs\` at the layout on disk, or move the file out of \`${patternBase(pattern) ?? '.'}\`.`
+}
+
+function fileOf(catalog: DiscoveredCatalog): string {
+  return catalog.file
 }
 
 let instance: Jiti | null = null
 
 function jiti(): Jiti {
-  // Caching would hand a second load of an edited config the stale module, and
-  // the filesystem cache writes into node_modules.
+  // Caching would hand a reload the stale module of a sibling the config
+  // imports, and the filesystem cache writes into node_modules.
   instance ??= createJiti(import.meta.url, { fsCache: false, moduleCache: false })
   return instance
 }
@@ -121,28 +226,48 @@ async function importConfig(
   const absolute = resolve(root, file)
   let exported: unknown
   try {
-    const loaded = await jiti().import<Record<string, unknown>>(pathToFileURL(absolute).href)
-    exported = loaded['default']
+    const source = await readFile(absolute, 'utf8')
+    // Node serves a second `import()` of one URL out of its own module cache,
+    // which neither jiti option reaches, so a long-lived dev server would keep
+    // compiling against the config the process started with. Transpiling every
+    // extension keeps the load out of that cache entirely.
+    const loaded = (await jiti().evalModule(source, {
+      filename: absolute,
+      async: true,
+      forceTranspile: true,
+    })) as Readonly<Record<string, unknown>>
+    exported = defaultExport(loaded)
   } catch (error) {
-    return {
-      user: {},
-      diagnostic: diag('config-invalid', {
-        message: `${file} threw while loading: ${describe(error)}`,
-        file,
-      }),
-    }
+    return { user: {}, diagnostic: threw(file, error, root) }
   }
-  if (typeof exported !== 'object' || exported === null || Array.isArray(exported)) {
+  if (Object.prototype.toString.call(exported) !== '[object Object]') {
     return {
       user: {},
       diagnostic: diag('config-invalid', {
         message: `${file} must export its configuration as the default export.`,
-        hint: 'export default defineConfig({ /* ... */ })',
+        hint: 'export default defineConfig({ /* ... */ }), resolved before the export rather than as a promise.',
         file,
       }),
     }
   }
   return { user: exported as LoclizrConfig, diagnostic: null }
+}
+
+function defaultExport(loaded: Readonly<Record<string, unknown>>): unknown {
+  // `__esModule` is the marker the transform leaves on a real ES module. A
+  // CommonJS config carries none and declares no `default` binding either,
+  // because its whole `module.exports` is the configuration.
+  if (Object.hasOwn(loaded, '__esModule')) {
+    return Object.hasOwn(loaded, 'default') ? loaded['default'] : undefined
+  }
+  return loaded['default']
+}
+
+function threw(file: string | null, error: unknown, root: string): Diagnostic {
+  return diag('config-invalid', {
+    message: `${file ?? 'The configuration'} threw while loading: ${describe(error, root)}`,
+    file: file ?? undefined,
+  })
 }
 
 function stampConfigFile(
@@ -163,6 +288,10 @@ async function isFile(absolute: string): Promise<boolean> {
   }
 }
 
-function describe(error: unknown): string {
-  return error instanceof Error ? error.message : String(error)
+function describe(error: unknown, root: string): string {
+  const message = error instanceof Error ? error.message : String(error)
+  // A loader error carries the absolute path it was handed, and a diagnostic
+  // that changes with the checkout location makes the JSON reporter unstable
+  // across machines.
+  return message.replaceAll(`${root}/`, '').replaceAll(`${root.replaceAll('/', sep)}${sep}`, '')
 }

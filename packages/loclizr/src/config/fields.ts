@@ -1,12 +1,12 @@
 import type { FormatsConfig, IntlOptions, LoclizrConfig, RuleName, Severity } from '../types'
 import { RULES } from '../diagnostics'
-import { countToken } from './pattern'
+import { countToken, globMetacharacterIn } from './pattern'
 
 export interface UserFields {
   readonly locales: readonly string[] | undefined
   readonly sourceLocale: string | undefined
   readonly catalogs: string
-  readonly catalogFormat: 'i18next' | 'icu'
+  readonly catalogFormat: 'auto' | 'icu' | 'i18next'
   readonly i18nextMarkup: 'literal' | 'tags'
   readonly meta: string | false
   readonly outDir: string
@@ -44,31 +44,58 @@ const NOT_RELEVELABLE: readonly RuleName[] = ['config-invalid', 'outdir-unsafe',
 
 const SEVERITIES: readonly string[] = ['off', 'warn', 'error']
 
+const SEVERITY_EXAMPLE = "severity: { 'ambiguous-source': 'error' }"
+const NUMBER_EXAMPLE = "formats: { number: { compact: { notation: 'compact' } } }"
+const DATE_TIME_EXAMPLE = "formats: { dateTime: { weekday: { weekday: 'long' } } }"
+const INCLUDE_EXAMPLE = "scan: { include: ['src/**/*.{ts,tsx}'] }"
+const EXCLUDE_EXAMPLE = "scan: { exclude: ['**/legacy/**'] }"
+const IDENTIFIERS_EXAMPLE = "identifiers: { 'nav.home': 'navHome' }"
+const ZONE_EXAMPLE = "formats: { timeZone: 'UTC' }"
+
+// RFC 6265 cookie-name. A name outside it is written verbatim into
+// `document.cookie` and never reads back, so the locale stops persisting.
+const COOKIE_NAME = /^[A-Za-z0-9!#$%&'*+\-.^_`|~]+$/
+
+// Whether an option set builds a formatter is locale independent, so a fixed
+// probe locale keeps the verdict the same on every machine.
+const PROBE_LOCALE = 'en'
+
+export function isLocaleTag(tag: string): boolean {
+  try {
+    Intl.getCanonicalLocales(tag)
+    return true
+  } catch {
+    return false
+  }
+}
+
 export function readFields(user: LoclizrConfig): FieldsResult {
   const issues: FieldIssue[] = []
   // A config file is arbitrary JavaScript, so every field is re-checked here
   // whatever its declared type says.
   const raw = user as unknown as Readonly<Record<string, unknown>>
-  const scan = readNested(raw, 'scan', issues)
-  const formats = readNested(raw, 'formats', issues)
+  const scan = readNested(raw, 'scan', INCLUDE_EXAMPLE, issues)
+  const formats = readNested(raw, 'formats', ZONE_EXAMPLE, issues)
   return {
     fields: {
       locales: readLocales(raw, issues),
-      sourceLocale: readString(raw, 'sourceLocale', issues),
+      sourceLocale: readString(raw, 'sourceLocale', "sourceLocale: 'en'", issues),
       catalogs: readCatalogs(raw, issues),
-      catalogFormat: readEnum(raw, 'catalogFormat', ['i18next', 'icu'], 'i18next', issues),
+      catalogFormat: readEnum(raw, 'catalogFormat', ['auto', 'icu', 'i18next'], 'auto', issues),
       i18nextMarkup: readEnum(raw, 'i18nextMarkup', ['literal', 'tags'], 'literal', issues),
       meta: readStringOrFalse(raw, 'meta', DEFAULT_META, issues),
-      outDir: readString(raw, 'outDir', issues) ?? DEFAULT_OUT_DIR,
+      outDir: readString(raw, 'outDir', `outDir: '${DEFAULT_OUT_DIR}'`, issues) ?? DEFAULT_OUT_DIR,
       record: readStringOrFalse(raw, 'record', DEFAULT_RECORD, issues),
-      cookie: readString(raw, 'cookie', issues) ?? DEFAULT_COOKIE,
+      cookie: readCookie(raw, issues),
       augmentLocale: readBoolean(raw, 'augmentLocale', issues) ?? true,
-      groups: readStringRecord(raw, 'groups', issues),
-      identifiers: readStringRecord(raw, 'identifiers', issues),
+      groups: readStringRecord(raw, 'groups', "groups: { errors: 'errors' }", issues),
+      identifiers: readStringRecord(raw, 'identifiers', IDENTIFIERS_EXAMPLE, issues),
       fallback: readFallback(raw, issues),
       formats: readFormats(formats, issues),
-      scanInclude: readGlobs(scan, 'scan.include', 'include', issues) ?? DEFAULT_SCAN_INCLUDE,
-      scanExclude: readGlobs(scan, 'scan.exclude', 'exclude', issues) ?? DEFAULT_SCAN_EXCLUDE,
+      scanInclude:
+        readGlobs(scan, 'scan.include', 'include', INCLUDE_EXAMPLE, issues) ?? DEFAULT_SCAN_INCLUDE,
+      scanExclude:
+        readGlobs(scan, 'scan.exclude', 'exclude', EXCLUDE_EXAMPLE, issues) ?? DEFAULT_SCAN_EXCLUDE,
       severity: readSeverity(raw, issues),
     },
     issues,
@@ -78,12 +105,13 @@ export function readFields(user: LoclizrConfig): FieldsResult {
 function readNested(
   raw: Readonly<Record<string, unknown>>,
   field: string,
+  example: string,
   issues: FieldIssue[],
 ): Readonly<Record<string, unknown>> {
   const value = raw[field]
   if (value === undefined) return {}
   if (!isPlainObject(value)) {
-    issues.push(expected(field, 'an object'))
+    issues.push(expected(field, 'an object', example))
     return {}
   }
   return value
@@ -96,21 +124,47 @@ function readLocales(
   const value = raw['locales']
   if (value === undefined) return undefined
   if (!Array.isArray(value) || value.length === 0 || !value.every(isNonEmptyString)) {
-    issues.push(expected('locales', 'a non-empty array of locale tags'))
+    issues.push(expected('locales', 'a non-empty array of locale tags', "locales: ['en', 'de']"))
     return undefined
   }
   return value
 }
 
 function readCatalogs(raw: Readonly<Record<string, unknown>>, issues: FieldIssue[]): string {
-  const value = readString(raw, 'catalogs', issues)
+  const value = readString(raw, 'catalogs', `catalogs: '${DEFAULT_CATALOGS}'`, issues)
   if (value === undefined) return DEFAULT_CATALOGS
-  if (countToken(value, '{locale}') !== 1 || countToken(value, '{ns}') > 1) {
+  if (
+    countToken(value, '{locale}') !== 1 ||
+    countToken(value, '{ns}') > 1 ||
+    countToken(value, '{sourceLocale}') !== 0
+  ) {
     issues.push({
-      message: '`catalogs` must carry exactly one `{locale}` token and at most one `{ns}` token.',
+      message:
+        '`catalogs` must carry exactly one `{locale}` token, at most one `{ns}` token, and no `{sourceLocale}` token.',
       hint: `catalogs: '${DEFAULT_CATALOGS}'`,
     })
     return DEFAULT_CATALOGS
+  }
+  const metacharacter = globMetacharacterIn(value)
+  if (metacharacter !== null) {
+    issues.push({
+      message: `\`catalogs\` carries the glob character \`${metacharacter}\`, which no catalog file can match.`,
+      hint: `catalogs is a path with tokens, not a glob: '${DEFAULT_CATALOGS}' or 'public/locales/{locale}/{ns}.json'.`,
+    })
+    return DEFAULT_CATALOGS
+  }
+  return value
+}
+
+function readCookie(raw: Readonly<Record<string, unknown>>, issues: FieldIssue[]): string {
+  const value = readString(raw, 'cookie', `cookie: '${DEFAULT_COOKIE}'`, issues)
+  if (value === undefined) return DEFAULT_COOKIE
+  if (!COOKIE_NAME.test(value)) {
+    issues.push({
+      message: `\`cookie\` is \`${value}\`, which is not a cookie name.`,
+      hint: "a cookie name carries no space, `;`, `=` or comma, so a name outside that set never reads back: cookie: 'locale'.",
+    })
+    return DEFAULT_COOKIE
   }
   return value
 }
@@ -122,13 +176,20 @@ function readFallback(
   const value = raw['fallback']
   if (value === undefined || value === 'bcp47') return 'bcp47'
   if (!isPlainObject(value)) {
-    issues.push(expected('fallback', "'bcp47' or a map of locale tag to locale tags"))
+    const shape = "'bcp47' or a map of locale tag to locale tags"
+    issues.push(expected('fallback', shape, "fallback: { nb: ['no'] }"))
     return 'bcp47'
   }
-  const chains: Record<string, readonly string[]> = {}
+  // A null prototype, because a config parsed from JSON can carry `__proto__` as
+  // an own key and assigning it on a plain object would run the setter instead.
+  const chains = Object.create(null) as Record<string, readonly string[]>
   for (const [locale, chain] of Object.entries(value)) {
+    // A key no formatter could name can never be a declared locale, so no chain
+    // keyed by it is ever walked.
+    if (!isLocaleTag(locale)) continue
     if (!Array.isArray(chain) || !chain.every(isNonEmptyString)) {
-      issues.push(expected(`fallback.${locale}`, 'an array of locale tags'))
+      const example = `fallback: { '${locale}': ['en'] }`
+      issues.push(expected(`fallback.${locale}`, 'an array of locale tags', example))
       continue
     }
     chains[locale] = chain
@@ -142,30 +203,71 @@ function readFormats(
 ): FormatsConfig {
   const timeZone = raw['timeZone']
   if (timeZone !== undefined && !isNonEmptyString(timeZone)) {
-    issues.push(expected('formats.timeZone', 'an IANA time zone name'))
+    issues.push(expected('formats.timeZone', 'an IANA time zone name', ZONE_EXAMPLE))
+  }
+  const zone = isNonEmptyString(timeZone) ? timeZone : null
+  // The zone is merged into every date and time option set and nothing later in
+  // the pipeline builds a formatter, so a zone Intl cannot take first throws in
+  // the viewer's browser, on every date message at once.
+  const rejection =
+    zone === null ? null : buildFailure(() => buildDateTimeFormat({ timeZone: zone }))
+  if (rejection !== null) {
+    issues.push({
+      message: `\`formats.timeZone\` is \`${zone}\`, which Intl rejects.`,
+      hint: rejection,
+    })
   }
   return {
-    timeZone: isNonEmptyString(timeZone) ? timeZone : null,
-    number: readOptionsRecord(raw, 'number', issues),
-    dateTime: readOptionsRecord(raw, 'dateTime', issues),
+    timeZone: rejection === null ? zone : null,
+    number: readOptionsRecord(raw, 'number', NUMBER_EXAMPLE, buildNumberFormat, issues),
+    dateTime: readOptionsRecord(raw, 'dateTime', DATE_TIME_EXAMPLE, buildDateTimeFormat, issues),
+  }
+}
+
+function buildNumberFormat(options: IntlOptions): void {
+  new Intl.NumberFormat(PROBE_LOCALE, options as Intl.NumberFormatOptions)
+}
+
+function buildDateTimeFormat(options: IntlOptions): void {
+  new Intl.DateTimeFormat(PROBE_LOCALE, options as Intl.DateTimeFormatOptions)
+}
+
+function buildFailure(build: () => void): string | null {
+  try {
+    build()
+    return null
+  } catch (error) {
+    return error instanceof Error ? error.message : String(error)
   }
 }
 
 function readOptionsRecord(
   raw: Readonly<Record<string, unknown>>,
   field: string,
+  example: string,
+  build: (options: IntlOptions) => void,
   issues: FieldIssue[],
 ): Readonly<Record<string, IntlOptions>> {
   const value = raw[field]
   if (value === undefined) return {}
   if (!isPlainObject(value)) {
-    issues.push(expected(`formats.${field}`, 'an object of named Intl option sets'))
+    issues.push(expected(`formats.${field}`, 'an object of named Intl option sets', example))
     return {}
   }
-  const styles: Record<string, IntlOptions> = {}
+  // A null prototype: a config parsed from JSON can carry `__proto__` as an own
+  // key, and the named style lookup downstream must not reach `toString`.
+  const styles = Object.create(null) as Record<string, IntlOptions>
   for (const [name, options] of Object.entries(value)) {
     if (!isPlainObject(options) || !Object.values(options).every(isOptionValue)) {
-      issues.push(expected(`formats.${field}.${name}`, 'an object of Intl options'))
+      issues.push(expected(`formats.${field}.${name}`, 'an object of Intl options', example))
+      continue
+    }
+    const rejection = buildFailure(() => build(options as IntlOptions))
+    if (rejection !== null) {
+      issues.push({
+        message: `\`formats.${field}.${name}\` is not an option set Intl can build.`,
+        hint: rejection,
+      })
       continue
     }
     styles[name] = options as IntlOptions
@@ -180,7 +282,7 @@ function readSeverity(
   const value = raw['severity']
   if (value === undefined) return {}
   if (!isPlainObject(value)) {
-    issues.push(expected('severity', 'a map of rule name to off, warn or error'))
+    issues.push(expected('severity', 'a map of rule name to off, warn or error', SEVERITY_EXAMPLE))
     return {}
   }
   const overrides: Partial<Record<RuleName, Severity>> = {}
@@ -200,7 +302,8 @@ function readSeverity(
       continue
     }
     if (typeof level !== 'string' || !SEVERITIES.includes(level)) {
-      issues.push(expected(`severity.${rule}`, "'off', 'warn' or 'error'"))
+      const example = `severity: { '${rule}': 'warn' }`
+      issues.push(expected(`severity.${rule}`, "'off', 'warn' or 'error'", example))
       continue
     }
     overrides[rule as RuleName] = level as Severity
@@ -212,12 +315,13 @@ function readGlobs(
   raw: Readonly<Record<string, unknown>>,
   label: string,
   field: string,
+  example: string,
   issues: FieldIssue[],
 ): readonly string[] | undefined {
   const value = raw[field]
   if (value === undefined) return undefined
   if (!Array.isArray(value) || !value.every(isNonEmptyString)) {
-    issues.push(expected(label, 'an array of glob patterns'))
+    issues.push(expected(label, 'an array of glob patterns', example))
     return undefined
   }
   return value
@@ -226,12 +330,13 @@ function readGlobs(
 function readStringRecord(
   raw: Readonly<Record<string, unknown>>,
   field: string,
+  example: string,
   issues: FieldIssue[],
 ): Readonly<Record<string, string>> {
   const value = raw[field]
   if (value === undefined) return {}
   if (!isPlainObject(value) || !Object.values(value).every(isNonEmptyString)) {
-    issues.push(expected(field, 'a map of string to string'))
+    issues.push(expected(field, 'a map of string to string', example))
     return {}
   }
   return value as Readonly<Record<string, string>>
@@ -240,12 +345,13 @@ function readStringRecord(
 function readString(
   raw: Readonly<Record<string, unknown>>,
   field: string,
+  example: string,
   issues: FieldIssue[],
 ): string | undefined {
   const value = raw[field]
   if (value === undefined) return undefined
   if (!isNonEmptyString(value)) {
-    issues.push(expected(field, 'a non-empty string'))
+    issues.push(expected(field, 'a non-empty string', example))
     return undefined
   }
   return value
@@ -261,7 +367,7 @@ function readStringOrFalse(
   if (value === undefined) return fallback
   if (value === false) return false
   if (!isNonEmptyString(value)) {
-    issues.push(expected(field, 'a path or false'))
+    issues.push(expected(field, 'a path or false', `${field}: '${fallback}'`))
     return fallback
   }
   return value
@@ -275,7 +381,7 @@ function readBoolean(
   const value = raw[field]
   if (value === undefined) return undefined
   if (typeof value !== 'boolean') {
-    issues.push(expected(field, 'a boolean'))
+    issues.push(expected(field, 'a boolean', `${field}: false`))
     return undefined
   }
   return value
@@ -291,14 +397,17 @@ function readEnum<T extends string>(
   const value = raw[field]
   if (value === undefined) return fallback
   if (typeof value !== 'string' || !allowed.includes(value as T)) {
-    issues.push(expected(field, allowed.map((one) => `'${one}'`).join(' or ')))
+    const shape = allowed.map((one) => `'${one}'`).join(' or ')
+    issues.push(expected(field, shape, `${field}: '${fallback}'`))
     return fallback
   }
   return value as T
 }
 
-function expected(field: string, shape: string): FieldIssue {
-  return { message: `\`${field}\` must be ${shape}.`, hint: null }
+// Every rule in the compiler ships a line the reader can paste, and a rejected
+// config field is the first diagnostic a new project ever sees.
+function expected(field: string, shape: string, example: string): FieldIssue {
+  return { message: `\`${field}\` must be ${shape}.`, hint: example }
 }
 
 function isPlainObject(value: unknown): value is Readonly<Record<string, unknown>> {
