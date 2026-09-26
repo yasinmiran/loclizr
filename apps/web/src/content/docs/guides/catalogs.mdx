@@ -3,4 +3,191 @@ title: Catalogs and ICU messages
 description: How a catalog file is read, and what ICU MessageFormat you can write in it.
 ---
 
-Coming soon.
+import { Aside } from '@astrojs/starlight/components'
+
+A catalog is one JSON file per locale at `locales/{locale}.json`. The compiler reads it, never
+writes it, and never asks you to edit it. Nesting is the only structure: an object is a level, a
+string is a message, and the key path is the dotted join of the levels, so `nav.home` below becomes
+`m.nav_home()` in a module named `nav`. A key you write already dotted, `"nav.home": "Home"`,
+flattens to the same path and collides with the nested form as `LZ1011 duplicate-key`.
+
+```json title="locales/en.json"
+{
+  "nav": { "home": "Home", "cart": "Cart" },
+  "cart": {
+    "greeting": "Hi {name}, your cart is ready",
+    "items": "{count, plural, =0 {Your cart is empty} one {# item in your cart} other {# items in your cart}}",
+    "total": "Total: {amount, number, ::currency/USD}",
+    "updated": "Updated {at, date, medium}"
+  },
+  "order": {
+    "status": "{state, select, packing {Being packed} shipped {On its way} delivered {Delivered} other {Processing}}"
+  },
+  "terms": { "accept": "Read our <link>terms</link> before you continue." }
+}
+```
+
+A `null` leaf is a missing translation and feeds the fallback chain like an absent key would. An
+array leaf is `LZ1010 catalog-shape-invalid`: the app wants the array, and flattening it into
+`tips.0` and `tips.1` would hand it three messages instead.
+
+Which grammar a file is read in is decided per file. A file containing `{{` anywhere, or a key with
+a CLDR plural suffix, is read as i18next and converted in memory; everything else is ICU, which is
+what this page is about. [Importing i18next catalogs](/guides/i18next-import/) covers the other
+path.
+
+## Arguments
+
+`{name}` is a plain argument, typed `string | number`. `{count, plural, ...}` makes `count` a
+`number`, `{at, date, ...}` makes `at` a `Date | number`, and a select's argument is the union of
+its branch names with `other` left out, so `order.status` above takes
+`'packing' | 'shipped' | 'delivered'`. The generated declaration is the contract, and it is
+printed with the source text above it:
+
+```ts title="src/loclizr/messages/cart.d.ts"
+/** en: "Hi {name}, your cart is ready" */
+export declare function cart_greeting(args: { name: string | number }, opts?: MessageOptions): string
+/** en: "{count, plural, =0 {Your cart is empty} one {# item in your cart} other {# items in your cart}}" */
+export declare function cart_items(args: { count: number }, opts?: MessageOptions): string
+/** en: "Updated {at, date, medium}" */
+export declare function cart_updated(args: { at: Date | number }, opts?: MessageOptions): string
+```
+
+## Plural and selectordinal
+
+Exact branches are tested first, against the value as passed. Then `Intl.PluralRules` picks a
+keyword category, and `#` renders the number through `Intl.NumberFormat`. With an `offset`, the
+category and `#` both use the value minus the offset while `=0` and `=1` still see the original.
+
+```json title="locales/en.json"
+{
+  "guests": "{count, plural, offset:1 =0 {Nobody is coming} =1 {Only you} one {You and # other} other {You and # others}}",
+  "rank": "{place, selectordinal, one {#st} two {#nd} few {#rd} other {#th}} place"
+}
+```
+
+```js title="src/loclizr/messages/_root.js (en arm)"
+if (n0 === 0) return `Nobody is coming`
+if (n0 === 1) return `Only you`
+switch ($plural1(l, n0 - 1, false)) {
+  case 'one':
+    return `You and ${$number1(l, n0 - 1, $f44136fa355b3678a)} other`
+  default:
+    return `You and ${$number1(l, n0 - 1, $f44136fa355b3678a)} others`
+}
+```
+
+`other` is required; a plural without it is `LZ2004`, a select without it `LZ2005`, and the
+message is dropped from the output rather than guessed at. The category set is per locale and comes
+from `Intl.PluralRules`, not a table. A German catalog with a `zero` branch passes every syntax
+check and never renders that branch, because German never selects `zero`; that is
+`LZ3013 plural-category-unreachable`, and the fix is the exact branch `=0`. The mirror case, a
+locale missing a category it needs, is `LZ3007`.
+
+## Select
+
+```json title="locales/en.json"
+{ "order": { "status": "{state, select, packing {Being packed} shipped {On its way} delivered {Delivered} other {Processing}}" } }
+```
+
+The example app derives its own state type from the generated signature rather than declaring it
+twice: `type Delivery = Parameters<typeof m.order_status>[0]['state']`. A translation that drops a
+branch gets a warning (`LZ3008`); one that adds a branch the source lacks gets an error (`LZ3009`).
+
+## Number and date styles
+
+| Written | Intl options |
+| --- | --- |
+| `{n, number}` | `{}` |
+| `{n, number, integer}` | `{ maximumFractionDigits: 0 }` |
+| `{ratio, number, percent}` | `{ style: 'percent' }` |
+| `{amount, number, ::currency/USD}` | the skeleton, resolved at build time |
+| `{views, number, ::compact-short}` | `{ notation: 'compact', compactDisplay: 'short' }` |
+| `{at, date}` or `{at, date, medium}` | `{ dateStyle: 'medium' }` |
+| `{when, time, short}` | `{ timeStyle: 'short' }` |
+| `{when, date, ::yMMMd}` | `{ year: 'numeric', month: 'short', day: 'numeric' }` |
+
+A bare `{amount, number, currency}` is `LZ2002 icu-style-unknown`, because ICU carries no
+currency code:
+
+```text
+error  LZ2002  icu-style-unknown  locales/en.json:14:11  en  usd
+
+  "currency" is not a known number style.
+
+  fix  ICU carries no currency code. Define formats.number.currency, or write ::currency/USD.
+```
+
+Any other name is looked up in `formats.number` or `formats.dateTime` in `loclizr.config.ts`, so
+`{amount, number, eur}` works once `eur` is defined there. `formats.timeZone` is merged into every
+date and time style, which matters as soon as a server renders one; `LZ3011 date-without-timezone`
+exists for that case and ships off, and [Server rendering](/guides/server-rendering/) says when to
+turn it on.
+
+## Markup
+
+`<link>terms</link>` makes `link` a required argument and changes the return type: the function
+hands back an array of strings and whatever your handler returned, instead of a string.
+
+```ts title="src/loclizr/messages/terms.d.ts"
+/** en: "Read our <link>terms</link> before you continue." */
+export declare function terms_accept<T>(
+  args: { link: (chunks: readonly (string | T)[]) => T },
+  opts?: MessageOptions,
+): readonly (string | T)[]
+```
+
+Tags nest, so `<b><i>full</i> terms</b>` compiles to `args.b([args.i(['full']), ' terms'])`. A
+translator may renest tags freely; only the set of tag names is compared across locales
+(`LZ3010`). Attributes inside a tag are not supported. `Parts` from `loclizr/react` renders the
+array, see [React](/guides/react/).
+
+## Apostrophes
+
+ICU quoting only starts when an apostrophe is followed by `{`, `}`, `<`, or `#` inside a plural
+branch. `Don't` is fine as written. To show a literal brace, quote it: `'{'`. A doubled `''` is
+always one literal apostrophe. The canonical source the record carries is printed in that quoted
+form, so `Don't use '{' or '}' as literal text` appears there as
+`Don''t use '{' or '}' as literal text` and renders as `Don't use { or } as literal text`.
+
+## Descriptions and placeholder notes
+
+Notes for the translator live beside the source catalog, in `locales/en.meta.json`, never inside
+it. A TMS imports every leaf of `en.json` as a translatable string, so a description written there
+would ship as copy.
+
+```json title="locales/en.meta.json"
+{
+  "cart.items": {
+    "description": "Badge under the cart icon on every page.",
+    "placeholders": { "count": "Number of line items, not total quantity." }
+  },
+  "order.status": { "description": "Chip in the order list. Past tense." }
+}
+```
+
+Both fields land in the context record. A note for a key that no longer exists is `LZ1015`. The
+rule that makes descriptions worth writing is `LZ3012 ambiguous-source`, which fires when two keys
+share the same source text and any one of them is undescribed. Here `app.cart` lost its note while
+`nav.cart` kept one:
+
+```text
+error  LZ3012  ambiguous-source  locales/en.json:5:14
+
+  2 keys share the source text "Cart" and one has no description.
+  A translator sees one string with no way to tell the meanings apart.
+
+    app.cart    locales/en.json:5:14      no description
+    nav.cart    locales/en.json:21:14     "Top navigation link that opens the cart page."
+
+  fix  add descriptions in locales/en.meta.json:
+         "app.cart": { "description": "" }
+  or   turn the rule down in loclizr.config.ts:
+         severity: { 'ambiguous-source': 'warn' }
+```
+
+<Aside type="note">
+That rule ships at `warn`. `loclizr init` raises it to `error` on a fresh project, where it costs
+nothing, and leaves the line commented out on an existing catalog, where the first build would
+otherwise be a wall of shared "Save" and "Cancel" strings.
+</Aside>

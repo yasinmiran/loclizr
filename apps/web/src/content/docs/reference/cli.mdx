@@ -1,6 +1,487 @@
 ---
 title: CLI
-description: Commands, flags and exit codes for the loclizr binary.
+description: The three commands, every flag, the two reporters and the three exit codes of the loclizr binary, from real runs.
 ---
 
-Coming soon.
+import { Aside, Tabs, TabItem } from '@astrojs/starlight/components'
+
+The binary is `loclizr`, installed by the package of the same name and run as `npx loclizr` or
+through a `package.json` script. There are three commands and seven options, and one help text
+that prints for all of them. There is no `--version` and no per-command help; `loclizr build --help`
+prints the same block as `loclizr --help`.
+
+```txt title="npx loclizr --help"
+loclizr <command> [options]
+
+Commands
+  init     write loclizr.config.ts and a seed catalog, then print the
+           package.json scripts and the CI step
+  build    read the catalogs, check them, write the generated tree and the
+           context record
+  check    everything build does with no writes, plus the output and record
+           gates
+
+Options
+  --cwd <dir>             directory to run in, default the current one
+  --config <path>         config file to load, or the one init writes
+  --reporter human|json   diagnostic format, default human
+  --max-warnings <n>      exit 1 above this many warnings, --max-warnings=-1
+                          for no cap, which is also the default
+  --quiet                 print errors only, plus a summary line when warnings
+                          were dropped
+  --no-fail               build only: report everything, exit 0 once output
+                          was written
+  -h, --help              print this
+```
+
+Every sample on this page comes from running that binary against the catalogs of the
+[example app](https://github.com/loclizr/loclizr/tree/main/examples/vite-react): `en.json`,
+`en.meta.json`, `de.json` and a sparse `de-AT.json`, with `groups: { errors: 'errors' }` in the
+config. Where a sample shows an error, the catalog was edited to produce it, and the edit is named.
+
+## Commands
+
+### `loclizr init`
+
+Writes `loclizr.config.ts` and, when the default catalog layout is in use, `locales/en.json`. Both
+writes are create-only: a file that already exists is left exactly as it was, and the output says so.
+It then prints three blocks, an install note, the `package.json` scripts and a CI step, rather
+than editing `package.json` for you.
+
+```txt title="npx loclizr init, in an empty directory"
+wrote loclizr.config.ts
+wrote locales/en.json
+
+Install loclizr, which loclizr.config.ts imports:
+
+  npm i -D loclizr
+
+Add these scripts to package.json:
+
+  "prepare": "loclizr build --no-fail",
+  "predev": "loclizr build --no-fail",
+  "prebuild": "loclizr build",
+  "pretypecheck": "loclizr build"
+
+Add this step to CI:
+
+  # loclizr check compares the committed context record against this tree.
+  # loclizr build would rewrite that record in the CI workspace and pass.
+  - run: npx loclizr check
+```
+
+Before writing anything, `init` looks for catalogs already on disk and reports what it found
+(`found 3 locales at locales/{locale}.json: de, de-AT, en`). That decides two lines of the config it
+writes. A project with no source catalog, or an empty one, is greenfield and gets
+`severity: { 'ambiguous-source': 'error' }` so the context gate is hard from the first commit. A
+project whose catalogs already exist gets the same line commented out, with a note saying to turn it
+on once `locales/en.meta.json` describes the keys, because on a catalog imported without
+descriptions the rule fires on every shared string at once.
+
+<Tabs>
+<TabItem label="Greenfield">
+
+```ts title="loclizr.config.ts"
+import { defineConfig } from 'loclizr'
+
+export default defineConfig({
+  sourceLocale: 'en',
+  catalogs: 'locales/{locale}.json',
+  outDir: 'src/loclizr',
+  severity: { 'ambiguous-source': 'error' },
+})
+```
+
+</TabItem>
+<TabItem label="Existing catalogs">
+
+```ts title="loclizr.config.ts"
+import { defineConfig } from 'loclizr'
+
+export default defineConfig({
+  sourceLocale: 'en',
+  catalogs: 'locales/{locale}.json',
+  outDir: 'src/loclizr',
+  // Turn this on once locales/en.meta.json describes your keys. It
+  // reports keys that share source text where at least one of them has no
+  // description, so on a catalog imported without descriptions it fires on
+  // every shared string at once.
+  // severity: { 'ambiguous-source': 'error' },
+})
+```
+
+</TabItem>
+</Tabs>
+
+Two more decisions happen inside that template. If another generated tree already exists anywhere
+in the workspace (a `messages.js` carrying the generated header, outside `node_modules`, `dist`,
+`build` and the `outDir` this config is about to declare), `init` adds `augmentLocale: false` with a
+comment explaining why, since two trees augmenting the locale registry in one TypeScript program is
+TS2717. And if the catalogs it found are laid out some other way, say
+`public/locales/{locale}/{ns}.json`, it writes that pattern into `catalogs` and skips the seed file,
+because a demo `locales/en.json` beside a real tree would compile the demo strings and hide every
+real catalog.
+
+The seed catalog is ICU, with a plural written out as `{count, plural, one {...} other {...}}`
+rather than an `_one` / `_other` pair, so the file classifies as ICU under the default
+`catalogFormat: 'auto'` and keeps doing so after an imported i18next file lands beside it. The
+config never carries a `catalogFormat` line.
+
+`init` takes `--cwd` and `--config`. It does not take `--no-fail`; passing it is a usage error.
+
+### `loclizr build`
+
+Reads the catalogs, lowers every message, runs the whole rule set, scans the sources for usage
+sites, writes the generated tree under `outDir` and the context record beside the catalogs. Files
+are written only when their bytes changed, and the summary counts what was written.
+
+```txt title="npx loclizr build, first run"
+warn  LZ4006  group-args-heterogeneous
+
+  The group "errors" has members with different argument sets, so every dynamic call site must pass the union: seconds.
+
+    errors.forbidden       takes no arguments
+    errors.not_found       takes no arguments
+    errors.rate_limited    takes seconds
+
+  fix  Split the group by argument shape, or give the odd members bare {x} arguments.
+
+wrote src/loclizr (21 files) and locales/loclizr.context.json
+commit locales/loclizr.context.json; `loclizr check` compares it
+26 messages, 3 locales (source en), 0 errors, 1 warning
+```
+
+A second run with nothing changed prints the same diagnostic and the same counts and no `wrote`
+line. After writing, `build` prunes: every file under `outDir` that carries the generated header
+and that this emit did not produce is deleted, so a renamed top-level key does not leave
+`messages/old.js` behind. A file under `outDir` without the header is never touched, and is
+reported as `LZ1021 outdir-foreign-file` instead.
+
+Non-fatal errors still emit. A missing German translation writes `messages.js` anyway, fills that
+message from the fallback chain, prints `LZ3001` and exits 1; the summary then carries a
+`fell back to source text: de 1` line. Fatal diagnostics (an identifier collision, no catalogs, an
+invalid config) write nothing.
+
+`build` is the only command that takes `--no-fail`.
+
+### `loclizr check`
+
+Everything `build` does, with no writes, plus two gates that only make sense against a committed
+tree: `LZ5002 output-stale`, when a generated file on disk differs from what this build would write
+or is an orphan carrying the header, and `LZ5003 record-stale`, when the committed context record
+differs from the one these catalogs produce. This is the command for CI. Here `cart.greeting` was
+edited in `en.json` after the last `build`:
+
+```txt title="npx loclizr check, after editing en.json"
+error  LZ5002  output-stale  src/loclizr/messages/cart.d.ts
+
+  `src/loclizr/messages/cart.d.ts` differs from what this build would write.
+
+  fix  the generated tree on disk is stale; run `loclizr build`.
+
+error  LZ5002  output-stale  src/loclizr/messages/cart.js
+
+  `src/loclizr/messages/cart.js` differs from what this build would write.
+
+  fix  the generated tree on disk is stale; run `loclizr build`.
+
+error  LZ5003  record-stale  locales/loclizr.context.json
+
+  `locales/loclizr.context.json` no longer matches the catalogs: the contract this build derived differs from the committed record.
+
+  fix  run `loclizr build` and commit the record with the string change.
+
+warn  LZ4006  group-args-heterogeneous
+
+  The group "errors" has members with different argument sets, so every dynamic call site must pass the union: seconds.
+
+    errors.forbidden       takes no arguments
+    errors.not_found       takes no arguments
+    errors.rate_limited    takes seconds
+
+  fix  Split the group by argument shape, or give the odd members bare {x} arguments.
+
+26 messages, 3 locales (source en), 3 errors, 1 warning
+```
+
+On a tree that has never been built, `check` reports `LZ5003` with the message that the record does
+not exist and was never committed. `LZ5002` fires only for files that are on disk, so a gitignored
+`outDir` that a CI checkout does not have raises nothing for it.
+
+`check` refuses `--no-fail`:
+
+```txt
+loclizr: --no-fail is not accepted by `loclizr check`, which is the gate
+```
+
+## Options
+
+All options are global and go after the command. `parseArgs` from `node:util` does the parsing, so
+`--max-warnings 0` and `--max-warnings=0` are the same thing.
+
+| Option | Takes | What it does |
+| --- | --- | --- |
+| `--cwd <dir>` | a directory | The project root: where the config is looked for, and what every path in the config and in every diagnostic is relative to. Defaults to the current directory. A path that does not exist or is not a directory is a usage error, exit 2. |
+| `--config <path>` | a file | The config file to load, relative to `--cwd`. Without it, the first of `loclizr.config.ts`, `loclizr.config.mts`, `loclizr.config.js`, `loclizr.config.mjs` wins, and none of them is fine: defaults apply. A path that names no file is `LZ1001 config-invalid`, exit 2. |
+| `--reporter human\|json` | `human` or `json` | The diagnostic format. Anything else is a usage error. |
+| `--max-warnings <n>` | an integer | Exit 1 when the warning count is above `n`. Absent, or any negative value, means no cap, so warnings alone never fail a run. A non-integer is a usage error. |
+| `--quiet` | nothing | Prints error diagnostics only. The summary line is kept whenever it accounts for warnings the filter hid, so a run that exits 1 on `--max-warnings` still says why. Has no effect on the JSON reporter. |
+| `--no-fail` | nothing | `build` only. Same diagnostics, exit 0 once output was written. Below. |
+| `-h`, `--help` | nothing | Prints the usage block and exits 0, with or without a command beside it. |
+
+Colour is used when stdout is a TTY and `NO_COLOR` is unset. Piped output, and CI, get plain text.
+
+## `--no-fail`
+
+The dev loop's flag. It changes the exit code and nothing else: every diagnostic is produced,
+re-levelled, sorted and printed exactly as without it, and the record is rewritten and `LZ5007`
+raised exactly as without it. What moves is that a `build` which got as far as writing output exits
+0 instead of 1.
+
+The two runs below started from identical copies of the example, each with `cart.greeting` deleted
+from `de.json`. The only difference is the last line.
+
+<Tabs>
+<TabItem label="build">
+
+```txt
+error  LZ3001  missing-translation  locales/de.json  de  cart.greeting
+
+  The de catalog has no value for this key, so this message renders en text.
+
+  fix  add "cart.greeting" to locales/de.json
+
+warn  LZ4006  group-args-heterogeneous
+
+  The group "errors" has members with different argument sets, so every dynamic call site must pass the union: seconds.
+
+    errors.forbidden       takes no arguments
+    errors.not_found       takes no arguments
+    errors.rate_limited    takes seconds
+
+  fix  Split the group by argument shape, or give the odd members bare {x} arguments.
+
+wrote src/loclizr (1 file) and locales/loclizr.context.json
+commit locales/loclizr.context.json; `loclizr check` compares it
+26 messages, 3 locales (source en), 1 error, 1 warning
+fell back to source text: de 1
+```
+
+Exit code 1.
+
+</TabItem>
+<TabItem label="build --no-fail">
+
+```txt
+error  LZ3001  missing-translation  locales/de.json  de  cart.greeting
+
+  The de catalog has no value for this key, so this message renders en text.
+
+  fix  add "cart.greeting" to locales/de.json
+
+warn  LZ4006  group-args-heterogeneous
+
+  The group "errors" has members with different argument sets, so every dynamic call site must pass the union: seconds.
+
+    errors.forbidden       takes no arguments
+    errors.not_found       takes no arguments
+    errors.rate_limited    takes seconds
+
+  fix  Split the group by argument shape, or give the odd members bare {x} arguments.
+
+wrote src/loclizr (1 file) and locales/loclizr.context.json
+commit locales/loclizr.context.json; `loclizr check` compares it
+26 messages, 3 locales (source en), 1 error, 1 warning
+fell back to source text: de 1
+```
+
+Exit code 0.
+
+</TabItem>
+</Tabs>
+
+The flag moves exactly one code, and only downward. Exit 2 is untouched, because the tool could not
+run at all and there is nothing to keep working with. A run that produced no output still exits 1:
+an identifier collision or a missing source catalog means no tree was written, `vite dev` is about
+to fail on a missing module anyway, and a 0 there would be a lie the next command uncovers. A
+write-if-changed run that wrote zero bytes still counts as having reached the write step, so a
+clean rebuild under `--no-fail` is 0.
+
+It is not an escape from the gate, because the gate is elsewhere: `prebuild` and `pretypecheck`
+run plain `loclizr build`, CI runs `loclizr check`, and neither takes the flag. `prepare` and
+`predev` exist to make a working tree exist on a fresh clone and at the start of every dev session,
+which is why those two are the ones `init` puts it on.
+
+## Exit codes
+
+| Code | Meaning |
+| --- | --- |
+| 0 | Clean, or warnings only and at or under `--max-warnings`. Also any `build --no-fail` that reached the write step. |
+| 1 | At least one error, or warnings over `--max-warnings`. |
+| 2 | The tool could not run. |
+
+Exit 2 has a closed list of causes. Three rules carry it: `LZ1001 config-invalid`,
+`LZ1007 outdir-unsafe` and `LZ5001 output-unwritable`, the same three that `severity` cannot
+re-level. The rest are outside the rule set: a usage error (unknown command or option, `--no-fail`
+on `check` or `init`, a bad `--reporter` value, a non-integer `--max-warnings`, a `--cwd` that does
+not exist), an `init` that could not write one of its two files, and anything that threw
+unexpectedly, which prints `loclizr: <message>` to stderr.
+
+```txt title="exit 2 from a config that names an un-relevelable rule"
+error  LZ1001  config-invalid  loclizr.config.ts
+
+  `severity` cannot re-level `config-invalid`.
+
+  fix  LZ1001 decides whether the tool can run at all, so turning it down would let a broken build exit 0.
+```
+
+Warnings and `--max-warnings` decide between 0 and 1 only. The default of no cap is what decides
+whether a freshly imported i18next catalog exits 0 or 1 on its first build, since eighteen of the
+fifty-six rules default to `warn`.
+
+## Reporters
+
+Both reporters print the same diagnostics in the same order: by severity with errors first, then by
+code, file, locale, key and offset. Every path is POSIX and relative to the project root, on every
+machine, so the sort is stable across a laptop and CI.
+
+### Human
+
+One block per diagnostic, blocks separated by a blank line, then the summary. The header line is
+severity, code, rule, then whichever of `file:line:column`, locale and key the diagnostic carries,
+separated by two spaces. Related locations, when the rule has them, are a three-column table.
+The `fix` line is the rule's hint; a multi-line hint keeps its lines.
+
+```txt title="LZ3012, after adding an undescribed footer.cart beside app.cart and nav.cart"
+error  LZ3012  ambiguous-source  locales/en.json:5:14
+
+  3 keys share the source text "Cart" and one has no description.
+  A translator sees one string with no way to tell the meanings apart.
+
+    app.cart       locales/en.json:5:14      "Heading over the cart panel. A section title, not a link."
+    footer.cart    locales/en.json:41:14     no description
+    nav.cart       locales/en.json:21:14     "Top navigation link that opens the cart page."
+
+  fix  add descriptions in locales/en.meta.json:
+         "footer.cart": { "description": "" }
+  or   turn the rule down in loclizr.config.ts:
+         severity: { 'ambiguous-source': 'warn' }
+```
+
+The summary is one line of counts, `27 messages, 3 locales (source en), 6 errors, 1 warning`,
+preceded on a `build` by a `wrote ...` line when anything was written and a reminder to commit the
+record when it was written without an `LZ5007` already saying so, and followed by
+`fell back to source text: de 1, de-AT 1` when any message resolved all the way to source text.
+
+Catalog keys, source text and file paths all reach a terminal through this reporter. Control
+characters in that range, which a terminal would read as commands, are printed as `<U+009B>`
+rather than obeyed, and a newline inside a key collapses to one space so the header stays one line.
+
+### JSON
+
+One object on stdout, pretty-printed with two spaces, holding `schema`, `diagnostics` and
+`summary`. `--quiet` never thins it, because the summary counts have to agree with the array
+beside them.
+
+```json title="npx loclizr check --reporter json, clean tree"
+{
+  "schema": 1,
+  "diagnostics": [
+    {
+      "code": "LZ4006",
+      "rule": "group-args-heterogeneous",
+      "severity": "warn",
+      "fatal": false,
+      "message": "The group \"errors\" has members with different argument sets, so every dynamic call site must pass the union: seconds.",
+      "hint": "Split the group by argument shape, or give the odd members bare {x} arguments.",
+      "file": null,
+      "locale": null,
+      "key": null,
+      "span": null,
+      "related": [
+        {
+          "file": null,
+          "locale": null,
+          "key": "errors.forbidden",
+          "span": null,
+          "message": "takes no arguments"
+        },
+        {
+          "file": null,
+          "locale": null,
+          "key": "errors.not_found",
+          "span": null,
+          "message": "takes no arguments"
+        },
+        {
+          "file": null,
+          "locale": null,
+          "key": "errors.rate_limited",
+          "span": null,
+          "message": "takes seconds"
+        }
+      ]
+    }
+  ],
+  "summary": {
+    "errors": 0,
+    "warnings": 1,
+    "messages": 26,
+    "locales": 3,
+    "fellBack": []
+  }
+}
+```
+
+Each diagnostic has every field, with `null` where it does not apply:
+
+| Field | Type | Meaning |
+| --- | --- | --- |
+| `code` | `string` | The stable code, `LZ3001`. |
+| `rule` | `string` | The rule name, the key `severity` accepts. |
+| `severity` | `"warn"` or `"error"` | After `severity` in the config has been applied. |
+| `fatal` | `boolean` | Whether this diagnostic blocked emission. |
+| `message` | `string` | The body. May contain newlines. |
+| `hint` | `string` or `null` | The `fix` text. |
+| `file` | `string` or `null` | POSIX, relative to the project root. |
+| `locale` | `string` or `null` | The locale the diagnostic is about. |
+| `key` | `string` or `null` | The flat catalog key. |
+| `span` | object or `null` | `{ line, column, offset, length }`, 1-based line and column. A missing translation has no span, since there is nothing to point at. |
+| `related` | array | Each entry carries `file`, `locale`, `key`, `span` and `message`, the rows the human reporter prints as a table. |
+
+`summary.fellBack` is an array of `{ "locale", "count" }`, one entry per locale with at least one
+message that resolved to source text, so it is `[]` on a clean tree and
+`[{ "locale": "de", "count": 2 }, { "locale": "de-AT", "count": 1 }]` after deleting two German
+strings. A run that halts on an invalid config reports `"messages": 0` and `"locales": 0`.
+
+JSON escapes DEL and the C1 control block as `\u007f` through `\u009f`, so a parser gets the
+catalog's bytes back while a terminal tailing the output cannot be told to move the cursor.
+
+## The scripts `init` prints
+
+```json title="package.json"
+"prepare": "loclizr build --no-fail",
+"predev": "loclizr build --no-fail",
+"prebuild": "loclizr build",
+"pretypecheck": "loclizr build"
+```
+
+The split is deliberate. `prepare` runs on install and `predev` before `vite dev`; their job is to
+make a generated tree exist, and one untranslated key must not stop the dev server, so they carry
+`--no-fail`. `prebuild` and `pretypecheck` run in front of the commands that ship, and they take
+the real exit code. Neither is the gate, though.
+
+```yaml title=".github/workflows/ci.yml"
+# loclizr check compares the committed context record against this tree.
+# loclizr build would rewrite that record in the CI workspace and pass.
+- run: npx loclizr check
+```
+
+A pipeline whose only invocation is `pnpm build` would rewrite the record in the CI workspace and
+pass, and a pull request that changed copy without regenerating would land with a stale record.
+`check` compares instead of writing, which is the whole reason it exists as a separate command.
+
+<Aside type="note">
+There is no `--watch`. `nodemon -w locales -x 'loclizr build --no-fail'` gives you the loop, and the
+example app ships an inline Vite plugin that reruns the build when a catalog changes.
+</Aside>

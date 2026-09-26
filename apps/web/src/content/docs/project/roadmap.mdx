@@ -3,4 +3,74 @@ title: Roadmap
 description: What is deferred past v0.1, and why each item was deferred.
 ---
 
-Coming soon.
+import { Aside } from '@astrojs/starlight/components'
+
+<Aside type="caution">
+No dates on this page and no order of arrival. Each deferred item carries the reason it was left
+out, so you can judge for yourself whether it blocks you. Nothing here is a promise.
+</Aside>
+
+## What v0.1 ships
+
+A command line compiler with three commands: `init`, `build` and `check`. JSON catalogs in, in ICU
+form or in i18next form converted at read time, and plain typed ESM message functions out, one
+module per top-level key. The full rule set runs inside every build, with stable codes and
+per-rule severity. A context record per message is written beside the catalogs and compared by
+`check`. Typed lookup groups for keys chosen at run time. A locale store with cookie persistence,
+React bindings, and server request scoping through `AsyncLocalStorage` for Web Fetch handlers,
+with a header primitive for Express and Fastify. One example app, React on Vite, is the reference
+implementation and the only one that is tested.
+
+## Deferred, and why
+
+**`format()` for content unknown at build time.** A runtime formatter needs a runtime ICU parser,
+and the generated code's first invariant is that the browser never ships one. When it comes it
+would be a separate entry, so the invariant keeps holding for everyone who does not import it. Until
+then, content that does not exist at build time is not a message. [Dynamic
+keys](/guides/dynamic-keys/) covers the run-time-chosen case that is in scope.
+
+**`--watch`.** A watcher is a second code path through the compiler, with platform-dependent
+recursive `fs.watch` behaviour and its own severity semantics to defend, and nothing else in v0.1
+depends on it. The edit loop today is `loclizr build --no-fail` in `predev`, plus either
+`nodemon -w locales -x 'loclizr build --no-fail'` or the small Vite plugin the example app keeps
+inside its own `vite.config.ts`, which reruns `build` when a catalog changes. A watcher would be
+reconsidered only if the build's measured cost on a large catalog made those two loops too slow
+to live with.
+
+**Glossary hits in the record.** The cheapest of the deferred context fields and deterministic,
+so it is the first candidate. The number that motivates it, how much terminology retrieval
+improves machine translation, is single-vendor and unreproduced, and a claim like that does not
+gate a first release.
+
+**Surrounding copy in the record.** The record carries the file and enclosing scope of each usage.
+Attaching the text around a call site means reading the component, and the usage scan is a
+tokenizer, not a parser.
+
+**Element role in the record.** Whether a string is a button label, a heading or a tooltip is a
+question about the JSX tree, and again the scan cannot read one. The record says where a string is
+used and never what it is.
+
+**Extraction and instrumentation.** v0.1 never reads your components looking for string literals
+and never rewrites one into a message call. Doing that from unmodified source is a bundler AST
+pass, which is the exact tax this project exists to avoid. Any retrofit path would be a separate
+opt-in command, run once, never part of the build.
+
+**Next.js App Router server rendering.** Middleware runs in a different runtime and cannot wrap a
+render, and the right entry point from a root layout is an open question. There is no test and no
+example, so there is no claim. The message layer itself runs anywhere, and the Pages Router can
+already reach `runWithLocale` through `localeFromHeaders`.
+
+**URL-prefix locale routing.** The hydration agreement holds because the locale comes from a cookie
+or from `Accept-Language` and never from the path. Supporting `/de/cart` means a second locale
+channel and a second agreement to keep, and it is the part of i18n that belongs to the router.
+
+**Per-locale delivery.** Every declared locale of every used message is inlined into that
+message's function, so bundle size grows with locale count. Shipping one locale's strings per
+request needs the metaframework's build, and the projects that do it own that build, which is
+precisely the thing this compiler stays out of.
+
+## What would change the order
+
+Bug reports against the example app, and catalogs large enough to make `build` slow. The
+[Continuity](/project/continuity/) page says how the project is run and what is published about
+it.

@@ -1,90 +1,223 @@
 ---
 title: Catalog checks
-description: Every loclizr build runs the whole rule set. There is no separate lint command to wire up and no flag that turns the set off wholesale.
+description: All fifty-six rules loclizr build runs, by code, with the default severity, what makes each one fire and the fix it prints.
 ---
 
 import { Aside } from '@astrojs/starlight/components'
 
 Every `loclizr build` runs the whole rule set. There is no separate lint command to wire up and no
-flag that turns the set off wholesale.
+flag that turns the set off wholesale. Fifty-six rules, each with a code that never changes and a
+name that doubles as its key in `severity`: thirty-five default to `error`, eighteen to `warn`,
+three to `off`.
 
 ## What runs, and when
 
-Checks read the same lowered representation the emitter reads, so a rule can never disagree with the
-code that was generated. Most run per message. The cross-locale rules in the `LZ3xxx` range run once
-the whole catalog set is resolved, because that is the first moment at which `de.json` and `en.json`
-can be compared.
+Checks read the same lowered representation the emitter reads, so a rule can never disagree with
+the code that was generated. Most run per message. The cross-locale rules in the `LZ3xxx` range
+run once the whole catalog set is resolved, because that is the first moment `de.json` and
+`en.json` can be compared, and the two `LZ5xxx` gates run last, against what is on disk.
 
-A **fatal** diagnostic blocks emission: invalid config, a missing source catalog, an identifier
-collision, nondeterministic output. Everything else still writes files. Twelve missing German
-translations emit `messages.js` anyway, fill those twelve from the fallback chain, print twelve
-`LZ3001` diagnostics and exit 1. Emitting nothing would bury the real error under a hundred
-missing-module errors from your typecheck.
+Each rule carries a fatal scope, which decides whether a tree is written at all:
+
+| Scope | Effect |
+| --- | --- |
+| never | Reported. Output is written regardless. Twelve missing German translations write `messages.js` anyway, fill those twelve from the fallback chain, print twelve `LZ3001` diagnostics and exit 1. |
+| always | Blocks emission entirely. No correct artifact is producible: an identifier collision would write a module declaring one function twice. |
+| if source | Blocks only when the file is the source catalog. An unreadable `de.json` is an error that still emits; the same problem in `en.json` is fatal. |
+| message | Drops that one message from the program and blocks nothing. A source body that fails to parse never reaches the emitter. |
+
+A target locale whose value fails to lower is not dropped: it resolves through the fallback chain
+like a blank value would, and raises nothing beyond the syntax error already reported against its
+own file.
+
+## Levelling a rule
 
 ```ts title="loclizr.config.ts"
-import { defineConfig } from 'loclizr'
-
 export default defineConfig({
-  locales: ['en', 'de', 'de-AT'],
-  sourceLocale: 'en',
   severity: {
-    // the rule an imported i18next catalog hits first
-    'ambiguous-source': 'warn',
+    'ambiguous-source': 'error',
+    'missing-translation': 'warn',
     'unused-message': 'error',
   },
 })
 ```
 
-<Aside type="note">
-`severity` is read once, at the end, by the reporter. No analysis module reads your config, which is
-why a re-levelled rule cannot change what the compiler emitted.
-</Aside>
-
-### Levelling a rule
-
-Each rule has a stable code and a name. Either one works as the key in `severity`, and the three
-values are `'off'`, `'warn'` and `'error'`. Levelling a fatal rule down to `'warn'` also stops it
-being fatal, so the build emits.
-
-Three rules are not re-levelable at all. `LZ1001 config-invalid`, `LZ1007 outdir-unsafe` and
-`LZ5001 output-unwritable` name failures where turning the rule down would let the tool do something
-it should never do quietly, such as writing outside the project root and still exiting 0. A
-`severity` entry naming one of the three is itself `LZ1001`.
-
-```bash
-npx loclizr check --reporter json | jq '.summary'
-```
-
-```json
-{
-  "errors": 2,
-  "warnings": 1,
-  "messages": 412,
-  "locales": 3,
-  "fellBack": { "de": 1 }
-}
-```
-
-`fellBack` maps a locale to the number of messages that resolved all the way through to source text.
-The rest of the JSON reporter's output is `{ "schema": 1, "diagnostics": [...], "summary": {...} }`,
-with diagnostics sorted by severity, then code, then file, then locale, then key, then offset.
+`severity` is applied once, at the end, to the whole set: a rule at `off` is dropped, and every
+other diagnostic is rewritten to the configured level. No analysis module reads it to decide
+whether or at what level to raise anything, which is why a re-levelled rule cannot change what the
+compiler emitted. Three rules are not on the dial. `LZ1001 config-invalid`,
+`LZ1007 outdir-unsafe` and `LZ5001 output-unwritable` name failures where turning the rule down
+would let the tool do something it should never do quietly, such as write outside the project root
+and exit 0, and a `severity` entry naming one of them is itself `LZ1001`. Those three are also
+the only rules that exit 2.
 
 <Aside type="caution">
-Put `loclizr check` in CI, not `loclizr build`. `build` writes the context record; `check` compares
-the committed one and raises `LZ5003 record-stale` when they differ. A pipeline whose only
-invocation is `pnpm build` would rewrite the record in the CI workspace and pass, which is exactly
-the case that lets a copy change land without its context.
+Re-levelling moves the printed severity, not the fatal scope. `identifier-collision: 'warn'` with
+two colliding keys prints the collision as a warning, writes no tree, and still exits 1: a run that
+could not produce output never exits 0. The JSON reporter shows this as
+`"severity": "warn", "fatal": true`.
 </Aside>
 
 ## Exit codes
 
-| code | meaning |
+| Code | Meaning |
 | --- | --- |
 | 0 | Clean, or warnings only and at or under `--max-warnings`. |
 | 1 | At least one error, or warnings over `--max-warnings`. |
-| 2 | The tool could not run at all: invalid usage, invalid config, unsafe `outDir`, unwritable output. |
+| 2 | `LZ1001`, `LZ1007` or `LZ5001`, or a usage error before any rule ran. |
 
-Three codes, matching what `tsc` and `eslint` already taught your CI to expect. `--max-warnings`
-defaults to no cap, the same as eslint's `-1`, so warnings alone never produce exit 1. That default
-is what decides whether a freshly imported i18next catalog exits 0 or 1, since nine rules ship at
-`warn`.
+`--max-warnings` defaults to no cap, so warnings alone never produce exit 1, and that default is
+what decides whether a freshly imported i18next catalog exits 0 or 1 on its first build. The
+[CLI](/reference/cli/#exit-codes) page has the full list of what exits 2 and how `--no-fail` moves
+exit 1.
+
+## LZ1xxx: configuration and catalogs
+
+Twenty-one rules about the config file, the catalog files and the machine running the build.
+
+| Code | Rule | Default | Fatal | Fires when | Fix, as printed |
+| --- | --- | --- | --- | --- | --- |
+| `LZ1001` | `config-invalid` | error | always, exit 2 | The config file threw, is missing at `--config`, or has no default export; a field failed validation; `sourceLocale` is not in `locales`; `outDir` holds the catalogs, meta or record path; `severity` names an unknown rule or one of the three fixed ones. | A pasteable line for the field, such as `locales: ['en', 'de']`, or the reason: `LZ1001 decides whether the tool can run at all, so turning it down would let a broken build exit 0.` |
+| `LZ1002` | `locale-tag-invalid` | error | always | A tag in `locales` or `sourceLocale` that `Intl.getCanonicalLocales` rejects. | `Intl.getCanonicalLocales rejects it, so no formatter could be built for it.` |
+| `LZ1003` | `no-catalogs-found` | error | always | The `catalogs` pattern matched no file. | `write locales/en.json, or point catalogs at the layout you already have, such as 'public/locales/{locale}/{ns}.json'.` |
+| `LZ1004` | `source-catalog-missing` | error | always | No catalog for the source locale, or no `en` catalog and more than one locale to choose between. | A `locales` block to paste, one line per discovered locale with the file it came from. |
+| `LZ1005` | `catalog-missing` | error | never | A locale in `locales` has no catalog file. | `every message will fall back to en. Write the catalog, or drop the locale.` |
+| `LZ1006` | `catalog-undeclared` | warn | never | A catalog exists for a locale `locales` does not declare; a discovered basename is not a locale tag and was skipped; a file under the catalog directory does not match the pattern; with `locales` unset, a discovered name five to eight letters long that BCP 47 registers no subtag for. | `add 'fr' to locales, or move the file out of locales/{locale}.json.` or `rename it to a BCP 47 tag, or declare locales explicitly so the pattern stops reaching this file.` |
+| `LZ1007` | `outdir-unsafe` | error | always, exit 2 | `outDir` resolves outside the project root. | `outDir must name a directory inside the project, such as 'src/loclizr'. The build prunes everything under it that this emit did not produce.` |
+| `LZ1008` | `catalog-unreadable` | error | if source | A catalog file, or the meta sidecar, could not be read. The sidecar is never fatal. | `check the path in catalogs and the file permissions.` or `check the path in meta, or set meta: false to switch descriptions off.` |
+| `LZ1009` | `catalog-json-syntax` | error | if source | The file is not valid JSON. The span points at the offending character. | `a catalog is plain JSON: double-quoted keys, no trailing comma, no comments.` |
+| `LZ1010` | `catalog-shape-invalid` | error | never | A non-object root; an array or other non-string leaf; a sidecar entry, description or placeholder note of the wrong shape. A `null` leaf is a missing translation, not this. | `quote the value, or write null for an untranslated unit.` or, for an array, `give each item its own key. An array value needs format(), which is deferred past v0.1.` |
+| `LZ1011` | `duplicate-key` | error | never | The same flat key from a nested and a dotted form, from a duplicate JSON key, from two namespace files of one locale, or from a bare `X` beside the folded plural of `X_*`. `JSON.parse` keeps the last one, which is how a translation disappears with no diff. | `delete one of the two. A dotted key and a nested object flatten to the same key.` or `one namespace file per key: rename the key in one of the two files.` |
+| `LZ1012` | `i18next-nesting-unsupported` | error | never | A value in an i18next file contains `$t(`. | `inline the nested text here, or split the sentence into two messages.` |
+| `LZ1013` | `i18next-format-unsupported` | error | never | A placeholder carries an inline formatter, `{{val, fmt}}`. It renders as the raw value. | `name the style in formats.number or formats.dateTime, convert this file to ICU, and write {val, number, yourStyle}.` |
+| `LZ1014` | `plural-suffix-orphan` | warn | never | A CLDR-suffixed key with no `_other` sibling, or an `X_plural` beside a bare `X` (i18next JSON v3). Both stay ordinary keys. | `add X_other to fold the group, or rename the key if "_one" was never a plural.` or `run i18next's JSON v3 to v4 converter over this catalog, so X_one and X_other fold into one plural message.` |
+| `LZ1015` | `meta-orphan` | warn | never | A sidecar entry for a key the source catalog does not have. | `entries are addressed by the post-fold, post-prefix key, the same one every diagnostic prints.` |
+| `LZ1016` | `i18next-markup-literal` | warn | never | Tag-shaped text in an i18next value was escaped to literal text, which is what i18next itself rendered. | `set i18nextMarkup: 'tags' to lower these tags to markup arguments instead.` |
+| `LZ1017` | `i18next-context-detected` | warn | never | A key set `X_suffix` beside a bare `X`, which i18next selected with `t('X', { context })` and nothing selects now. | `convert this file to ICU first, then replace them with one message:` followed by the exact `{context, select, ...}` line. |
+| `LZ1018` | `locale-base-missing` | warn | never | A declared locale carries a region subtag whose base tag is not also declared. | `add 'de', or expect Accept-Language: de to fall back to en.` |
+| `LZ1019` | `icu-data-incomplete` | warn | never | The build machine's `Intl` has truncated ICU data, or a declared locale has no plural data and `Intl` answered for the host locale instead. | `run a Node built with full ICU, or set NODE_ICU_DATA to a full data file. plural-category-incomplete and plural-category-unreachable are off for this run, so no category claim is made at all rather than a wrong one.` |
+| `LZ1020` | `icu-in-i18next-file` | warn | never | A file read as i18next holds a single-brace run shaped like a typed ICU argument, which renders as literal text. | `this file classified as i18next on "{{name}}". Convert the file to ICU, or pin catalogFormat if the literal text is what you meant.` |
+| `LZ1021` | `outdir-foreign-file` | warn | never | A file under `outDir` does not carry the generated header, so it was neither overwritten nor pruned; or a headered orphan could not be deleted. | `the build deletes and overwrites only what it can prove it wrote. Move the file outside outDir, or delete it if it is a generated file whose header was stripped.` |
+
+`LZ1019` is a single startup probe: `Intl.PluralRules('ru')` reporting fewer than four categories
+means a Node built with small ICU, which resolves unknown locales to English data without
+throwing. When it fires, `LZ3007` and `LZ3013` are forced off for that run, so a truncated ICU
+makes no category claims rather than wrong ones. The same rule fires per locale for a declared tag
+`Intl` has no plural data for, and switches those two rules off for that locale only.
+
+`LZ1020` is the one mistake `catalogFormat: 'auto'` can make invisible, so it is the one it
+reports. The hint names the `{{` or the suffixed key that classified the file, which is why the
+run was read as literal text.
+
+## LZ2xxx: message syntax
+
+Nine rules about one value on its own.
+
+| Code | Rule | Default | Fatal | Fires when | Fix, as printed |
+| --- | --- | --- | --- | --- | --- |
+| `LZ2001` | `icu-syntax` | error | message | The ICU parser rejected the value, for any reason other than a missing `other` branch. | By parser error. Unclosed brace: `An argument was opened with { and never closed. Add the matching }.` Malformed name: `An argument name takes letters, digits and _. Write {name} rather than {{name}}, and rename an argument carrying a dot, a dash or a $.` Unclosed tag: `Tag-shaped text lowers to markup here. Close the tag to make it a markup argument, or quote it as '<br>' to keep it literal text.` Otherwise: `Look for an unbalanced { or }, an unclosed ' quote, or a < the parser read as the start of a tag.` |
+| `LZ2002` | `icu-style-unknown` | error | never | A named style that is neither built in nor in `formats`. | `Define formats.number.compact in loclizr.config.ts, or use an ICU skeleton.` or, for `currency`: `ICU carries no currency code. Define formats.number.currency, or write ::currency/USD.` |
+| `LZ2003` | `icu-skeleton-invalid` | error | never | A `::` skeleton the parser could not resolve, or one `Intl` cannot build. | `Falling back to the bare number format. Fix the skeleton, or use a named style from formats.` |
+| `LZ2004` | `plural-other-missing` | error | message | A plural or selectordinal with no `other` branch. | `Every plural needs an other branch. Add other {...} as its last branch.` |
+| `LZ2005` | `select-other-missing` | error | message | A select with no `other` branch. | `Every select needs an other branch. Add other {...} as its last branch.` |
+| `LZ2006` | `plural-category-unknown` | error | never | A branch keyword that is neither a CLDR category nor `=N`. | `Use zero, one, two, few, many or other, or an exact branch such as =0.` |
+| `LZ2007` | `arg-name-invalid` | error | never | An argument name that is not a JavaScript identifier after NFC normalization, or is `__proto__`. | `An argument name must be a JavaScript identifier and must not be __proto__.` |
+| `LZ2008` | `pound-literal` | warn | never | A literal `#` in text inside a plural body, where it renders as the character rather than the count. | `Move the # out of the nested select, or write {count, number}.` |
+| `LZ2009` | `arg-type-conflict-local` | error | message | One name used at two irreconcilable types inside one value, `{x, number} of {x, date}`. | `Use one type for the argument, or split it into two arguments.` |
+
+In a file read as i18next, `LZ2001`'s span names the catalog entry rather than the character,
+because the value was rewritten before parsing and no offset arithmetic would land on the right
+column; the hint says so and carries the parser's own error.
+
+## LZ3xxx: the cross-locale contract
+
+Thirteen rules that compare a translation against the source locale.
+
+| Code | Rule | Default | Fatal | Fires when | Fix, as printed |
+| --- | --- | --- | --- | --- | --- |
+| `LZ3001` | `missing-translation` | error | never | A locale resolved by falling all the way through to the source locale because it has no value for the key. `null` counts. Inheriting from a declared ancestor, `de-AT` from `de`, is not this. | `add "cart.greeting" to locales/de.json` |
+| `LZ3002` | `blank-translation` | error | never | The same, with an empty or whitespace-only value. | `write a de value for "cart.greeting" in locales/de.json` |
+| `LZ3003` | `extra-translation` | warn | never | A key in a target catalog that the source catalog does not have, so no message is generated for it. | `add "errors.blank" to the en catalog, or delete it from locales/de.json` |
+| `LZ3004` | `arg-missing` | error | never | An argument of the source text that the translation does not use. | `add {name} to "cart.greeting" in locales/de.json` |
+| `LZ3005` | `arg-extra` | error | never | A translation uses an argument, or a markup tag, the source does not have. That locale renders source text instead. | `check the spelling of {name} in locales/de.json, or add it to the en text` or `remove <b> from "key" in locales/de.json, or add it to the en text` |
+| `LZ3006` | `arg-type-conflict` | error | never | One argument typed one way in one locale and another way in another, which one call site cannot carry. | `use one type for {x} in every locale` |
+| `LZ3007` | `plural-category-incomplete` | warn | never | The locale's plural rules select a category the message has no branch for. | `add few {...} many {...} to {count, plural, ...} in locales/ru.json` |
+| `LZ3008` | `select-option-missing` | warn | never | A target has no branch for an option the source names, so that value renders the `other` branch. | `add shipped {...} to {state, select, ...} in locales/de.json` |
+| `LZ3009` | `select-option-extra` | error | never | A target names a branch the source does not, which the generated type never lets a call site pass. | `add returned {...} to the en select, or delete the branch from locales/de.json` |
+| `LZ3010` | `markup-mismatch` | error | never | The set of tags in a translation differs from the source. Nesting arity is not compared. | `wrap the matching words of "terms.accept" in <link> in locales/de.json` |
+| `LZ3011` | `date-without-timezone` | off | never | A date or time argument whose resolved options carry no `timeZone`, once per message against the source locale, only while `formats.timeZone` is unset. | `set formats.timeZone in loclizr.config.ts, or leave this rule off where the viewer's own zone is what you want` |
+| `LZ3012` | `ambiguous-source` | warn | never | Two or more keys share byte-identical source text and any one of them has no description. One diagnostic per source text, listing every colliding key with its position and description. | The meta entries to paste and the `severity` line that moves the rule the other way. |
+| `LZ3013` | `plural-category-unreachable` | warn | never | A keyword branch the locale's plural rules can never select. | `de never selects zero; use the exact branch =0` or `de never selects few; delete the branch, or use an exact branch such as =2` |
+
+`LZ3012` is the rule an imported catalog hits first. "Open" can be a verb or an adjective, and a
+translator handed the bare string cannot tell; the rule fires when any key in the colliding set is
+undescribed, since two keys sharing "Open" where one is described leaves the other just as
+ambiguous. Here the example app's `en.json` gained an undescribed `footer.cart` beside the two
+described `Cart` keys it already had:
+
+```txt
+error  LZ3012  ambiguous-source  locales/en.json:5:14
+
+  3 keys share the source text "Cart" and one has no description.
+  A translator sees one string with no way to tell the meanings apart.
+
+    app.cart       locales/en.json:5:14      "Heading over the cart panel. A section title, not a link."
+    footer.cart    locales/en.json:41:14     no description
+    nav.cart       locales/en.json:21:14     "Top navigation link that opens the cart page."
+
+  fix  add descriptions in locales/en.meta.json:
+         "footer.cart": { "description": "" }
+  or   turn the rule down in loclizr.config.ts:
+         severity: { 'ambiguous-source': 'warn' }
+```
+
+Its default is `warn`, because at `error` it fires on every app-sized catalog as a matter of
+course ("Save", "Cancel", "Name", "Yes") and a freshly imported i18next catalog has no
+descriptions at all. `loclizr init` writes the `error` line for a greenfield project, where the
+gate is free from the first commit, and writes it commented out for a retrofit. Where the rule is
+left at its default, the second half of the hint reads `make this a hard gate` and names
+`'error'`.
+
+## LZ4xxx: identifiers and emit
+
+Six rules about the names the generated code gets and the bytes it is made of.
+
+| Code | Rule | Default | Fatal | Fires when | Fix, as printed |
+| --- | --- | --- | --- | --- | --- |
+| `LZ4001` | `identifier-collision` | error | always | Two keys mangle to one identifier; two top-level key segments name modules a case-insensitive filesystem cannot tell apart; two groups share an export id or a type base; two keys become the same member of one group. Never auto-disambiguated with a counter, since a counter shifts when a key is inserted. | `Rename one of the keys, or map it in loclizr.config.ts: identifiers: { 'nav_home': 'nav_home2' }` or `Rename one of the groups in loclizr.config.ts.` |
+| `LZ4002` | `identifier-reserved` | error | always | An identifier that enters the `$` namespace or is `__proto__`, `constructor`, `prototype`, `locales`, `sourceLocale`, `getLocale`, `setLocale` or `subscribe`; a top-level segment that would name `_locale`, `_formats` or `_root`; a group member that would be `__proto__`. | `Rename the key, or map it in loclizr.config.ts: identifiers: { 'key': 'message' }` or, for the barrel's own exports, `The generated barrel already exports that name, and a star export loses to it silently. Map the key in loclizr.config.ts: identifiers: { 'locales': 'localesMessage' }` |
+| `LZ4003` | `confusable-key` | error | never | Two keys differ but fold to one skeleton after NFKC and a Cyrillic and Greek to Latin fold. Pairwise, so a wholly Cyrillic key never fires alone. | `One of them carries a Cyrillic or Greek homoglyph. Retype the key in Latin.` |
+| `LZ4004` | `group-empty` | error | never | A group prefix matched no keys. | `A prefix matches on a dot boundary, so "err" captures "err.forbidden" and never "errforbidden". Check the prefix.` |
+| `LZ4005` | `nondeterministic-output` | error | always | The second emit over a reversed program produced different bytes for a file. | `Report this to loclizr with the path above and the catalogs that produced it. Nothing in the project can be changed to clear it: it is a bug in the compiler, not in the catalogs or the config.` |
+| `LZ4006` | `group-args-heterogeneous` | warn | never | A group's members do not share one argument set, so every dynamic call site must pass the union. The related rows list each member's arguments. | `Split the group by argument shape, or give the odd members bare {x} arguments.` |
+
+## LZ5xxx: output, record and scan
+
+Seven rules about what is on disk and what the usage scan found.
+
+| Code | Rule | Default | Fatal | Fires when | Fix, as printed |
+| --- | --- | --- | --- | --- | --- |
+| `LZ5001` | `output-unwritable` | error | always, exit 2 | A generated file or the record could not be written, or a write path resolves outside the project root through a symlink. | `check that the path is writable and that nothing else holds it open.` |
+| `LZ5002` | `output-stale` | error | never | `check` only. A generated file on disk differs from what this build would write, or carries the header and this emit did not produce it (orphaned). Fires only for files that exist. | `the generated tree on disk is stale; run loclizr build.` or, for an orphan, `run loclizr build, which prunes it.` When the tree has no self-ignoring `.gitignore`, so it is committed, the two read `run loclizr build and commit the result.` and `run loclizr build, which prunes it, and commit the result.` |
+| `LZ5003` | `record-stale` | error | never | `check` only. The committed context record's contract differs from the one these catalogs produce, or the record does not exist. Compared with every message's `usage` and `translations` projected out. | `run loclizr build and commit the record with the string change.` or `run loclizr build and commit the record beside the catalogs.` |
+| `LZ5004` | `scan-found-nothing` | warn | never | The scan read at least one file and found no import of the generated tree anywhere. | `check scan.include in loclizr.config.ts. A usage site is found through an import such as import * as m from './loclizr/messages'` |
+| `LZ5005` | `unused-message` | off | never | No scanned file references the message. Suppressed entirely whenever the scan found no generated import, so a wrong glob costs one warning instead of four hundred. | `delete the key, or widen scan.include when the call site is outside it` |
+| `LZ5006` | `missing-description` | off | never | A message with arguments or markup and no description. | `add a description in locales/en.meta.json:` followed by the entry to paste, or `set meta in loclizr.config.ts to switch the description sidecar on.` |
+| `LZ5007` | `record-rewritten` | warn | never | `build` only. The record was rewritten because the committed one's contract differed, under the same projection as `LZ5003`. | `commit the rewritten record with the string change, so the context lands in the same pull request.` |
+
+`LZ5003` is what makes "context lands in the same pull request as the string change" a gate rather
+than an aspiration, and `LZ5007` is the same comparison on `build`, for the pipeline whose only
+invocation is `pnpm build`. Both compare a projection: every message's `usage` and `translations`
+arrays are dropped from both sides first, because a renamed component and a translator landing a
+batch both move those without any source copy changing. What is left, keys, ids, modules, kinds,
+`source`, `sourceHash`, descriptions, args, variants and markup, is the contract, and an edited
+string always changes `source` and `sourceHash`. `build` still writes the whole record whenever
+any byte differs. The [context record](/reference/context-record/#the-staleness-gate) page has the
+two comparisons side by side.
+
+<Aside type="note">
+Put `loclizr check` in CI, not `loclizr build`. `build` writes the record; `check` compares the
+committed one and raises `LZ5003` when they differ. A pipeline whose only invocation is
+`pnpm build` would rewrite the record in the CI workspace and pass, which is exactly the case that
+lets a copy change land without its context.
+</Aside>

@@ -36,10 +36,10 @@ string, fails your typecheck at the call site rather than rendering `undefined` 
 
 **Diagnostics, from the same pass.** Checking is part of `build`, on from the first run, and an
 error exits 1. Missing and blank translations, ICU syntax errors, arguments that differ between two
-locales, plural categories a locale can never select, keys that differ only by a homoglyph. Every
-rule has a stable code and can be re-levelled to `off`, `warn` or `error`. Other tools check
-catalogs too, usually as a step you remember to wire up; what is claimed here is the default, not
-the capability.
+locales, plural categories a locale can never select, keys that differ only by a homoglyph.
+Fifty-six rules, each with a stable code, and all but three of them re-level to `off`, `warn` or
+`error` from one line of config. Other tools check catalogs too, usually as a step you remember
+to wire up; what is claimed here is the default, not the capability.
 
 **A context record**, written to `locales/loclizr.context.json` and meant to be committed. Per
 message it carries the canonical source text and a hash of it, the argument names and types, the
@@ -55,10 +55,12 @@ commit, and there is nothing to unlearn. The more common case is an app whose st
 English literals sitting in JSX, where the thing you are replacing is not another library.
 
 If you already run i18next, you can try this against your real catalogs without touching your
-setup: point `catalogs` at the files you have. `{{name}}` interpolation is converted to ICU in
-memory, `_one` and `_other` keys fold into a plural, and the format is decided per file, so an
-imported catalog and an ICU-native one sit side by side. Your catalogs are read and never written
-back, so i18next keeps serving the app while you read the diagnostics.
+setup: point `catalogs` at the files you have. Catalogs are ICU MessageFormat by default, and the
+format is decided per file rather than per project: a file carrying `{{name}}` interpolation or
+`_one` and `_other` keys is read as i18next, the interpolation becomes an ICU argument and the
+suffixed keys fold into one plural, all in memory. An imported catalog and an ICU-native one sit
+side by side. Your catalogs are read and never written back, so i18next keeps serving the app
+while you read the diagnostics.
 
 ## What it deliberately does not do
 
@@ -68,11 +70,16 @@ back, so i18next keeps serving the app while you read the diagnostics.
 - **No extraction, no codemod.** v0.1 never reads your components looking for strings and never
   rewrites one. Catalogs are authored or imported, and the retrofit work is yours.
 - **One framework at launch.** React with Vite is the example that exists and is tested. The
-  message layer itself is framework free, server rendering covers Web Fetch handlers, and Next.js
-  is not a first-class target in v0.1; next-intl is built for that stack.
+  message layer itself is framework free. Server rendering covers Web Fetch handlers through
+  `withLocale`, and anything holding plain header strings, Express or Fastify say, through
+  `localeFromHeaders` plus `runWithLocale`. Next.js is not a first-class target in v0.1;
+  next-intl is built for that stack.
 - **Catalogs are a build input.** A translation fix is a commit and a deploy. Wired to a TMS that
   opens pull requests that is fine, but it is not a dashboard where somebody fixes a typo in
   production at 4pm.
+- **No `--watch`.** The dev loop is `loclizr build --no-fail` in `predev`, plus, if you want a
+  catalog edit to land in the running app, the inline Vite plugin the example ships in its own
+  `vite.config.ts`.
 - **Day zero.** No published release, no track record, no promise about stability.
 
 [Quickstart](/start/quickstart/) is one command and one import. [Honest

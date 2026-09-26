@@ -383,6 +383,11 @@
 .plate pre {
   scrollbar-color: var(--plate-rule) transparent;
 }
+/* Real diagnostics run long; wrapping keeps the whole line readable at any width. */
+.plate-hero pre {
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
 
 .plate .sev-e {
   color: var(--plate-error);

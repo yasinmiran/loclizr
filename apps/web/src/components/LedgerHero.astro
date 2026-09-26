@@ -10,29 +10,38 @@
  *
  * Every fenced block here is hand authored rather than Expressive Code,
  * because the terminal plates carry per-token colouring (severity word, rule
- * code, rule name, path) that no syntax grammar produces.
+ * code, rule name, path) that no syntax grammar produces. The terminal text
+ * is pasted from real CLI runs and only the spans are added. Every run used
+ * the example's four catalog files plus a single src/Cart.tsx holding the
+ * callsite shown beside the hero plate, and a config with no groups. The hero
+ * plate is a first build with nav.cart deleted from de.json and {name} dropped
+ * from its cart.greeting. The check plate adds dialog.open, file.open and
+ * status.open ("Open") to en.json and de.json, with a description for
+ * status.open only, then runs check after a clean build. The record and diff
+ * panels come from the unbroken tree, the diff from rewording en cart.items.
+ * Re-run the CLI before editing a line.
  */
 import LedgerFooter from './LedgerFooter.astro'
 
 const heroLines = [
   `<span class="cmdline">loclizr build</span>`,
   ``,
-  `<span class="sev-e">error</span>  <span class="code">LZ3004</span>  <span class="rule-n">arg-missing</span>  <span class="loc">locales/de.json:4:5</span>`,
+  `<span class="sev-e">error</span>  <span class="code">LZ3001</span>  <span class="rule-n">missing-translation</span>  <span class="loc">locales/de.json</span>  <span class="dim">de  nav.cart</span>`,
   ``,
-  `  cart.greeting takes {name} in en. The de value has no {name},`,
-  `  so German would render without the customer's name.`,
+  `  The de catalog has no value for this key, so this message renders en text.`,
   ``,
-  `  <span class="fix">fix</span>  add {{name}} to locales/de.json:4:5  <span class="dim">i18next form</span>`,
+  `  <span class="fix">fix</span>  add "nav.cart" to locales/de.json`,
   ``,
-  `<span class="sev-e">error</span>  <span class="code">LZ3001</span>  <span class="rule-n">missing-translation</span>  <span class="loc">locales/de.json</span>`,
+  `<span class="sev-e">error</span>  <span class="code">LZ3004</span>  <span class="rule-n">arg-missing</span>  <span class="loc">locales/de.json:23:18</span>  <span class="dim">de  cart.greeting</span>`,
   ``,
-  `  checkout.pay_now has no value in de. The build emitted the`,
-  `  English text for it.`,
+  `  The en text uses {name} and the de translation does not.`,
   ``,
-  `    source  <span class="loc">locales/en.json:58:3</span>  <span class="dim">"Pay now"</span>`,
+  `  <span class="fix">fix</span>  add {name} to "cart.greeting" in locales/de.json`,
   ``,
-  `<span class="dim">412 messages, 3 locales. de fell back to en on 1.</span>`,
-  `<span class="dim">2 errors, 0 warnings.</span>`,
+  `<span class="dim">wrote src/loclizr (19 files) and locales/loclizr.context.json</span>`,
+  `<span class="dim">commit locales/loclizr.context.json; \`loclizr check\` compares it</span>`,
+  `<span class="dim">26 messages, 3 locales (source en), 2 errors, 0 warnings</span>`,
+  `<span class="dim">fell back to source text: de 1</span>`,
 ]
 
 const heroTranscript = heroLines
@@ -43,23 +52,22 @@ const heroTranscript = heroLines
 const checkTranscript = [
   `<span class="cmdline">loclizr check</span>`,
   ``,
-  `<span class="sev-e">error</span>  <span class="code">LZ3012</span>  <span class="rule-n">ambiguous-source</span>  <span class="loc">locales/en.json:12:5</span>`,
+  `<span class="sev-e">error</span>  <span class="code">LZ3012</span>  <span class="rule-n">ambiguous-source</span>  <span class="loc">locales/en.json:41:14</span>`,
   ``,
-  `  Three keys share the source text "Open" and two have no description.`,
-  `  A translator cannot tell a verb from an adjective.`,
+  `  3 keys share the source text "Open" and 2 have no description.`,
+  `  A translator sees one string with no way to tell the meanings apart.`,
   ``,
-  `    dialog.open    <span class="loc">locales/en.json:12:5</span>     <span class="dim">no description</span>`,
-  `    file.open      <span class="loc">locales/en.json:31:7</span>     <span class="dim">no description</span>`,
-  `    status.open    <span class="loc">locales/en.json:58:3</span>     <span class="dim">"Badge on a ticket that is not closed"</span>`,
+  `    dialog.open    <span class="loc">locales/en.json:41:14</span>     <span class="dim">no description</span>`,
+  `    file.open      <span class="loc">locales/en.json:44:14</span>     <span class="dim">no description</span>`,
+  `    status.open    <span class="loc">locales/en.json:47:14</span>     <span class="dim">"Badge on a ticket that is not closed"</span>`,
   ``,
   `  <span class="fix">fix</span>  add descriptions in locales/en.meta.json:`,
-  `         <span class="dim">"dialog.open": { "description": "Button that opens the selected file" }</span>`,
-  `         <span class="dim">"file.open":   { "description": "Menu item under File" }</span>`,
+  `         <span class="dim">"dialog.open": { "description": "" }</span>`,
+  `         <span class="dim">"file.open":   { "description": "" }</span>`,
   `  <span class="fix">or</span>   turn the rule down in loclizr.config.ts:`,
   `         <span class="dim">severity: { 'ambiguous-source': 'warn' }</span>`,
   ``,
-  `<span class="dim">412 messages, 3 locales.</span>`,
-  `<span class="dim">1 error, 0 warnings.</span>`,
+  `<span class="dim">29 messages, 3 locales (source en), 1 error, 0 warnings</span>`,
   ``,
   `<span class="cmdline">echo $?</span>`,
   `<span class="dim">1</span>`,
@@ -75,14 +83,11 @@ const callsiteCode = [
   `}`,
 ].join('\n')
 
-/* The doc comment is one line in the real file: M6 replaces CR and LF in
-   doc-comment text with a single space, so it never wraps at source. */
+/* Two lines, as the generated file prints them: the doc comment and the
+   declaration are each one line, however long the source text runs. */
 const dtsCode = [
   `<span class="co">/** en: "{count, plural, =0 {Your cart is empty} one {# item in your cart} other {# items in your cart}}" */</span>`,
-  `<span class="kw">export declare function</span> <span class="id">cart_items</span>(`,
-  `  args: { count: <span class="kw">number</span> },`,
-  `  opts?: MessageOptions,`,
-  `): <span class="kw">string</span>`,
+  `<span class="kw">export declare function</span> <span class="id">cart_items</span>(args: { count: <span class="kw">number</span> }, opts?: MessageOptions): <span class="kw">string</span>`,
 ].join('\n')
 
 const k = (s: string): string => `<span class="jk">"${s}"</span>`
@@ -103,13 +108,13 @@ const recordJson = [
   `      ${k('kind')}: ${v('text')},`,
   `      ${k('source')}: ${v('{count, plural, =0 {Your cart is empty} one {# item in your cart} other {# items in your cart}}')},`,
   `      ${k('sourceHash')}: ${v('a826cf6a40d3293e')},`,
-  `      ${k('description')}: ${h('Badge under the cart icon on every page')},`,
+  `      ${k('description')}: ${h('Badge under the cart icon on every page.')},`,
   `      ${k('args')}: [`,
   `        {`,
   `          ${k('name')}: ${v('count')},`,
   `          ${k('type')}: ${v('number')},`,
   `          ${k('options')}: ${n('null')},`,
-  `          ${k('note')}: ${h('Number of line items, not total quantity')}`,
+  `          ${k('note')}: ${h('Number of line items, not total quantity.')}`,
   `        }`,
   `      ],`,
   `      ${k('variants')}: [`,
@@ -118,7 +123,7 @@ const recordJson = [
   `      ${k('markup')}: [],`,
   `      ${k('translations')}: [`,
   `        { ${k('locale')}: ${v('de')}, ${k('status')}: ${v('translated')}, ${k('from')}: ${n('null')}, ${k('reason')}: ${n('null')} },`,
-  `        { ${k('locale')}: ${v('de-AT')}, ${k('status')}: ${v('inherited')}, ${k('from')}: ${v('de')}, ${k('reason')}: ${n('null')} },`,
+  `        { ${k('locale')}: ${v('de-AT')}, ${k('status')}: ${v('translated')}, ${k('from')}: ${n('null')}, ${k('reason')}: ${n('null')} },`,
   `        { ${k('locale')}: ${v('en')}, ${k('status')}: ${v('translated')}, ${k('from')}: ${n('null')}, ${k('reason')}: ${n('null')} }`,
   `      ],`,
   `      ${k('usage')}: [{ ${k('file')}: ${v('src/Cart.tsx')}, ${k('scope')}: ${v('Cart')} }]`,
@@ -130,13 +135,17 @@ const recordJson = [
 const diffText = [
   `<span class="d-meta">--- a/locales/loclizr.context.json</span>`,
   `<span class="d-meta">+++ b/locales/loclizr.context.json</span>`,
-  `<span class="d-meta">@@ -412,4 +412,4 @@</span>`,
-  `       "key": "cart.items",`,
+  `<span class="d-meta">@@ -547,8 +547,8 @@</span>`,
+  `       "id": "cart_items",`,
+  `       "module": "messages/cart.js",`,
+  `       "kind": "text",`,
   `<span class="d-del">-      "source": "{count, plural, =0 {Your cart is empty} one {# item in your cart} other {# items in your cart}}",</span>`,
-  `<span class="d-add">+      "source": "{count, plural, =0 {Nothing in your cart yet} one {# item in your cart} other {# items in your cart}}",</span>`,
   `<span class="d-del">-      "sourceHash": "a826cf6a40d3293e",</span>`,
+  `<span class="d-add">+      "source": "{count, plural, =0 {Nothing in your cart yet} one {# item in your cart} other {# items in your cart}}",</span>`,
   `<span class="d-add">+      "sourceHash": "c6f5418d286f2cfb",</span>`,
-  `       "description": "Badge under the cart icon on every page",`,
+  `       "description": "Badge under the cart icon on every page.",`,
+  `       "args": [`,
+  `         {`,
 ].join('\n')
 
 const rules = [
@@ -201,7 +210,7 @@ const rules = [
           </div>
           <div>
             <p class="f"><span>src/loclizr/messages/cart.d.ts</span><span class="gen">generated</span></p>
-            <p class="s">cart_greeting(args: &#123; <span class="arg">name: string</span> &#125;)</p>
+            <p class="s">cart_greeting(args: &#123; <span class="arg">name: string | number</span> &#125;)</p>
           </div>
           <div>
             <p class="f"><span>src/Cart.tsx</span></p>
@@ -255,9 +264,10 @@ const rules = [
           <div class="io-row">
             <p class="f">locales/en.json</p>
             <p class="n">
-              Plain i18next JSON. Nested keys, <code>&#123;&#123;var&#125;&#125;</code>,
-              &#32;<code>_one</code> and <code>_other</code> suffixes. Converted to ICU on read, never
-              written back.
+              Nested keys, ICU MessageFormat values. The format is decided per file: a catalog
+              carrying <code>&#123;&#123;var&#125;&#125;</code> or <code>_one</code> and
+              &#32;<code>_other</code> suffixes reads as i18next and is converted to ICU in memory,
+              never written back.
             </p>
           </div>
           <div class="io-row">
@@ -288,7 +298,7 @@ const rules = [
           <div class="io-row">
             <p class="f">diagnostics <span class="x">+ exit code</span></p>
             <p class="n">
-              Fifty-four rules, every code stable. A non-fatal error still emits, so twelve missing
+              Fifty-six rules, every code stable. A non-fatal error still emits, so twelve missing
               German strings do not bury your typecheck under missing-module noise.
             </p>
           </div>
@@ -317,8 +327,9 @@ const rules = [
         </p>
         <p class="prose">
           Here it is the same command that generates the code. <code>loclizr check</code> is the one
-          that belongs in CI: it does everything the build does, writes nothing, and compares the
-          committed context record instead of quietly rewriting it.
+          that belongs in CI: it does everything the build does, writes nothing, and fails when the
+          committed context record no longer matches the tree, where <code>build</code> would rewrite
+          it and warn.
         </p>
       </div>
 
@@ -337,12 +348,12 @@ const rules = [
       <p class="plate-cap">
         That transcript is from a greenfield project, where <code>loclizr init</code> writes the
         rule in at <code>error</code>. Left at its shipped default the same diagnostic prints
-        &#32;<code>warn</code> in the severity column, the last line names <code>'error'</code> instead,
-        and the build exits 0. Which is the point of it being the rule an imported catalog hits
-        first.
+        &#32;<code>warn</code> in the severity column, the <code>or</code> line reads
+        &#32;<code>make this a hard gate</code> and names <code>'error'</code>, and the run exits 0.
+        Which is the point of it being the rule an imported catalog hits first.
       </p>
 
-      <div class="rules" role="table" aria-label="Nine of the fifty-four rules">
+      <div class="rules" role="table" aria-label="Nine of the fifty-six rules">
         <div class="lrow lhead" role="row">
           <span role="columnheader">code</span>
           <span role="columnheader">rule</span>
@@ -361,7 +372,7 @@ const rules = [
         }
       </div>
       <p class="rules-note">
-        Fifty-four rules, and every code is stable. One line in <code>loclizr.config.ts</code> levels
+        Fifty-six rules, and every code is stable. One line in <code>loclizr.config.ts</code> levels
         any of them down to <code>'warn'</code>, or to <code>'off'</code> if you would rather it
         stopped talking altogether. Three cannot be levelled at all: a build that could write outside
         your project root and still exit 0 is not something to leave configurable.
@@ -406,14 +417,14 @@ const rules = [
           </div>
           <div class="field">
             <span class="k">description</span>
-            <div class="v-t">Badge under the cart icon on every page</div>
+            <div class="v-t">Badge under the cart icon on every page.</div>
           </div>
           <div class="field">
             <span class="k">arguments</span>
             <div class="argline">
               <span class="an">count</span>
               <span class="at">number</span>
-              <span class="anote">Number of line items, not total quantity</span>
+              <span class="anote">Number of line items, not total quantity.</span>
             </div>
           </div>
           <div class="field">
@@ -436,10 +447,13 @@ const rules = [
           <div class="field">
             <span class="k">coverage</span>
             <div class="loc-row"><span class="lt">de</span><span class="st st-translated">translated</span></div>
-            <div class="loc-row">
-              <span class="lt">de-AT</span><span class="st st-inherited">inherited <span class="via">from de</span></span>
-            </div>
+            <div class="loc-row"><span class="lt">de-AT</span><span class="st st-translated">translated</span></div>
             <div class="loc-row"><span class="lt">en</span><span class="st st-translated">translated</span></div>
+            <p class="field-note">
+              A locale that resolves through a declared ancestor reads <code>inherited</code> here,
+              naming the locale it came from. Only falling all the way through to the source locale
+              is a missing translation.
+            </p>
           </div>
           <div class="field">
             <span class="k">sourceHash</span>
@@ -494,8 +508,8 @@ const rules = [
         <div class="lim">
           <p class="what">next-intl</p>
           <p class="cost">
-            The Next App Router, today. loclizr's Next entry is v0.2, because middleware runs in a
-            different runtime and cannot wrap a render.
+            The Next App Router, today. loclizr's Next entry is a v0.2 question, because middleware
+            runs in a different runtime and cannot wrap a render.
           </p>
         </div>
         <div class="lim">
@@ -503,6 +517,14 @@ const rules = [
           <p class="cost">
             Extraction from your source, which this does not do at all. Catalogs here are authored or
             imported, and finding the hardcoded strings in an existing app is somebody else's job.
+          </p>
+        </div>
+        <div class="lim">
+          <p class="what">FormatJS</p>
+          <p class="cost">
+            The most complete ICU implementation, runtime formatting of content the build never saw,
+            and a lint rule set for the code side. Content unknown at build time has no entry here in
+            v0.1.
           </p>
         </div>
         <div class="lim">

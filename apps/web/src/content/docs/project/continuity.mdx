@@ -3,4 +3,71 @@ title: Continuity
 description: Maintainer count, release cadence, and what happens if this stalls.
 ---
 
-Coming soon.
+import { Aside } from '@astrojs/starlight/components'
+
+<Aside type="caution">
+Values in square brackets are placeholders that only the maintainer can fill. Until they are
+filled, treat the corresponding claim as unmade.
+</Aside>
+
+## Why this page exists
+
+Libraries in this category rarely die of design. They die when the one person who understood the
+code stops answering, when a stable release goes two years without a successor while the framework
+underneath keeps moving, when a dependency graph rots quietly until a compiler upgrade breaks the
+types and nobody has the commit bit to fix them. The users of such a library find out from a
+failing build, months after the fact, and the migration they then face is the one they chose the
+library to avoid.
+
+A compiler that can fail your CI is a higher-trust dependency than a runtime that reads JSON. It
+earns that trust by saying in advance how it is run, or it does not earn it. So this page is part of
+the product, and it is kept current the way the changelog is.
+
+## What is published
+
+**Maintainer count.** [number] people hold commit and publish rights. [number] of them are paid
+to work on this. When either number changes, this page changes in the same release.
+
+**Cadence.** A patch release within [days] of a confirmed regression. A minor release
+[cadence]. While the version is `0.x`, a minor may break an invariant and the changelog says so;
+at `1.0` the invariants in the specification become the semver contract.
+
+**Succession.** If the primary maintainer is unreachable for [days], [named person or
+organisation] holds npm publish rights and the GitHub organisation, and may release under the same
+name. If nobody can be found to take it on, the last release is marked as such on npm and the
+repository is archived rather than left to look alive.
+
+**Where to look.** Open issues and their age, the date of the last release, and the number of
+distinct committers in the last year are all public on the repository. Read them before you
+depend on this, and read them again a year in.
+
+## What keeps working if the project stops
+
+The design is shaped so that the answer is "almost everything".
+
+Your catalogs are plain JSON in ICU MessageFormat, or in the i18next form you already had. Nothing
+in them refers to this tool. Any library or TMS that reads ICU reads them, and an i18next catalog
+that was only ever converted in memory has not been touched at all.
+
+The generated tree is plain ESM with hand-printed `.d.ts` files. It imports a handful of runtime
+helpers from `loclizr`, the locale store and the plural and Intl wrappers, and nothing else.
+Delete the self-ignoring `.gitignore` inside `outDir`, commit the tree, pin the last published
+version, and the app builds and typechecks for as long as `Intl` exists in your runtime, with no
+compiler in the loop.
+
+The context record is JSON with a `schema` field and no tool version in it. A translator or a
+script can keep reading it after the last release.
+
+What you lose is the checks. A missing translation goes back to being something a person has to
+notice, the way it was before you added the tool.
+
+## Licence and money
+
+The compiler, the runtime and the catalog format are MIT and stay MIT. Closed source has no
+precedent in this category, and the only advantage that has ever held here is distribution, which
+a licence change deletes.
+
+If a paid layer ever exists it sits where the precedent is: seats, governance, a hosted place for
+the context record to be read by people who are not engineers. It never sits at the install, never
+in the CLI, and never in the console. A notice printed at build time asking for money is a way to
+convert a small fraction of users into ex-users, and it has been tried.

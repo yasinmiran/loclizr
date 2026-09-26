@@ -3,4 +3,177 @@ title: Importing i18next catalogs
 description: Reading an existing i18next JSON catalog without editing it.
 ---
 
-Coming soon.
+import { Aside } from '@astrojs/starlight/components'
+
+Point `catalogs` at the files you already have and run `loclizr build`. Nothing is written back,
+so i18next keeps serving the app while you read the diagnostics and look at the generated
+functions. The default pattern is `locales/{locale}.json`; a split layout uses the `{ns}` token,
+and every key from `common.json` is then prefixed with `common.`.
+
+```ts title="loclizr.config.ts"
+import { defineConfig } from 'loclizr'
+
+export default defineConfig({
+  catalogs: 'public/locales/{locale}/{ns}.json',
+  sourceLocale: 'en',
+})
+```
+
+## What auto detection does
+
+The format is decided per file, after flattening and before any conversion. A file is read as
+i18next when any value contains `{{`, or any key carries a CLDR plural suffix that would fold.
+Otherwise it is ICU. There is no hybrid: inside a file read as i18next, single-brace ICU syntax is
+literal text, and inside a file read as ICU, `{{name}}` is a brace around an argument, exactly as
+the ICU grammar says. That is why the decision is per file and not per value. A translator's stray
+`{{` should never flip the meaning of one string on its own.
+
+`catalogFormat: 'icu'` or `'i18next'` pins every file and skips the classification. The example app
+runs with the default, which is how its ICU `de.json` and its i18next-form `de-AT.json` sit side by
+side.
+
+## What converts
+
+`{{name}}` becomes `{name}`, whitespace inside the braces trimmed, typed `string | number`.
+
+`{{count}}` becomes `{count}` and stays a plain argument: it is never rewritten to `#` and never
+passed through `Intl.NumberFormat`, because i18next printed it unformatted and `1000 items`
+turning into `1,000 items` on import day would be a silent change. When it is the selector of a
+folded plural its type narrows to `number`.
+
+Plural suffixes fold. `items_one` and `items_other` become one key `items` with an ICU plural
+whose selector is always `count`, branches ordered `=0, zero, one, two, few, many, other`.
+`X_ordinal_one` folds to a `selectordinal`. What happens to `_zero` depends on the locale, because
+the compiler knows the locale: German never selects the `zero` category, so a German `items_zero`
+becomes the exact branch `=0`, while Latvian selects `zero` for 10, 20 and 11 through 19, so it
+keeps the keyword branch. Same three keys in both files, two different arms:
+
+```js title="src/loclizr/messages/_root.js"
+case 'de':
+  if (n0 === 0) return `Dein Warenkorb ist leer`
+  return `${args.count} Artikel in deinem Warenkorb`
+case 'lv':
+  switch ($plural1(l, n0, false)) {
+    case 'zero':
+      return `Jūsu grozs ir tukšs`
+    case 'one':
+      return `${args.count} prece jūsu grozā`
+    default:
+      return `${args.count} preces jūsu grozā`
+  }
+```
+
+A suffixed key with no `_other` sibling stays an ordinary key and warns, and so does the pre-v21
+`X_plural` beside a bare `X`:
+
+```text
+warn  LZ1014  plural-suffix-orphan  locales/en.json:9:19  en  cart.empty_one
+
+  "cart.empty_one" carries a plural suffix with no "cart.empty_other" sibling, so it stays an ordinary key that i18next would never have selected either.
+
+  fix  add cart.empty_other to fold the group, or rename the key if "_one" was never a plural.
+```
+
+## Detected, not converted
+
+Context suffixes are the one i18next feature that survives import as the wrong thing. `friend`,
+`friend_male` and `friend_female` all become message functions, and nothing selects between them
+any more. The compiler will not guess the rewrite, so it prints it:
+
+```text
+warn  LZ1017  i18next-context-detected  locales/en.json:11:14  en  friend
+
+  "friend" carries 2 context suffixes. i18next selected these with t('friend', { context }), and after import nothing selects them.
+
+    friend_male      locales/en.json:12:19     selected by nothing after import
+    friend_female    locales/en.json:13:21     selected by nothing after import
+
+  fix  convert this file to ICU first, then replace them with one message:
+    "friend": "{context, select, male {...} female {...} other {...}}"
+```
+
+"Convert this file to ICU first" is load bearing. Pasting that select into a file that still
+contains `{{` puts ICU syntax into a file read as i18next, and the run renders as literal text.
+
+## What does not convert
+
+`$t(nav.home)` nesting has no ICU equivalent, and an inline formatter, `{{amount, currency}}`, has
+no place to carry its format. Both are errors, both still emit, and both render as the raw text or
+the raw value so the page does not go blank while you fix them:
+
+```text
+error  LZ1012  i18next-nesting-unsupported  locales/en.json:8:16  en  cart.footer
+
+  This value nests another key with $t(), which ICU cannot express, so the call renders as literal text.
+
+  fix  inline the nested text here, or split the sentence into two messages.
+
+error  LZ1013  i18next-format-unsupported  locales/en.json:7:15  en  cart.total
+
+  The placeholder {{amount, currency}} carries an i18next formatter, which has no ICU equivalent. It renders as the raw value.
+
+  fix  name the style in formats.number or formats.dateTime, convert this file to ICU, and write {amount, number, yourStyle}.
+```
+
+Array values are `LZ1010 catalog-shape-invalid`. And ICU written into an i18next file gets its
+own warning, since it is the one mistake auto detection could otherwise make invisible:
+
+```text
+warn  LZ1020  icu-in-i18next-file  locales/en.json:15:14  en  status
+
+  "{state, select" is ICU argument syntax, and this file is read as i18next, so the whole run renders as literal text.
+
+  fix  this file classified as i18next on "Hi {{name}}, your cart is ready". Convert the file to ICU, or pin catalogFormat if the literal text is what you meant.
+```
+
+## HTML in values
+
+i18next catalogs are full of `<b>` and `<a>` because `Trans` put them there. With the default
+`i18nextMarkup: 'literal'`, tag-shaped text is escaped and rendered as the characters, which is
+what i18next itself rendered, and each such value raises `LZ1016 i18next-markup-literal` once so
+the choice is visible. `Read our <b>terms</b> before you continue.` stays a plain `string`.
+
+Set `i18nextMarkup: 'tags'` and the same value lowers to a markup argument instead. `LZ1016` goes
+quiet, `b` becomes a required handler, and the return type changes at every call site, which is
+why it is a whole-catalog setting and not the default:
+
+```ts title="src/loclizr/messages/_root.d.ts"
+/** en: "Read our <b>terms</b> before you continue." */
+export declare function terms<T>(
+  args: { b: (chunks: readonly (string | T)[]) => T },
+  opts?: MessageOptions,
+): readonly (string | T)[]
+```
+
+## The first build
+
+| Code | Rule | Default |
+| --- | --- | --- |
+| LZ1012 | `i18next-nesting-unsupported` | error |
+| LZ1013 | `i18next-format-unsupported` | error |
+| LZ1014 | `plural-suffix-orphan` | warn |
+| LZ1016 | `i18next-markup-literal` | warn |
+| LZ1017 | `i18next-context-detected` | warn |
+| LZ1020 | `icu-in-i18next-file` | warn |
+
+`LZ1015 meta-orphan` sits in the same range and belongs to the description sidecar rather than
+the import path; [Catalogs](/guides/catalogs/) covers it.
+
+Warnings alone never fail a build, because `--max-warnings` has no cap unless you set one. The rule
+an imported catalog usually meets first is `LZ3012 ambiguous-source`, which ships at `warn` and
+fires wherever two keys share text and neither has a description, which on a catalog with no
+descriptions is every shared "Save". `loclizr init` on an existing catalog leaves that rule where it
+is and writes the hardening line commented out:
+
+```ts title="loclizr.config.ts (written by init on an existing catalog)"
+  // Turn this on once locales/en.meta.json describes your keys. It
+  // reports keys that share source text where at least one of them has no
+  // description, so on a catalog imported without descriptions it fires on
+  // every shared string at once.
+  // severity: { 'ambiguous-source': 'error' },
+```
+
+<Aside type="tip">
+A file converted to ICU can sit next to files that are still i18next, since the format is per
+file. Convert the file that needs a select or a formatted number, leave the rest.
+</Aside>

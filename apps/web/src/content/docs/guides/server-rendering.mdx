@@ -3,4 +3,141 @@ title: Server rendering
 description: Request-scoped locale through AsyncLocalStorage, and the hydration agreement.
 ---
 
-Coming soon.
+import { Aside } from '@astrojs/starlight/components'
+
+There is no mutable global locale on the server. `loclizr/server` installs an
+`AsyncLocalStorage` scope per request, every message call inside it resolves to that request's
+locale, and concurrent requests cannot see each other. The entry exports five functions and every
+one of them takes the locale list explicitly:
+
+```ts
+runWithLocale<T>(locale: string, fn: () => T): T
+withLocale(handler, options: NegotiateOptions): (request: Request, ...rest) => Promise<Response>
+localeFromRequest(request: Request, options: NegotiateOptions): string
+localeFromHeaders(headers: { cookie?: string; acceptLanguage?: string }, options: NegotiateOptions): string
+negotiate(accepted: readonly string[], options: NegotiateOptions): string
+```
+
+`NegotiateOptions` is `{ locales, sourceLocale, cookie? }`, and the generated barrel already
+exports the first two.
+
+## Scope, stated first
+
+v0.1 covers Web Fetch handlers: Vite SSR, Hono, TanStack Start, Bun, Deno, and Workers with
+`nodejs_als`. A framework that hands you `req.headers` instead of a `Request`, Express or Fastify,
+feeds `localeFromHeaders` and wraps its render in `runWithLocale`. Next.js is not a first-class
+target in this version, neither App Router nor Pages Router middleware: no test, no example, no
+promise. Middleware runs in a different runtime and cannot wrap a render, and the App Router entry
+is an open question.
+
+## A Fetch handler
+
+```ts title="src/server.ts"
+import { withLocale } from 'loclizr/server'
+import * as m from './loclizr/messages.js'
+
+const options = { locales: m.locales, sourceLocale: m.sourceLocale }
+
+export const handler = withLocale(
+  () => new Response(`<html lang="${m.getLocale()}"><h1>${m.cart_greeting({ name: 'Ada' })}</h1></html>`),
+  options,
+)
+```
+
+`withLocale` negotiates from the request, runs the handler inside the scope, and stamps two headers
+on the way out. Run against the example catalogs, with three different requests:
+
+```text
+cookie wins
+  Content-Language: de-AT
+  Vary: Accept-Language
+  body: <html lang="de-AT"><h1>Servus Ada, dein Einkaufswagerl ist fertig</h1></html>
+accept-language when no cookie
+  Content-Language: de
+  Vary: Accept-Language
+  body: <html lang="de"><h1>Hallo Ada, dein Warenkorb ist fertig</h1></html>
+nothing matches
+  Content-Language: en
+  Vary: Accept-Language
+  body: <html lang="en"><h1>Hi Ada, your cart is ready</h1></html>
+```
+
+The first request carried `cookie: locale=de-AT` and `accept-language: en`; the cookie won. The
+second carried `accept-language: de-CH,de;q=0.9,en;q=0.8` and no cookie; `de-CH` truncated to the
+declared `de`. The third asked for `fr` and got the source locale.
+
+<Aside type="caution">
+`Vary: Accept-Language` is set, and most CDNs ignore `Vary` outside `Accept-Encoding`. The real
+requirement is that a response whose locale came from the cookie must not enter a shared cache.
+Send `Cache-Control: private`, or key the CDN cache on the locale cookie.
+</Aside>
+
+## Cookie first, then Accept-Language
+
+`localeFromHeaders` is the primitive and `localeFromRequest` is a wrapper that reads the two headers
+off a `Request` and passes them through, so there is one implementation of the order: the
+configured cookie, then `Accept-Language` through `negotiate`, then the source locale. `negotiate`
+is RFC 4647 lookup by subtag truncation, ranked by quality, with no dependency.
+
+Express and Fastify never hold a `Request`, so they call the primitive:
+
+```ts title="server/app.ts"
+import { localeFromHeaders, runWithLocale } from 'loclizr/server'
+import * as m from '../src/loclizr/messages.js'
+
+const options = { locales: m.locales, sourceLocale: m.sourceLocale }
+
+app.get('/cart', (req, res) => {
+  const locale = localeFromHeaders(
+    { cookie: req.headers.cookie, acceptLanguage: req.headers['accept-language'] },
+    options,
+  )
+  res.set('Content-Language', locale)
+  res.send(runWithLocale(locale, () => render()))
+})
+```
+
+`runWithLocale` is what `withLocale` uses underneath. It installs the scope on first call and runs
+`fn` inside it; there is no per-request state outside the `AsyncLocalStorage`.
+
+## html lang and Content-Language
+
+The client reads the cookie first and `<html lang>` second, and reads nothing else. When a visitor
+arrives with no cookie and `Accept-Language: de`, the server renders German and the client, having
+no cookie, hydrates from whatever `lang` the markup carries. A template that hardcodes
+`<html lang="en">` therefore renders German and hydrates English, and nothing in the library can
+see that from the server side. So render `lang` from the locale you negotiated, the same value
+`withLocale` put in `Content-Language`. Outside production, `useLocale` checks
+`document.documentElement.lang` against the resolved locale on the client and warns once when
+they disagree, naming that header.
+
+## Outside a request
+
+`setLocale` throws inside a scope; per request, pass `{ locale }` on the call instead. Outside any
+scope, a message call returns source-locale text quietly, and `getLocale()` returns the source
+locale with one warning per process outside production:
+
+```text
+loclizr: getLocale() ran outside a request scope, so it returned the source locale. Wrap the render in runWithLocale().
+```
+
+That is a warning and not an exception on purpose. Static prerender, background jobs, scripts and
+error boundaries all run with no request in hand, and turning them into a 500 where source text
+would have degraded gracefully is the wrong trade. Wrap them in `runWithLocale` when they should
+render a specific language.
+
+## Dates on the server
+
+A date formatted with no time zone resolves the server's default zone during render and the
+viewer's on the client, so one instant can print as two different days across the hydration
+boundary. `LZ3011 date-without-timezone` catches every date and time style with no zone and ships
+`off`, because in a browser SPA the viewer's own zone is what you want. Turn it on wherever a
+server renders dates, and set `formats.timeZone` in `loclizr.config.ts`, which is merged into
+every date and time style:
+
+```ts title="loclizr.config.ts"
+export default defineConfig({
+  formats: { timeZone: 'UTC' },
+  severity: { 'date-without-timezone': 'error' },
+})
+```

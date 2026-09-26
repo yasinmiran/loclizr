@@ -1,6 +1,91 @@
 ---
 title: Why loclizr
-description: The argument this project is built on, and the research behind it.
+description: The argument this project is built on, what the research behind it found, and where the claim had to shrink.
 ---
 
-Coming soon.
+import { Aside } from '@astrojs/starlight/components'
+
+loclizr started from a research pass over the frontend i18n landscape: the five libraries most
+teams pick between, the long tail behind them, and the complaint corpus around all of them, then
+an adversarial pass whose job was to break the thesis that came out. The thesis survived that pass
+smaller than it went in. This page is the version that survived.
+
+## The runtime is solved
+
+Three generations of libraries have competed on the same axis. Bundle size, typed keys, hooks
+against plain functions, server components. Each generation fixed something real: Lingui removed
+the runtime parser, next-intl made request-scoped locale work in the App Router, Paraglide turned
+messages into typed ESM exports the bundler can shake. Typed message functions are table stakes
+now, and this project claims them as parity. They are never the headline.
+
+What none of those generations owned is the contract between the code and the translations. Two
+halves of it. Whether the catalogs are correct before the build ships them, and whether the person
+or model translating a string knows what it is for.
+
+## Checks exist, as sidecars
+
+It would be easy to say nothing checks catalogs, and it would be false. `i18next-cli` exits
+non-zero on missing keys. Intlayer gates pull requests on missing content. `@lingual/i18n-check`
+validates ICU across locales and ships a GitHub Action for it. TMS vendors have run placeholder
+and terminology QA for a decade.
+
+Every one of those is a command somebody wires into CI, and the corpus shows that step being
+skipped even by the people who build the tools: one extractor has returned 0 on failure since
+2023, with the issue open and ranked low by its own maintainers. So the claim here is narrow.
+Not that checking is possible, but that it is the default. There is no configuration of loclizr in
+which your messages got generated and your catalogs went unchecked, because they are one pass
+reading one representation.
+
+## Context exists, as discipline
+
+The same honesty applies to the other half. gettext has `msgctxt`. FormatJS has `description`.
+Lingui's PO catalogs carry `file:line` and placeholder names. Every one of them is optional, which
+in practice means unused, because making it mandatory makes the quickstart worse and nobody ships
+that. And since mid 2026 a TMS can point an agent at your repository and have it write a sentence
+or two of context per string, per run.
+
+The property that differs is not capability, it is shape. The record loclizr writes is a pure
+function of the tree: same catalogs, same sources, same bytes. It costs nothing per run, it lands
+in the pull request beside the string that changed, and it travels to a human, a model or a
+vendor without anyone holding an account. An agent's context is re-derived each time, billed each
+time, and arrives in a database after review is over. Those are different artifacts. This one is
+the smaller claim, and it is the one the evidence supports.
+
+## Why nobody built it, and what that means for the pitch
+
+The research had a finding it could not argue away. Rank the pain corpus by how often people
+complain and context loss is near the top. Rank the same corpus by how developers react, thumbs on
+issues rather than words in threads, and it drops to almost nothing. Type safety, tree-shaking and
+framework breakage dominate. Context loss is voiced by translators and by people who build
+translation tools, and those are not the people who run `npm install`.
+
+That explains why no library owned it: the payoff accrues to someone downstream of the developer
+choosing the library. It also says, plainly, that a landing page leading with context would lose
+the room. So the order here is deliberate. The build gate is what a developer feels on the first
+red run, and the context record is the payload that ships underneath it, in the same pass, whether
+or not anyone asked for it.
+
+<Aside type="note">
+Timing matters here too. A human translator reading forty lines of metadata per string is slower,
+not faster, which is why the optional fields stayed optional. A model reading them is not. That
+consumer is new, and it is the reason this is worth building now rather than a decade ago.
+</Aside>
+
+## What this is not
+
+Not "i18n is broken". The evidence does not support that, and the line belongs to other people.
+Not a replacement for i18next: the one real displacement in this category happened when a
+framework seat opened and the incumbent in it stalled, and there is no such seat here. Not
+per-locale delivery, which needs to own the metaframework's build and which the project makes no
+claim about. And not stable, in the sense a day-zero project cannot promise. The
+[limits page](/project/limits/) has each of those with its reasoning, and
+[continuity](/project/continuity/) has the maintainer situation written down, because every
+library death studied in the research was governance rather than design.
+
+## Where the evidence is thin
+
+Reddit was unsampled, so the "which library should I pick" genre is missing. No survey covers
+i18n satisfaction at all. The only quantitative evidence that richer context improves machine
+translation comes from one vendor writing about its own product, and it has not been reproduced,
+so it does not appear on any page of this site as a number. The download figures behind the
+adoption picture are inflated by CI traffic and were read as ratios, never as absolutes.

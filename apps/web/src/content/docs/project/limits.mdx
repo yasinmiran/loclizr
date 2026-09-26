@@ -1,6 +1,98 @@
 ---
 title: Honest limits
-description: What v0.1 does not do, written down before you install anything.
+description: What v0.1 does not do, with the reason for each, written down before you install anything.
 ---
 
-Coming soon.
+Each of these is a decision with a cost, not an item on a backlog, and each is stated here so it
+is read before the install rather than discovered when the bundle report comes back.
+
+## Every locale is inlined into every message function
+
+`cart_items` carries a `de` arm, a `de-AT` arm and an `en` arm, and so does every other message
+you call. Your bundle grows with locale count. Shipping only the request's locale needs to own the
+metaframework's build step, which is why the one library that does it can only do it where it
+controls the whole app build. loclizr does not own your build, so it makes no per-locale delivery
+claim at all. Tree-shaking by message still works, because unused exports drop like any other.
+
+## Translations are a build input
+
+A translation fix is a commit and a deploy. A TMS that opens pull requests fits that shape; a
+dashboard where somebody corrects a typo in production at four in the afternoon does not. If your
+copy must change without a deploy you want a runtime catalog loader, and i18next has spent a decade
+being good at exactly that.
+
+## Content unknown at build time is out of scope
+
+Every message function was compiled from a string the build saw. There is no `format()` for text
+that arrives at runtime, from a CMS or a feature flag, because a runtime formatter needs a runtime
+parser and the whole design rests on never shipping one. When it lands it will be a separate
+entry, so the invariant keeps holding for everyone who does not import it. That is deferred past
+v0.1, not promised for it.
+
+## One framework demo
+
+React with Vite is the example that exists and is tested: the locale negotiation, the hydration
+agreement, the language switcher. The generated messages are plain ESM and run anywhere JavaScript
+does, and the server entry covers Web Fetch handlers plus anything that can hand over two header
+strings. Outside that demo you wire the locale in yourself, and the docs say message layer only
+where they mean it.
+
+## Next.js is not a first-class SSR target
+
+No test, no example, no promise, for either router. Middleware runs in a different runtime and
+cannot wrap a render, and the App Router entry is a v0.2 question. `loclizr/react` emits no
+`'use client'` directive; an app that needs one puts it on its own component file. next-intl is
+built for that stack and this page is not going to pretend otherwise.
+
+## Generated files live in your tree
+
+`src/loclizr/` is real files, gitignored by default through a `.gitignore` written inside it. That
+is what having no bundler plugin costs: a build step before anything imports the tree, and the
+`prepare`, `predev`, `prebuild` and `pretypecheck` scripts to keep a fresh clone working. There is
+no `--watch`. The loop is `loclizr build --no-fail` in `predev`, and, for edits that should land
+in the running app, the small Vite plugin the example ships in its own `vite.config.ts`. A team
+that would rather commit the tree deletes the one `.gitignore` and `check` starts comparing those
+files too.
+
+## The locale never comes from the URL
+
+No `/de/pricing`. It is read from a cookie, then from `Accept-Language`, and the agreement between
+what the server rendered and what the client hydrates depends on exactly that order. Prefix
+routing is out of scope rather than unfinished.
+
+## No extraction and no codemod
+
+v0.1 never reads your components looking for strings and never rewrites one. Catalogs are authored
+or imported, and a retrofit starts from a catalog you wrote. This follows from never transforming
+app code; a one-time instrumentation command is a question for after v0.1 and would never be part
+of the build.
+
+## The usage scan is a scan
+
+It tokenizes rather than type-checks, so renamed re-exports and computed access on a plain
+namespace go unseen. Every rule that reads it defaults to `off` or `warn`, and the record gate
+compares with `usage` projected out, so nothing the scan produces can fail a build. The record's
+render site is a file and an enclosing scope, deliberately without a line number, because one
+added import at the top of a file would otherwise churn every entry below it.
+
+## The record carries two of the five fields the idea started with
+
+Render site and argument types ship. Element role does not: the scan cannot read a JSX tree, so
+the record never says whether a string is a button label or a page title. Surrounding copy and
+glossary hits do not ship either. Glossary is the cheap deterministic one and the first candidate
+after v0.1.
+
+## Intl is required
+
+Generated code calls `Intl.PluralRules`, `Intl.NumberFormat` and `Intl.DateTimeFormat`
+unconditionally. Every current browser and Node has them. React Native does too, with the one
+caveat that Hermes on Android needs the `intl` build of the runtime, which is a one-line project
+setting named here rather than found in a crash report.
+
+## Day zero
+
+No published release, no users, no track record, and no promise about how long this stays
+maintained. While the version is `0.x` a minor may break an invariant, and the changelog will say
+so. Maintainer count, cadence and what happens if this stops are on the
+[continuity page](/project/continuity/), because the research found no library in this category
+that died of its design.

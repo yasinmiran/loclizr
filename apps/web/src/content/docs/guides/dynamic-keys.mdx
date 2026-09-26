@@ -3,4 +3,129 @@ title: Dynamic keys
 description: The typed lookup tier, for a key chosen at run time from a known set.
 ---
 
-Coming soon.
+import { Aside } from '@astrojs/starlight/components'
+
+An error code arrives from an API and the page has to show the message for it. Building the
+function name at run time, `m['errors_' + code]`, throws the types away and hides the call from
+the usage scan. A group gives that lookup a record and a key type instead. Declare the prefix in
+config:
+
+```ts title="loclizr.config.ts"
+export default defineConfig({
+  locales: ['en', 'de', 'de-AT'],
+  sourceLocale: 'en',
+  groups: { errors: 'errors' },
+})
+```
+
+A prefix matches on a dot boundary, so `errors` captures `errors.forbidden` and never
+`errorsforbidden`, and the member name is the key with the prefix and the dot removed.
+
+## What is generated
+
+`groups.js` and `groups.d.ts` land beside the barrel. The example app's `errors` group, from three
+keys:
+
+```ts title="src/loclizr/groups.d.ts"
+export type ErrorsKey = 'forbidden' | 'not_found' | 'rate_limited'
+export interface ErrorsArgs {
+  forbidden: EmptyArgs
+  not_found: EmptyArgs
+  rate_limited: { seconds: number }
+}
+export declare const errors: Readonly<{
+  [K in ErrorsKey]: (args: ErrorsArgs[K], opts?: MessageOptions) => string
+}>
+```
+
+```js title="src/loclizr/groups.js"
+import { errors_forbidden, errors_not_found, errors_rate_limited } from './messages/errors.js'
+
+export const errors = /*#__PURE__*/ Object.freeze({
+  __proto__: null,
+  forbidden: errors_forbidden,
+  not_found: errors_not_found,
+  rate_limited: errors_rate_limited,
+})
+```
+
+The literal has a null prototype, so a member named `constructor` cannot reach
+`Object.prototype`. The type names are the group name in PascalCase plus `Key` and `Args`;
+a group called `nav.main` would give `NavMainKey`.
+
+## Using it
+
+The example app types its state with the generated key union and indexes the record with it:
+
+```tsx title="src/App.tsx"
+import { errors, type ErrorsKey } from './loclizr/groups'
+
+const problems: readonly ErrorsKey[] = ['forbidden', 'not_found', 'rate_limited']
+
+<Row index={4} value={errors[cart.problem]({ seconds: cart.seconds })}>
+```
+
+A literal key gets exact typing: `errors.rate_limited({ seconds: 30 })` compiles and
+`errors.rate_limited({ nope: 1 })` does not. A key typed as the union produces a union of call
+signatures, which TypeScript calls with the intersection of the parameter types, so
+`errors[code]` has to be given every argument any member needs. `errors[code]()` is an error, and
+so is `errors[code]({})`, because `seconds` is missing.
+
+That is the sound typing and it is also the tier's cost. Adding one member that takes `{ retryAt }`
+breaks every existing dynamic call site. The build says so the moment the members disagree rather
+than at the third one:
+
+```text
+warn  LZ4006  group-args-heterogeneous
+
+  The group "errors" has members with different argument sets, so every dynamic call site must pass the union: seconds.
+
+    errors.forbidden       takes no arguments
+    errors.not_found       takes no arguments
+    errors.rate_limited    takes seconds
+
+  fix  Split the group by argument shape, or give the odd members bare {x} arguments.
+```
+
+The example ships with that warning on purpose, to show the shape. Two groups, one for the
+argument-free codes and one for the ones that carry a retry, would silence it.
+
+## An empty group
+
+A prefix that matches nothing is an error, and the build still emits so your typecheck has
+something to point at:
+
+```text
+error  LZ4004  group-empty
+
+  The group "nope" matched no keys under the prefix "nope".
+
+  fix  A prefix matches on a dot boundary, so "nope" captures "nope.forbidden" and never "nopeforbidden". Check the prefix.
+```
+
+The emitted type is `NopeKey = never`, so every call through it is a type error too.
+
+## Tree-shaking
+
+`groups.js` names every member of every group, so importing `./loclizr/groups` retains every
+member of every group. That is the whole cost, and the barrel deliberately does not re-export
+`groups.js`, so an app pays it only by importing the file. Messages you call by name through the
+barrel are still individually retained or dropped as usual.
+
+The usage scan understands both access forms. `errors.forbidden(...)` records a usage against that
+one message; `errors[code](...)` records one against every member, which is what keeps a message
+only ever reached dynamically from showing up as unused in the record.
+
+## Content unknown at build time
+
+A group is for a key chosen at run time from a set known at build time. A string that does not
+exist when `loclizr build` runs, an article title from a CMS or a message typed by a user, is not
+a message and does not belong in a catalog. A runtime formatter for such content, `format()`,
+would need an ICU parser in the browser, which is the one thing the generated code promises never
+to ship, so it is deferred and would arrive as a separate entry if it arrives.
+
+<Aside type="note">
+When the set is finite but the caller does not know it yet, a `select` is usually the better tool:
+`{state, select, packing {...} shipped {...} other {...}}` is one message with one typed argument
+rather than three messages and a lookup.
+</Aside>
