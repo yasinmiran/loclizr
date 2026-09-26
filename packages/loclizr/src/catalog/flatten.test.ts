@@ -1,0 +1,75 @@
+import { describe, expect, it } from 'vitest'
+import type { Span } from '../types'
+import { flatten } from './flatten'
+
+const SPAN: Span = { line: 1, column: 1, offset: 0, length: 0 }
+
+function run(value: unknown, ns: string | null = null, spans: ReadonlyMap<string, Span> = new Map()) {
+  return flatten({ value, file: 'locales/en.json', locale: 'en', ns, spans })
+}
+
+describe('flatten', () => {
+  it('joins nesting into a dotted key', () => {
+    const { entries } = run({ nav: { home: 'Home', cart: 'Cart' } })
+    expect(entries.map((entry) => entry.key)).toEqual(['nav.home', 'nav.cart'])
+    expect(entries[0]?.value).toBe('Home')
+  })
+
+  it('flattens a dotted key to the same shape as the nested form', () => {
+    expect(run({ 'nav.home': 'Home' }).entries[0]?.key).toBe('nav.home')
+  })
+
+  it('prefixes every key with the namespace segment', () => {
+    const { entries } = run({ nav: { home: 'Home' } }, 'common')
+    expect(entries[0]?.key).toBe('common.nav.home')
+  })
+
+  it('carries the span the scanner recorded for the path', () => {
+    const spans = new Map([['nav.home', { line: 3, column: 5, offset: 17, length: 6 }]])
+    expect(run({ nav: { home: 'Home' } }, null, spans).entries[0]?.span).toEqual({
+      line: 3,
+      column: 5,
+      offset: 17,
+      length: 6,
+    })
+  })
+
+  it('drops a null leaf with no diagnostic, so it reaches the fallback chain', () => {
+    const { entries, diagnostics } = run({ nav: { home: null, cart: 'Cart' } })
+    expect(entries.map((entry) => entry.key)).toEqual(['nav.cart'])
+    expect(diagnostics).toEqual([])
+  })
+
+  it('reports an array leaf and names the deferred escape hatch', () => {
+    const { entries, diagnostics } = run({ tips: ['a', 'b'] })
+    expect(entries).toEqual([])
+    expect(diagnostics.map((one) => one.code)).toEqual(['LZ1010'])
+    expect(diagnostics[0]?.hint).toContain('format()')
+    expect(diagnostics[0]?.key).toBe('tips')
+  })
+
+  it('reports a leaf that is neither a string, an object nor null', () => {
+    expect(run({ count: 3 }).diagnostics.map((one) => one.code)).toEqual(['LZ1010'])
+    expect(run({ on: true }).diagnostics.map((one) => one.code)).toEqual(['LZ1010'])
+  })
+
+  it('reports a root that is not an object', () => {
+    for (const value of ['text', ['a'], null, undefined, 7]) {
+      expect(run(value).diagnostics.map((one) => one.code)).toEqual(['LZ1010'])
+    }
+  })
+
+  it('keeps the last of two colliding keys, as JSON itself does', () => {
+    const { entries } = run({ 'nav.home': 'dotted', nav: { home: 'nested' } })
+    expect(entries).toHaveLength(1)
+    expect(entries[0]).toMatchObject({ key: 'nav.home', value: 'nested' })
+  })
+
+  it('produces nothing for an empty object leaf', () => {
+    expect(run({ nav: {} }).entries).toEqual([])
+  })
+
+  it('keeps an empty string, which is a message that lowers to zero nodes', () => {
+    expect(run({ blank: '' }).entries).toEqual([{ key: 'blank', value: '', span: SPAN }])
+  })
+})

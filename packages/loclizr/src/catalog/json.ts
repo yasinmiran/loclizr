@@ -17,15 +17,26 @@ interface Cursor {
 interface Paths {
   readonly spans: Map<string, Span>
   readonly duplicates: string[]
-  readonly repeated: Set<string>
+  readonly reported: Set<string>
+  readonly leaves: Set<string>
 }
+
+const SYNTAX_HINT = 'a catalog is plain JSON: double-quoted keys, no trailing comma, no comments.'
+
+// The scan is recursive descent, so a document nested past the call stack would
+// escape as a RangeError and take the build down instead of reporting. A catalog
+// is a shallow tree of message keys, so the cap sits far above anything a
+// translator or a TMS export writes and well below where the stack gives out.
+const MAX_DEPTH = 256
 
 class JsonSyntaxError extends Error {
   readonly offset: number
+  readonly hint: string
 
-  constructor(message: string, offset: number) {
+  constructor(message: string, offset: number, hint: string = SYNTAX_HINT) {
     super(message)
     this.offset = offset
+    this.hint = hint
   }
 }
 
@@ -44,10 +55,10 @@ const NUMBER = /-?(?:0|[1-9][0-9]*)(?:\.[0-9]+)?(?:[eE][+-]?[0-9]+)?/y
 
 export function parseJsonWithSpans(text: string, file: string): ParsedJson {
   const cursor: Cursor = { text, lineStarts: lineStartsOf(text), index: 0 }
-  const paths: Paths = { spans: new Map(), duplicates: [], repeated: new Set() }
+  const paths: Paths = { spans: new Map(), duplicates: [], reported: new Set(), leaves: new Set() }
   try {
     skipSpace(cursor)
-    const value = parseValue(cursor, '', paths)
+    const value = parseValue(cursor, '', paths, 0)
     skipSpace(cursor)
     if (cursor.index < text.length) {
       throw new JsonSyntaxError(`Unexpected ${describeAt(cursor)} after the top-level value.`, cursor.index)
@@ -62,7 +73,7 @@ export function parseJsonWithSpans(text: string, file: string): ParsedJson {
       diagnostics: [
         diag('catalog-json-syntax', {
           message: failure.message,
-          hint: 'a catalog is plain JSON: double-quoted keys, no trailing comma, no comments.',
+          hint: failure.hint,
           file,
           span: spanAt(cursor, failure.offset, failure.offset < text.length ? 1 : 0),
         }),
@@ -71,13 +82,23 @@ export function parseJsonWithSpans(text: string, file: string): ParsedJson {
   }
 }
 
-function parseValue(cursor: Cursor, path: string | null, paths: Paths): unknown {
+function parseValue(cursor: Cursor, path: string | null, paths: Paths, depth: number): unknown {
   const char = cursor.text[cursor.index]
   if (char === undefined) {
     throw new JsonSyntaxError('Unexpected end of file where a value was expected.', cursor.index)
   }
-  if (char === '{') return parseObject(cursor, path, paths)
-  if (char === '[') return parseArray(cursor, paths)
+  if (char === '{' || char === '[') {
+    if (depth >= MAX_DEPTH) {
+      throw new JsonSyntaxError(
+        `This file nests more than ${MAX_DEPTH} levels deep.`,
+        cursor.index,
+        'a catalog is a tree of message keys; nothing that a translator writes nests this far.',
+      )
+    }
+    return char === '{'
+      ? parseObject(cursor, path, paths, depth + 1)
+      : parseArray(cursor, paths, depth + 1)
+  }
   if (char === '"') return parseString(cursor)
   if (char === '-' || (char >= '0' && char <= '9')) return parseNumber(cursor)
   for (const [word, value] of [
@@ -93,8 +114,14 @@ function parseValue(cursor: Cursor, path: string | null, paths: Paths): unknown 
   throw new JsonSyntaxError(`Unexpected ${describeAt(cursor)} where a value was expected.`, cursor.index)
 }
 
-function parseObject(cursor: Cursor, path: string | null, paths: Paths): Record<string, unknown> {
+function parseObject(
+  cursor: Cursor,
+  path: string | null,
+  paths: Paths,
+  depth: number,
+): Record<string, unknown> {
   const result = Object.create(null) as Record<string, unknown>
+  const written = new Set<string>()
   cursor.index += 1
   skipSpace(cursor)
   if (cursor.text[cursor.index] === '}') {
@@ -106,17 +133,31 @@ function parseObject(cursor: Cursor, path: string | null, paths: Paths): Record<
     if (cursor.text[cursor.index] !== '"') {
       throw new JsonSyntaxError(`Unexpected ${describeAt(cursor)} where a quoted key was expected.`, cursor.index)
     }
-    const start = cursor.index
     const key = parseString(cursor)
     const child = path === null ? null : path === '' ? key : `${path}.${key}`
-    if (child !== null) record(paths, child, spanAt(cursor, start, cursor.index - start))
+    if (child !== null) {
+      // One object writing a key twice loses the first value whole, whatever
+      // shape either of them has.
+      if (written.has(key)) recordDuplicate(paths, child)
+      written.add(key)
+    }
     skipSpace(cursor)
     if (cursor.text[cursor.index] !== ':') {
       throw new JsonSyntaxError(`Unexpected ${describeAt(cursor)} where ":" was expected.`, cursor.index)
     }
     cursor.index += 1
     skipSpace(cursor)
-    result[key] = parseValue(cursor, child, paths)
+    const valueStart = cursor.index
+    const value = parseValue(cursor, child, paths, depth)
+    result[key] = value
+    if (child !== null) paths.spans.set(child, valueSpan(cursor, valueStart, value))
+    // Two routes to one path, a dotted key beside a nested one, collide only
+    // where both end in a message. A leaf beside a deeper branch gives two
+    // different flat keys and shadows nothing.
+    if (child !== null && typeof value === 'string') {
+      if (paths.leaves.has(child)) recordDuplicate(paths, child)
+      paths.leaves.add(child)
+    }
     skipSpace(cursor)
     const next = cursor.text[cursor.index]
     if (next === ',') {
@@ -131,7 +172,7 @@ function parseObject(cursor: Cursor, path: string | null, paths: Paths): Record<
   }
 }
 
-function parseArray(cursor: Cursor, paths: Paths): unknown[] {
+function parseArray(cursor: Cursor, paths: Paths, depth: number): unknown[] {
   const result: unknown[] = []
   cursor.index += 1
   skipSpace(cursor)
@@ -141,7 +182,7 @@ function parseArray(cursor: Cursor, paths: Paths): unknown[] {
   }
   for (;;) {
     skipSpace(cursor)
-    result.push(parseValue(cursor, null, paths))
+    result.push(parseValue(cursor, null, paths, depth))
     skipSpace(cursor)
     const next = cursor.text[cursor.index]
     if (next === ',') {
@@ -205,12 +246,10 @@ function parseNumber(cursor: Cursor): number {
   return Number(match[0])
 }
 
-function record(paths: Paths, key: string, span: Span): void {
-  if (paths.spans.has(key) && !paths.repeated.has(key)) {
-    paths.repeated.add(key)
-    paths.duplicates.push(key)
-  }
-  paths.spans.set(key, span)
+function recordDuplicate(paths: Paths, key: string): void {
+  if (paths.reported.has(key)) return
+  paths.reported.add(key)
+  paths.duplicates.push(key)
 }
 
 function skipSpace(cursor: Cursor): void {
@@ -233,6 +272,15 @@ function lineStartsOf(text: string): readonly number[] {
     if (text[index] === '\n') starts.push(index + 1)
   }
   return starts
+}
+
+// A path's span covers its value, and a string's quotes are left out of it, so
+// adding an offset into the message text to the span lands on the character that
+// offset names.
+function valueSpan(cursor: Cursor, start: number, value: unknown): Span {
+  if (typeof value !== 'string') return spanAt(cursor, start, cursor.index - start)
+  const content = start + 1
+  return spanAt(cursor, content, cursor.index - 1 - content)
 }
 
 function spanAt(cursor: Cursor, offset: number, length: number): Span {
