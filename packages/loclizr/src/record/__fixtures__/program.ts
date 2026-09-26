@@ -41,6 +41,7 @@ export interface MessageInput {
   readonly key: string
   readonly id: string
   readonly namespace: string
+  readonly module?: string | undefined
   readonly source: string
   readonly kind?: 'text' | 'markup' | undefined
   readonly args?: readonly Arg[] | undefined
@@ -72,7 +73,7 @@ export function message(input: MessageInput): Message {
     key: input.key,
     id: input.id,
     namespace: input.namespace,
-    module: `messages/${input.namespace}.js`,
+    module: input.module ?? `messages/${input.namespace}.js`,
     kind: input.kind ?? 'text',
     source: input.source,
     sourceHash: hash16(input.source),

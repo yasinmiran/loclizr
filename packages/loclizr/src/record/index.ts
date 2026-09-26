@@ -7,6 +7,7 @@ import type {
   ExactBranch,
   LocaleOrigin,
   Message,
+  MessageUsage,
   Node,
   PlaceholderNote,
   PluralBranch,
@@ -23,6 +24,8 @@ import type {
 import { compareCodepoint } from '../util'
 
 const CLDR_ORDER: readonly string[] = ['zero', 'one', 'two', 'few', 'many', 'other']
+const UNKNOWN_RANK = CLDR_ORDER.length
+const OTHER_RANK = CLDR_ORDER.length + 1
 
 const RECORD_ARG_TYPES: Readonly<Record<ArgType['kind'], RecordArgType>> = {
   stringish: 'text',
@@ -33,7 +36,7 @@ const RECORD_ARG_TYPES: Readonly<Record<ArgType['kind'], RecordArgType>> = {
 }
 
 export function buildRecord(program: Program): ContextRecord {
-  const sites = new Map(program.usages.map((usage) => [usage.id, usage.sites]))
+  const sites = sitesById(program.usages)
   return {
     schema: 1,
     sourceLocale: program.sourceLocale,
@@ -62,6 +65,18 @@ function byKey(messages: readonly Message[]): readonly Message[] {
   return [...messages].sort((a, b) => compareCodepoint(a.key, b.key))
 }
 
+// Nothing promises one usage entry per message id, and every site a scan found
+// has to reach the record before the file-and-scope dedup runs.
+function sitesById(usages: readonly MessageUsage[]): ReadonlyMap<string, readonly UsageSite[]> {
+  const collected = new Map<string, UsageSite[]>()
+  for (const usage of usages) {
+    const held = collected.get(usage.id)
+    if (held === undefined) collected.set(usage.id, [...usage.sites])
+    else held.push(...usage.sites)
+  }
+  return collected
+}
+
 function recordMessage(
   message: Message,
   sourceLocale: string,
@@ -85,9 +100,27 @@ function recordMessage(
   }
 }
 
+// The sidecar is hand written, so a note can arrive NFD while every argument name
+// is NFC, and two spellings can land on one argument. Which note survives may not
+// depend on where the two sit in `Message.placeholders`, whose order carries no
+// meaning and which the determinism replay reverses. The spelling that matches
+// the argument's own NFC name wins, then the lower code point.
 function noteIndex(placeholders: readonly PlaceholderNote[]): ReadonlyMap<string, string> {
-  // The sidecar is hand written, so a note can arrive NFD while every argument name is NFC.
-  return new Map(placeholders.map((entry) => [entry.name.normalize('NFC'), entry.note]))
+  const winners = new Map<string, PlaceholderNote>()
+  for (const entry of placeholders) {
+    const name = entry.name.normalize('NFC')
+    const held = winners.get(name)
+    if (held === undefined || compareNotes(entry, held, name) < 0) winners.set(name, entry)
+  }
+  return new Map([...winners].map(([name, entry]) => [name, entry.note]))
+}
+
+function compareNotes(a: PlaceholderNote, b: PlaceholderNote, name: string): number {
+  return (
+    Number(b.name === name) - Number(a.name === name) ||
+    compareCodepoint(a.name, b.name) ||
+    compareCodepoint(a.note, b.note)
+  )
 }
 
 function recordArg(arg: Arg, notes: ReadonlyMap<string, string>): RecordArg {
@@ -142,9 +175,12 @@ function orderedKeywords(branches: readonly PluralBranch[]): readonly PluralBran
   return [...branches].sort((a, b) => cldrRank(a.keyword) - cldrRank(b.keyword))
 }
 
+// A keyword the catalog invented sits between `many` and `other`, which is where
+// the canonical printed form puts it, so `matches` and `source` list one order.
 function cldrRank(keyword: string): number {
+  if (keyword === 'other') return OTHER_RANK
   const rank = CLDR_ORDER.indexOf(keyword)
-  return rank === -1 ? CLDR_ORDER.length : rank
+  return rank === -1 ? UNKNOWN_RANK : rank
 }
 
 function orderedOptions(branches: readonly SelectBranch[]): readonly SelectBranch[] {
@@ -188,18 +224,24 @@ function compareScope(a: string | null, b: string | null): number {
 
 function missingDescription(message: Message, program: Program): Diagnostic {
   const located = message.spans.find((entry) => entry.locale === program.sourceLocale)
-  const shape =
-    message.args.length > 0
-      ? `takes ${message.args.map((arg) => arg.name).join(', ')}`
-      : 'carries markup'
   return diag('missing-description', {
-    message: `${message.key} ${shape} and has no description.
+    message: `${message.key} ${shapeOf(message)} and has no description.
 A translator receives the string with nothing that says what it holds or where it appears.`,
     hint: descriptionHint(message.key, program),
     key: message.key,
     file: located?.file,
     span: located?.span,
   })
+}
+
+// A tag name is an argument of kind markup, so a tagged message always takes one.
+// The verb is what separates a tag from a value the translator has to place.
+function shapeOf(message: Message): string {
+  const names = message.args.map((arg) => arg.name)
+  if (message.args.every((arg) => arg.type.kind === 'markup')) {
+    return `carries markup ${tagSet(names).join(', ')}`
+  }
+  return `takes ${names.join(', ')}`
 }
 
 function descriptionHint(key: string, program: Program): string {

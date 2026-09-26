@@ -373,6 +373,24 @@ describe('buildRecord', () => {
     expect(record.messages[0]?.markup).toEqual(['b', 'link'])
   })
 
+  it('prints Message.module rather than deriving one from the namespace', () => {
+    const record = buildRecord(
+      program({
+        messages: [
+          message({
+            key: 'cart.items',
+            id: 'cart_items',
+            namespace: 'cart',
+            module: 'messages/checkout.js',
+            source: 'Hi',
+          }),
+        ],
+      }),
+    )
+
+    expect(record.messages[0]?.module).toBe('messages/checkout.js')
+  })
+
   it('carries a fallback origin with its source and its reason', () => {
     const origins: readonly LocaleOrigin[] = [
       { locale: 'en', origin: { status: 'translated' } },
@@ -562,7 +580,7 @@ describe('checkDescriptions', () => {
     expect(diagnostic?.hint).toContain('"cart.items"')
   })
 
-  it('reports a message that carries markup and no description', () => {
+  it('names the tags of a message whose only arguments are markup handlers', () => {
     const diagnostics = checkDescriptions(
       program({
         messages: [
@@ -570,16 +588,43 @@ describe('checkDescriptions', () => {
             key: 'terms.accept',
             id: 'terms_accept',
             namespace: 'terms',
-            source: 'Read our <link>terms</link>.',
+            source: 'Read our <b><link>terms</link></b>.',
             kind: 'markup',
-            markupTags: ['link'],
+            markupTags: ['link', 'b'],
+            args: [
+              { name: 'b', type: { kind: 'markup' } },
+              { name: 'link', type: { kind: 'markup' } },
+            ],
           }),
         ],
       }),
     )
 
     expect(diagnostics.map((diagnostic) => diagnostic.key)).toEqual(['terms.accept'])
-    expect(diagnostics[0]?.message).toContain('carries markup')
+    expect(diagnostics[0]?.message).toContain('carries markup b, link')
+  })
+
+  it('names every argument of a message mixing markup with a value', () => {
+    const diagnostics = checkDescriptions(
+      program({
+        messages: [
+          message({
+            key: 'cart.left',
+            id: 'cart_left',
+            namespace: 'cart',
+            source: '<link>{count, number}</link> left',
+            kind: 'markup',
+            markupTags: ['link'],
+            args: [
+              { name: 'link', type: { kind: 'markup' } },
+              { name: 'count', type: { kind: 'number' } },
+            ],
+          }),
+        ],
+      }),
+    )
+
+    expect(diagnostics[0]?.message).toContain('takes link, count')
   })
 
   it('stays quiet for a described message and for one with neither arguments nor markup', () => {
