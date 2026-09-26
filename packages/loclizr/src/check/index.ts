@@ -1,12 +1,13 @@
 import { diag } from '../diagnostics'
 import { unify } from '../icu'
 import type {
+  Arg,
   ArgType,
   Body,
+  CatalogExtra,
   Diagnostic,
   Message,
   Node,
-  Origin,
   Program,
   Related,
   Span,
@@ -53,7 +54,7 @@ export function runChecks(program: Program): readonly Diagnostic[] {
 }
 
 function checkOrigins(program: Program, message: Message, out: Diagnostic[]): void {
-  for (const entry of message.origins) {
+  for (const entry of byLocale(message.origins)) {
     if (entry.locale === program.sourceLocale) continue
     if (entry.origin.status !== 'fallback') continue
     if (entry.origin.reason === 'invalid') continue
@@ -82,8 +83,10 @@ function checkTranslations(program: Program, message: Message, out: Diagnostic[]
   const folded = new Map<string, FoldState>(
     source.args.map((arg) => [arg.name, { type: arg.type, locale: program.sourceLocale }]),
   )
-  const sourceSelects = selectOptions(source.nodes)
-  for (const body of ownBodies(message)) {
+  const sourceSelects = selectTypeOptions(source.args)
+  // Every body is compared, including one whose origin stops it rendering:
+  // LZ3005 is read off exactly that body.
+  for (const body of byLocale(message.bodies)) {
     if (body.locale === program.sourceLocale) continue
     const comparison: Comparison = {
       program,
@@ -101,10 +104,10 @@ function checkTranslations(program: Program, message: Message, out: Diagnostic[]
 
 function checkArgs(comparison: Comparison, folded: Map<string, FoldState>, out: Diagnostic[]): void {
   const { program, message, source, body, file, span } = comparison
-  const here = new Map(body.args.map((arg) => [arg.name, arg.type] as const))
-  const there = new Set(source.args.map((arg) => arg.name))
+  const translatedArgs = new Map(body.args.map((arg) => [arg.name, arg.type] as const))
+  const sourceNames = new Set(source.args.map((arg) => arg.name))
   for (const arg of source.args) {
-    const mine = here.get(arg.name)
+    const mine = translatedArgs.get(arg.name)
     if (mine === undefined) {
       if (arg.type.kind === 'markup') continue
       out.push(
@@ -122,7 +125,7 @@ function checkArgs(comparison: Comparison, folded: Map<string, FoldState>, out: 
     foldArgType(comparison, folded, arg.name, mine, out)
   }
   for (const arg of body.args) {
-    if (there.has(arg.name)) continue
+    if (sourceNames.has(arg.name)) continue
     const tag = arg.type.kind === 'markup'
     out.push(
       diag('arg-extra', {
@@ -182,12 +185,12 @@ function checkSelects(
   out: Diagnostic[],
 ): void {
   const { program, message, body, file, span } = comparison
-  const targetSelects = selectOptions(body.nodes)
+  const targetSelects = selectBranches(body.nodes)
   for (const [name, options] of sourceSelects) {
     const theirs = targetSelects.get(name)
     if (theirs === undefined) continue
     for (const option of options) {
-      if (option === 'other' || theirs.has(option)) continue
+      if (theirs.has(option)) continue
       out.push(
         diag('select-option-missing', {
           message: `The ${body.locale} translation has no "${option}" branch for {${name}}, so that value renders the other branch.`,
@@ -199,6 +202,9 @@ function checkSelects(
         }),
       )
     }
+    // A source select carrying only `other` types the call site `string | number`,
+    // so no branch a translation adds is unreachable.
+    if (options.size === 0) continue
     for (const option of theirs) {
       if (option === 'other' || options.has(option)) continue
       out.push(
@@ -236,7 +242,7 @@ function checkMarkup(comparison: Comparison, out: Diagnostic[]): void {
 }
 
 function checkPluralCategories(program: Program, message: Message, out: Diagnostic[]): void {
-  for (const body of ownBodies(message)) {
+  for (const body of byLocale(message.bodies)) {
     const file = catalogFile(program, message, body.locale)
     const span = spanOf(message, body.locale)
     walk(body.nodes, (node) => {
@@ -303,7 +309,7 @@ function checkTimeZone(program: Program, message: Message, out: Diagnostic[]): v
 }
 
 function checkExtras(program: Program, out: Diagnostic[]): void {
-  for (const extra of program.extras) {
+  for (const extra of byLocaleAndKey(program.extras)) {
     out.push(
       diag('extra-translation', {
         message: `"${extra.key}" is in the ${extra.locale} catalog and not in ${program.sourceLocale}, so no message is generated for it.`,
@@ -358,14 +364,20 @@ function describeHint(program: Program, undescribed: readonly Message[]): string
     program.config.meta === false
       ? null
       : program.config.meta.replaceAll('{sourceLocale}', program.sourceLocale)
-  const width = Math.max(...undescribed.map((message) => message.key.length))
+  // The block is pasted into a JSON file and a key may hold a quote, a backslash
+  // or a line break, so the quoting is JSON.stringify's rather than ours.
+  const labels = undescribed.map((message) => `${JSON.stringify(message.key)}:`)
+  const width = Math.max(...labels.map((label) => label.length))
+  // The alternative has to name the severity the rule is not already running at,
+  // or it offers the setting the project already has.
+  const gated = program.config.severity['ambiguous-source'] === 'error'
   return [
     meta === null ? 'set meta in loclizr.config.ts, then describe:' : `add descriptions in ${meta}:`,
-    ...undescribed.map(
-      (message) => `       ${`"${message.key}":`.padEnd(width + 4)}{ "description": "" }`,
-    ),
-    'or   make this a hard gate in loclizr.config.ts:',
-    `       severity: { 'ambiguous-source': 'error' }`,
+    ...labels.map((label) => `       ${label.padEnd(width + 1)}{ "description": "" }`),
+    gated
+      ? 'or   turn the rule down in loclizr.config.ts:'
+      : 'or   make this a hard gate in loclizr.config.ts:',
+    `       severity: { 'ambiguous-source': '${gated ? 'warn' : 'error'}' }`,
   ].join('\n')
 }
 
@@ -389,7 +401,18 @@ function walk(nodes: readonly Node[], visit: (node: Node) => void): void {
   }
 }
 
-function selectOptions(nodes: readonly Node[]): ReadonlyMap<string, ReadonlySet<string>> {
+// The reachable option set is the source argument's own type, already folded
+// across every select that shares the name, not the branches of any one node.
+function selectTypeOptions(args: readonly Arg[]): ReadonlyMap<string, ReadonlySet<string>> {
+  const found = new Map<string, ReadonlySet<string>>()
+  for (const arg of args) {
+    if (arg.type.kind !== 'select') continue
+    found.set(arg.name, new Set(arg.type.options.filter((option) => option !== 'other')))
+  }
+  return found
+}
+
+function selectBranches(nodes: readonly Node[]): ReadonlyMap<string, ReadonlySet<string>> {
   const found = new Map<string, Set<string>>()
   walk(nodes, (node) => {
     if (node.kind !== 'select') return
@@ -400,19 +423,14 @@ function selectOptions(nodes: readonly Node[]): ReadonlyMap<string, ReadonlySet<
   return found
 }
 
-function ownBodies(message: Message): readonly Body[] {
-  return message.bodies
-    .filter((body) => isOwnBody(message, body.locale))
-    .sort((a, b) => compareCodepoint(a.locale, b.locale))
+function byLocale<T extends { readonly locale: string }>(items: readonly T[]): readonly T[] {
+  return [...items].sort((a, b) => compareCodepoint(a.locale, b.locale))
 }
 
-function isOwnBody(message: Message, locale: string): boolean {
-  const origin = originOf(message, locale)
-  return origin === undefined || origin.status === 'translated'
-}
-
-function originOf(message: Message, locale: string): Origin | undefined {
-  return message.origins.find((entry) => entry.locale === locale)?.origin
+function byLocaleAndKey(extras: readonly CatalogExtra[]): readonly CatalogExtra[] {
+  return [...extras].sort(
+    (a, b) => compareCodepoint(a.locale, b.locale) || compareCodepoint(a.key, b.key),
+  )
 }
 
 function bodyOf(message: Message, locale: string): Body | undefined {

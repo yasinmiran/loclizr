@@ -26,7 +26,7 @@ export function config(overrides: Partial<Config> = {}): Config {
     locales: ['de', 'en'],
     sourceLocale: 'en',
     catalogs: 'locales/{locale}.json',
-    catalogFormat: 'i18next',
+    catalogFormat: 'auto',
     i18nextMarkup: 'literal',
     meta: 'locales/{sourceLocale}.meta.json',
     outDir: 'src/loclizr',
