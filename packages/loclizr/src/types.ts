@@ -20,6 +20,8 @@ export type RuleName =
   | 'i18next-context-detected'
   | 'locale-base-missing'
   | 'icu-data-incomplete'
+  | 'icu-in-i18next-file'
+  | 'outdir-foreign-file'
   | 'icu-syntax'
   | 'icu-style-unknown'
   | 'icu-skeleton-invalid'
@@ -274,6 +276,9 @@ export interface RawCatalog {
   readonly locale: string
   readonly ns: string | null
   readonly file: string
+  // Under catalogFormat 'auto' the reader classifies each file; otherwise the
+  // configured value. Nothing downstream re-derives it.
+  readonly format: 'icu' | 'i18next'
   readonly entries: readonly RawEntry[]
 }
 
@@ -321,7 +326,7 @@ export interface Config {
   readonly locales: readonly string[]
   readonly sourceLocale: string
   readonly catalogs: string
-  readonly catalogFormat: 'i18next' | 'icu'
+  readonly catalogFormat: 'auto' | 'icu' | 'i18next'
   readonly i18nextMarkup: 'literal' | 'tags'
   readonly meta: string | false
   readonly outDir: string
@@ -340,7 +345,7 @@ export interface LoclizrConfig {
   readonly locales?: readonly string[] | undefined
   readonly sourceLocale?: string | undefined
   readonly catalogs?: string | undefined
-  readonly catalogFormat?: 'i18next' | 'icu' | undefined
+  readonly catalogFormat?: 'auto' | 'icu' | 'i18next' | undefined
   readonly i18nextMarkup?: 'literal' | 'tags' | undefined
   readonly meta?: string | false | undefined
   readonly outDir?: string | undefined

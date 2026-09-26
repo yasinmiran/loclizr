@@ -151,6 +151,7 @@ const CONFUSABLE_FOLD: ReadonlyMap<string, string> = new Map([
 
 interface CatalogEntry {
   readonly file: string
+  readonly format: 'icu' | 'i18next'
   readonly value: string
   readonly span: Span
 }
@@ -288,7 +289,7 @@ function indexCatalogs(catalogs: readonly RawCatalog[]): CatalogIndex {
     }
     for (const entry of catalog.entries) {
       if (entries.has(entry.key)) continue
-      entries.set(entry.key, { file: catalog.file, value: entry.value, span: entry.span })
+      entries.set(entry.key, { file: catalog.file, format: catalog.format, value: entry.value, span: entry.span })
     }
   }
   return index
@@ -342,7 +343,7 @@ function lowerKey(
       locale,
       file: entry.file,
       span: entry.span,
-      catalogFormat: config.catalogFormat,
+      catalogFormat: entry.format,
       formats: config.formats,
     }
     const result = lower(entry.value, context)

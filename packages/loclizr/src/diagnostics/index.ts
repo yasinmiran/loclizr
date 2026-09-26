@@ -32,6 +32,8 @@ export const RULES: Readonly<Record<RuleName, Rule>> = {
   'i18next-context-detected': { code: 'LZ1017', name: 'i18next-context-detected', severity: 'warn', fatal: 'never', exitTwo: false, owner: 'M2' },
   'locale-base-missing': { code: 'LZ1018', name: 'locale-base-missing', severity: 'warn', fatal: 'never', exitTwo: false, owner: 'M9' },
   'icu-data-incomplete': { code: 'LZ1019', name: 'icu-data-incomplete', severity: 'warn', fatal: 'never', exitTwo: false, owner: 'M10' },
+  'icu-in-i18next-file': { code: 'LZ1020', name: 'icu-in-i18next-file', severity: 'warn', fatal: 'never', exitTwo: false, owner: 'M2' },
+  'outdir-foreign-file': { code: 'LZ1021', name: 'outdir-foreign-file', severity: 'warn', fatal: 'never', exitTwo: false, owner: 'M10' },
   'icu-syntax': { code: 'LZ2001', name: 'icu-syntax', severity: 'error', fatal: 'message', exitTwo: false, owner: 'M3' },
   'icu-style-unknown': { code: 'LZ2002', name: 'icu-style-unknown', severity: 'error', fatal: 'never', exitTwo: false, owner: 'M3' },
   'icu-skeleton-invalid': { code: 'LZ2003', name: 'icu-skeleton-invalid', severity: 'error', fatal: 'never', exitTwo: false, owner: 'M3' },
