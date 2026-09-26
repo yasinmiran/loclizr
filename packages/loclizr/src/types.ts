@@ -220,7 +220,12 @@ export interface Message {
   readonly markupTags: readonly string[]
   readonly description: string | null
   readonly placeholders: readonly PlaceholderNote[]
+  // Each locale's OWN lowered body, and nothing else. A locale whose key is
+  // missing, whose value is blank, or whose value failed to lower has no entry
+  // here. Never padded, never back-filled with another locale's nodes.
   readonly bodies: readonly Body[]
+  // One entry per declared locale, always. M4 decides every fallback here and
+  // M6 emits arm N from bodies[origin.from ?? locale].
   readonly origins: readonly LocaleOrigin[]
   readonly spans: readonly LocaleSpan[]
 }
@@ -265,9 +270,9 @@ export interface RawEntry {
   // `{ns}`. This is the key every diagnostic, the meta sidecar and the record
   // print.
   readonly key: string
-  // Always ICU MessageFormat. For catalogFormat 'i18next', M2 has already
-  // applied section 2.1; for 'icu' it is the catalog text verbatim. M4 lowers
-  // this directly and never calls toIcu.
+  // Always ICU MessageFormat. In a file read as i18next, M2 has already applied
+  // section 2.1; in a file read as ICU it is the catalog text verbatim. M4
+  // lowers this directly and never calls toIcu.
   readonly value: string
   readonly span: Span
 }
@@ -276,8 +281,9 @@ export interface RawCatalog {
   readonly locale: string
   readonly ns: string | null
   readonly file: string
-  // Under catalogFormat 'auto' the reader classifies each file; otherwise the
-  // configured value. Nothing downstream re-derives it.
+  // The format this one file was read as. Under catalogFormat 'auto' M2
+  // classified it per section 2; otherwise it is the configured value. M4
+  // passes it into LowerContext and nobody re-derives it.
   readonly format: 'icu' | 'i18next'
   readonly entries: readonly RawEntry[]
 }
@@ -326,6 +332,8 @@ export interface Config {
   readonly locales: readonly string[]
   readonly sourceLocale: string
   readonly catalogs: string
+  // 'auto' decides per file in M2, per section 2. 'icu' and 'i18next' force
+  // every file.
   readonly catalogFormat: 'auto' | 'icu' | 'i18next'
   readonly i18nextMarkup: 'literal' | 'tags'
   readonly meta: string | false

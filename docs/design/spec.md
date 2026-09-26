@@ -146,9 +146,10 @@ per-value guess turns a translator's stray `{{` into a silent change of meaning.
 `catalogFormat: 'icu'` and `catalogFormat: 'i18next'` force every file and skip
 classification entirely.
 
-Section 2.1 steps 1 through 4, and `LZ1012` through `LZ1017`, apply **only to a
-file read as i18next**. An `X_one` with no `X_other` in an ICU file is an
-ordinary key and raises nothing; `$t(` in an ICU file is ordinary text.
+Section 2.1 steps 1 through 4, and `LZ1012` through `LZ1014`, `LZ1016` and
+`LZ1017`, apply **only to a file read as i18next**. An `X_one` with no `X_other`
+in an ICU file is an ordinary key and raises nothing; `$t(` in an ICU file is
+ordinary text.
 
 The format a file was read as is recorded on its `RawCatalog.format`, so
 everything downstream, `LZ2001`'s span composition most of all, reads the
@@ -334,9 +335,11 @@ POSIX path. **Every other path-valued field of `Config` is POSIX and relative to
 `root`**, with `{locale}`, `{sourceLocale}` and `{ns}` left unsubstituted. A
 module that opens a file joins it with `root` itself; every path that leaves a
 module inside a type (`Diagnostic.file`, `LocaleSpan.file`, `UsageSite.file`,
-`DiscoveredCatalog.file`, `EmittedFile.path`) is relative POSIX. `resolveConfig`
-normalizes and enforces this, and `LZ1007 outdir-unsafe` is checked on the
-resolved absolute form.
+`DiscoveredCatalog.file`) is relative POSIX. `resolveConfig` normalizes and
+enforces this, and `LZ1007 outdir-unsafe` is checked on the resolved absolute
+form. `EmittedFile.path` is the one path relative to `outDir` rather than to
+`root`, because the prune step compares it against what is on disk under
+`outDir` and M10 checks every `Message.module` against it.
 
 **Token expansion.** `{locale}` expands to `[A-Za-z0-9-]+` and `{ns}` to
 `[A-Za-z0-9_-]+`. Each matches exactly one whole path segment, or the whole
@@ -447,7 +450,7 @@ Every locale in `locales` gets its own compiled arm in every message function,
 so there is no runtime chain walk and no `undefined` branch.
 
 For a target locale `L`, the build resolves each message by walking the chain
-until it finds a non-blank value:
+until it finds a value it can render:
 
 - `fallback: 'bcp47'` (default) gives
   `[L, ...BCP-47 subtag truncations of L that are declared locales, sourceLocale]`.
@@ -460,9 +463,9 @@ The resolution result is recorded as one of three origins:
 
 | Origin | Meaning | Diagnostic |
 | --- | --- | --- |
-| `translated` | the locale's own catalog had a non-blank value | none |
+| `translated` | the locale's own catalog had a value it can render | none |
 | `inherited` | resolved through a declared non-source ancestor | none |
-| `fallback` | fell all the way through to the source locale | `LZ3001` or `LZ3002` |
+| `fallback` | fell all the way through to the source locale | `LZ3001` for reason `missing`, `LZ3002` for `blank`, and none of its own for `invalid`, whose cause M3 or M5 already reported |
 
 This makes sparse regional overlays first class. A `de-AT.json` holding twelve
 overrides on top of a complete `de.json` is a valid catalog, not 388 errors.
@@ -769,8 +772,8 @@ API, marked by the `$` prefix, and versioned by the trailing digit.
 ```ts
 $configure1(setup: LocaleSetup): LocaleResolver
 $plural1(locale: string, value: number, ordinal: boolean): string
-$number1(locale: string, value: number, options: object): string
-$dateTime1(locale: string, value: Date | number, options: object): string
+$number1(locale: string, value: number, options: IntlOptions): string
+$dateTime1(locale: string, value: Date | number, options: IntlOptions): string
 ```
 
 **The ABI is enforced by the JS import, not by types.** A stale generated tree
@@ -1249,9 +1252,9 @@ converted. One catalog set, two formats, no configuration.
 
 German therefore renders `1000 Artikel` while English renders `1,000 items`,
 because German's argument is a bare `{count}` and English's is `#` through
-`Intl.NumberFormat`. That difference is the honest consequence of a catalog
-imported from i18next keeping i18next's rendering, and in an ICU file the fix
-really is one character: write `{count, number}`.
+`Intl.NumberFormat`. That is what an imported i18next catalog looks like after
+conversion, written out here so the example carries it, and in an ICU file the
+fix really is one character: write `{count, number}`.
 
 Now the output.
 
@@ -1747,8 +1750,9 @@ that module knows the locale and the key. `hasFatal` reads
 this: it would make an unreadable `de.json` block the whole build, contradicting
 the second bullet below, and it could not express a per-message failure at all.
 
-- **`always`** blocks emission entirely: config invalid, no catalogs found, the
-  source catalog missing, an identifier collision, a reserved identifier,
+- **`always`** blocks emission entirely: config invalid, an invalid declared
+  locale tag, an unsafe `outDir`, no catalogs found, the source
+  catalog missing, an identifier collision, a reserved identifier,
   nondeterministic output, output unwritable. In each of those we cannot produce
   a correct artifact at all.
 - **`ifSource`** blocks only when the file in question is the source catalog. An
@@ -1862,8 +1866,8 @@ this rule; the flag is never consulted by any other module.
 **`--max-warnings` defaults to no cap**, matching eslint's `-1`, so warnings
 alone never produce exit 1. `exitCodeFor` receives `Number.POSITIVE_INFINITY`
 when the flag is absent. That default decides whether a fresh i18next import
-exits 0 or 1, since nine rules default to `warn`, so it is stated here rather
-than left for M10 and M11 to each pick one.
+exits 0 or 1, since eighteen rules default to `warn`, so it is stated here
+rather than left for M10 and M11 to each pick one.
 
 ### 10.1 Diagnostics
 
@@ -1883,7 +1887,7 @@ interface Diagnostic {
 }
 ```
 
-**`file` is always POSIX and relative to `Config.root`.** Six modules produce
+**`file` is always POSIX and relative to `Config.root`.** Nine modules produce
 diagnostics and must all pick the same answer with no way to ask each other, and
 a mismatch is invisible until the human reporter prints a mix of absolute and
 relative paths in one run, by which time the JSON reporter's sort by file is
@@ -1919,8 +1923,8 @@ severity column and the `or` line naming `'error'`.
 JSON reporter prints `{ "schema": 1, "diagnostics": [...], "summary": {...} }`,
 diagnostics sorted by severity, then code, then file, then locale, then key,
 then offset. `summary` carries `{ errors, warnings, messages, locales, fellBack }`
-where `fellBack` maps a locale to the number of messages that resolved to source
-text.
+where `fellBack` lists each locale with the number of messages that resolved to
+source text.
 
 Every module emits a `Diagnostic` at its rule's **default** severity, stamping
 `RULES[rule].severity === 'off' ? 'warn' : RULES[rule].severity`, because
@@ -2428,7 +2432,7 @@ retrofit. Section 10 has the exact behaviour.
 | Code | Rule | Default | Fatal | Owner | Trigger |
 | --- | --- | --- | --- | --- | --- |
 | LZ5001 | `output-unwritable` | error | always, exit 2 | M10 | a generated file or the record could not be written |
-| LZ5002 | `output-stale` | error | never | M10 | `check` only: an emitted file that exists on disk differs, or a file under `outDir` this emit did not produce, reason `orphaned` |
+| LZ5002 | `output-stale` | error | never | M10 | `check` only: an emitted file that exists on disk differs, or a headered file under `outDir` this emit did not produce, reason `orphaned` |
 | LZ5003 | `record-stale` | error | never | M10 | `check` only: the committed context record differs from the record this build would write, **compared with every message's `usage` and `translations` projected out** |
 | LZ5004 | `scan-found-nothing` | warn | never | M7 | the scan matched files but found zero generated-module imports anywhere |
 | LZ5005 | `unused-message` | off | never | M7 | a message the scan never saw referenced |
@@ -2471,11 +2475,11 @@ comparison. They are deliberately different questions and the spec keeps them
 apart.
 
 `LZ5007` is the same comparison in `build`, and it exists because the documented
-wiring is `prepare` / `predev` / `prebuild` / `pretypecheck` running
-`loclizr build`. A pipeline whose only invocation is `pnpm build` would rewrite
-the record in the CI workspace and pass, so a pull request that changed copy
-without regenerating would land with a stale record and the context would never
-arrive with the string change, which is precisely the punchline the thesis
+wiring is `prepare` / `predev` / `prebuild` / `pretypecheck` running `build`
+rather than `check`. A pipeline whose only invocation is `pnpm build` would
+rewrite the record in the CI workspace and pass, so a pull request that changed
+copy without regenerating would land with a stale record and the context would
+never arrive with the string change, which is precisely the punchline the thesis
 claims to defeat. `--no-fail` does not move this: that flag changes an exit code
 and nothing else, and a `predev` run still rewrites the record and still warns.
 M10 already holds the committed bytes and the fresh record at write time, so the
@@ -2510,10 +2514,12 @@ text or translation hashes, so:
 - a pull request that translates changes `de.json` and does not touch the
   record, unless coverage changed
 
-Which is to say the gettext fuzzy signal is a two-file diff, and the record
-changes only when the contract changes. Per-locale status is carried because
-coverage is part of the contract; per-locale text is not, because polishing a
-German sentence is not a contract change.
+Which is to say the gettext fuzzy signal is a two-file diff, and the part of the
+record the gate compares changes only when the contract changes. Per-locale
+status is carried in the file because coverage is what a translator-facing tool
+reads, and projected out of the gate because a translator landing a batch is not
+a contract change. Per-locale text is carried nowhere, because polishing a
+German sentence is not one either.
 
 **The file carries more than the gate compares, and the difference is
 deliberate.** `LZ5003` in `check` and `LZ5007` in `build` compare the committed
@@ -2539,14 +2545,13 @@ trailing newline, no timestamps, no absolute paths, no tool version. A version
 field would turn every release into a whole-file diff.
 
 **A usage entry carries `file` and `scope`, and deliberately not `line`,
-`column` or `snippet`.** The record's whole argument is that it changes only
-when the contract changes, which is what makes `LZ5003` a usable gate. Adding
-one import at the top of `src/Cart.tsx` shifts every line below it, so a
-position-carrying record changes on a pull request that touched no string,
-`check` fails, and the remedy is committing generated noise. Worse, two pull
-requests editing the same component both rewrite the same `usage` entries and
-merge-conflict inside a generated JSON file, which this section explicitly says
-we do not do. Precise positions stay where they cost nothing: the JSON
+`column` or `snippet`.** Adding one import at the top of `src/Cart.tsx` shifts
+every line below it, so a position-carrying record churns on a pull request that
+touched no string. The gate already projects `usage` out, so that churn cannot
+fail `check`, but it still lands in the diff as generated noise, and two pull
+requests editing the same component then both rewrite the same `usage` entries
+and merge-conflict inside a generated JSON file, which this section explicitly
+says we do not do. Precise positions stay where they cost nothing: the JSON
 reporter's diagnostics, and `BuildResult.program.usages`, where `UsageSite`
 keeps all five fields for any tool that wants them. A committed sidecar of
 precise sites is a v0.2 question, not a v0.1 file the user has to remember to
@@ -3156,7 +3161,7 @@ written out in this document.
 
 ### The bootstrap commit
 
-Nothing in `src/` exists today except five scaffold stubs, so "no module edits
+Nothing in `src/` exists today except seven scaffold stubs, so "no module edits
 another's files" and "everyone starts the same morning" contradict each other on
 day one: M4 depends on M3, so M4's owner would have to create `src/icu/index.ts`,
 and the integration seat would have to create seven files belonging to seven
@@ -3387,10 +3392,10 @@ pure and takes only the entries, which is what makes section 2's rule unit
 testable: `{{` anywhere in a value, or a key the fold step would fold, means
 i18next; otherwise ICU.
 
-Section 2.1 and `LZ1012` through `LZ1017` therefore apply to a file classified
-as i18next and to no other. `readCatalogs` raises `LZ1020` per entry of such a
-file whose value holds a single-brace run shaped like a typed ICU argument, with
-`because` in the hint.
+Section 2.1 and `LZ1012` through `LZ1014`, `LZ1016` and `LZ1017` therefore apply
+to a file classified as i18next and to no other. `readCatalogs` raises `LZ1020`
+per entry of such a file whose value holds a single-brace run shaped like a
+typed ICU argument, with `because` in the hint.
 
 `RawEntry.value` is always ICU: M2 has converted it before anyone downstream
 sees it, and M4, which does not depend on M2, never calls `toIcu` itself.
