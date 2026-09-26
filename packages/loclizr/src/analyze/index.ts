@@ -9,7 +9,6 @@ import type {
   CatalogMeta,
   Config,
   Diagnostic,
-  FallbackReason,
   Group,
   GroupMember,
   LocaleOrigin,
@@ -96,6 +95,8 @@ const RESERVED_IDENTIFIERS: ReadonlySet<string> = new Set([
 
 const RESERVED_NAMESPACES: ReadonlySet<string> = new Set(['_locale', '_formats', '_root'])
 
+const PROTOTYPE_PROPERTY = '__proto__'
+
 const CONFUSABLE_FOLD: ReadonlyMap<string, string> = new Map([
   ['а', 'a'],
   ['е', 'e'],
@@ -163,11 +164,6 @@ interface LoweredBody {
   readonly valid: boolean
 }
 
-interface Resolution {
-  readonly bodies: readonly Body[]
-  readonly origins: readonly LocaleOrigin[]
-}
-
 export function analyze(input: {
   readonly config: Config
   readonly catalogs: readonly RawCatalog[]
@@ -203,7 +199,7 @@ export function analyze(input: {
   }
 
   diagnostics.push(...checkIdentity(messages, config, sourceEntries))
-  const groups = buildGroups(config, messages)
+  const groups = buildGroups(config, messages, sourceEntries)
   diagnostics.push(...groups.diagnostics)
 
   return {
@@ -255,12 +251,19 @@ export function confusableSkeleton(value: string): string {
 
 function rawIdentifier(key: string, overrides: Readonly<Record<string, string>>): string {
   const override = Object.hasOwn(overrides, key) ? overrides[key] : undefined
-  if (override !== undefined) return override
+  return override ?? identifierChars(key.normalize('NFC'))
+}
+
+function identifierChars(value: string): string {
   let identifier = ''
-  for (const char of key.normalize('NFC')) {
-    identifier += IDENTIFIER_PART.test(char) ? char : '_'
-  }
+  for (const char of value) identifier += IDENTIFIER_PART.test(char) ? char : '_'
   return identifier
+}
+
+// A namespace is a filename, so an `identifiers` entry may move a module off a
+// reserved name but may never carry a separator out of `outDir`.
+function namespaceIdentifier(key: string, overrides: Readonly<Record<string, string>>): string {
+  return identifierChars(mangle(namespaceOf(key), overrides))
 }
 
 function guardIdentifier(raw: string): string {
@@ -373,9 +376,9 @@ function buildMessage(input: {
   readonly sourceBody: LoweredBody
   readonly note: MetaEntry | undefined
 }): Message {
-  const { key, config, index, sourceBody, note } = input
-  const resolution = resolveLocales(input)
-  const namespace = mangle(namespaceOf(key), config.identifiers)
+  const { key, config, index, chains, lowered, sourceBody, note } = input
+  const bodies = ownBodies(lowered)
+  const namespace = namespaceIdentifier(key, config.identifiers)
   const source = sourceBody.result.normalized
   return {
     key,
@@ -385,67 +388,103 @@ function buildMessage(input: {
     kind: sourceBody.result.kind,
     source,
     sourceHash: hash16(source),
-    args: unifyArgs(sourceBody.result.args, resolution.bodies, config.sourceLocale),
+    args: unifyArgs(sourceBody.result.args, bodies, config.sourceLocale),
     markupTags: sourceBody.result.markupTags,
     description: note?.description ?? null,
     placeholders: note?.placeholders ?? [],
-    bodies: resolution.bodies,
-    origins: resolution.origins,
+    bodies,
+    origins: resolveOrigins({
+      key,
+      config,
+      index,
+      chains,
+      renderable: renderableLocales(bodies, sourceBody.result.args),
+    }),
     spans: localeSpans(key, config, index),
   }
 }
 
-function resolveLocales(input: {
+function ownBodies(lowered: ReadonlyMap<string, LoweredBody>): readonly Body[] {
+  const bodies: Body[] = []
+  for (const [locale, entry] of lowered) {
+    if (!entry.valid) continue
+    bodies.push({
+      locale,
+      nodes: entry.result.nodes,
+      args: entry.result.args,
+      markupTags: entry.result.markupTags,
+    })
+  }
+  return bodies
+}
+
+// A body naming an argument the source does not have would render `undefined`
+// into the UI, so nothing may print it even though it lowered cleanly.
+function renderableLocales(
+  bodies: readonly Body[],
+  sourceArgs: readonly Arg[],
+): ReadonlySet<string> {
+  const known = new Set(sourceArgs.map((arg) => arg.name))
+  const renderable = new Set<string>()
+  for (const body of bodies) {
+    if (body.args.every((arg) => known.has(arg.name))) renderable.add(body.locale)
+  }
+  return renderable
+}
+
+function resolveOrigins(input: {
   readonly key: string
   readonly config: Config
   readonly index: CatalogIndex
   readonly chains: ReadonlyMap<string, readonly string[]>
-  readonly lowered: ReadonlyMap<string, LoweredBody>
-  readonly sourceBody: LoweredBody
-}): Resolution {
-  const { key, config, index, chains, lowered, sourceBody } = input
-  const bodies: Body[] = []
+  readonly renderable: ReadonlySet<string>
+}): readonly LocaleOrigin[] {
+  const { key, config, index, chains, renderable } = input
   const origins: LocaleOrigin[] = []
   for (const locale of config.locales) {
-    const chain = chains.get(locale) ?? [locale, config.sourceLocale]
-    let from = config.sourceLocale
-    let body = sourceBody
-    for (const candidate of chain) {
-      if (candidate === config.sourceLocale) break
-      const own = lowered.get(candidate)
-      if (own !== undefined && own.valid) {
-        from = candidate
-        body = own
-        break
-      }
+    if (renderable.has(locale)) {
+      origins.push({ locale, origin: { status: 'translated' } })
+      continue
     }
-    bodies.push({
+    const own = index.get(locale)?.get(key)
+    // A locale that wrote a value of its own resolves to the source rather than
+    // to an ancestor, so the record never claims a translation nobody wrote.
+    if (own !== undefined) {
+      origins.push({
+        locale,
+        origin: {
+          status: 'fallback',
+          from: config.sourceLocale,
+          reason: isBlank(own.value) ? 'blank' : 'invalid',
+        },
+      })
+      continue
+    }
+    const chain = chains.get(locale) ?? fallbackChain(locale, config)
+    origins.push({
       locale,
-      nodes: body.result.nodes,
-      args: body.result.args,
-      markupTags: body.result.markupTags,
+      origin: inheritedAncestor(chain, config.sourceLocale, renderable) ?? {
+        status: 'fallback',
+        from: config.sourceLocale,
+        reason: 'missing',
+      },
     })
-    origins.push({ locale, origin: originFor(locale, from, key, config, index) })
   }
-  return { bodies, origins }
+  return origins
 }
 
-function originFor(
-  locale: string,
-  from: string,
-  key: string,
-  config: Config,
-  index: CatalogIndex,
-): Origin {
-  if (from === locale) return { status: 'translated' }
-  if (from !== config.sourceLocale) return { status: 'inherited', from }
-  return { status: 'fallback', from, reason: fallbackReason(locale, key, index) }
-}
-
-function fallbackReason(locale: string, key: string, index: CatalogIndex): FallbackReason {
-  const entry = index.get(locale)?.get(key)
-  if (entry === undefined) return 'missing'
-  return isBlank(entry.value) ? 'blank' : 'invalid'
+// Null where the chain reaches the source locale, which is a fallback rather
+// than an inheritance and carries a reason of its own.
+function inheritedAncestor(
+  chain: readonly string[],
+  sourceLocale: string,
+  renderable: ReadonlySet<string>,
+): Origin | null {
+  for (const candidate of chain) {
+    if (candidate === sourceLocale) break
+    if (renderable.has(candidate)) return { status: 'inherited', from: candidate }
+  }
+  return null
 }
 
 function localeSpans(key: string, config: Config, index: CatalogIndex): readonly LocaleSpan[] {
@@ -479,6 +518,10 @@ function unifyAcrossLocales(
     if (body.locale === sourceLocale) continue
     const other = body.args.find((arg) => arg.name === sourceArg.name)
     if (other === undefined) continue
+    // An option union is the source locale's alone. Adopting a target's would
+    // let a translator's branch name become a required literal at every call
+    // site, which is the breakage a bare {x} exists to avoid.
+    if (other.type.kind === 'select' && sourceArg.type.kind !== 'select') continue
     const unified = unify(type, other.type)
     if (unified === null) return sourceArg.type
     type = unified
@@ -508,6 +551,7 @@ function checkIdentity(
 ): readonly Diagnostic[] {
   const diagnostics: Diagnostic[] = [
     ...checkIdentifierCollisions(messages, sourceEntries),
+    ...checkNamespaceCollisions(messages, sourceEntries),
     ...checkReservedIdentifiers(messages, config, sourceEntries),
     ...checkConfusableKeys(messages, sourceEntries),
   ]
@@ -544,6 +588,52 @@ function checkIdentifierCollisions(
   return diagnostics
 }
 
+// APFS and NTFS keep one file for two module names that differ only in case, so
+// the second write wins there while both survive on Linux, and the two machines
+// then disagree about which messages exist.
+function checkNamespaceCollisions(
+  messages: readonly Message[],
+  sourceEntries: ReadonlyMap<string, CatalogEntry> | undefined,
+): readonly Diagnostic[] {
+  const byFoldedFilename = new Map<string, Map<string, string>>()
+  for (const message of messages) {
+    const folded = message.namespace.toLowerCase()
+    // A fold onto a module the compiler writes itself is LZ4002's, and one
+    // segment earns one diagnostic.
+    if (RESERVED_NAMESPACES.has(folded)) continue
+    let namespaces = byFoldedFilename.get(folded)
+    if (namespaces === undefined) {
+      namespaces = new Map<string, string>()
+      byFoldedFilename.set(folded, namespaces)
+    }
+    if (!namespaces.has(message.namespace)) namespaces.set(message.namespace, message.key)
+  }
+  const diagnostics: Diagnostic[] = []
+  for (const namespaces of byFoldedFilename.values()) {
+    if (namespaces.size < 2) continue
+    const [first, ...rest] = [...namespaces]
+    const last = rest[rest.length - 1]
+    if (first === undefined || last === undefined) continue
+    const [, anchorKey] = first
+    const [lastNamespace, lastKey] = last
+    const modules = [...namespaces.keys()]
+      .map((namespace) => `"messages/${namespace}.js"`)
+      .join(' and ')
+    diagnostics.push(
+      diag('identifier-collision', {
+        message: `${namespaces.size} top-level key segments name modules a case-insensitive filesystem cannot tell apart: ${modules}.`,
+        hint: `One of them disappears on macOS and Windows while both survive on Linux. Rename a segment, or map it in loclizr.config.ts: identifiers: { '${namespaceOf(lastKey)}': '${lastNamespace}2' }`,
+        key: anchorKey,
+        ...locationOf(anchorKey, sourceEntries),
+        related: rest.map(([namespace, key]) =>
+          relatedKey(key, sourceEntries, `also names "messages/${namespace}.js"`),
+        ),
+      }),
+    )
+  }
+  return diagnostics
+}
+
 function checkReservedIdentifiers(
   messages: readonly Message[],
   config: Config,
@@ -552,6 +642,9 @@ function checkReservedIdentifiers(
   const diagnostics: Diagnostic[] = []
   const reportedNamespaces = new Set<string>()
   for (const message of messages) {
+    // The test runs before the guard, so only a `$` the key or an override
+    // carried is reserved. The guard's own reserved-word prefix produces names
+    // like `$then` deliberately, and the generated internals are all fixed.
     const raw = rawIdentifier(message.key, config.identifiers)
     if (INTERNAL_NAMESPACE.test(raw)) {
       diagnostics.push(
@@ -572,15 +665,19 @@ function checkReservedIdentifiers(
         }),
       )
     }
+    const generated = message.namespace.toLowerCase()
     if (
-      namespaceOf(message.key) !== '_root' &&
-      RESERVED_NAMESPACES.has(message.namespace) &&
+      message.key.includes('.') &&
+      RESERVED_NAMESPACES.has(generated) &&
       !reportedNamespaces.has(message.namespace)
     ) {
       reportedNamespaces.add(message.namespace)
       diagnostics.push(
         diag('identifier-reserved', {
-          message: `The top-level key segment "${namespaceOf(message.key)}" names the module "messages/${message.namespace}.js", which loclizr generates itself.`,
+          message:
+            generated === message.namespace
+              ? `The top-level key segment "${namespaceOf(message.key)}" names the module "messages/${message.namespace}.js", which loclizr generates itself.`
+              : `The top-level key segment "${namespaceOf(message.key)}" names the module "messages/${message.namespace}.js", which a case-insensitive filesystem cannot tell apart from the generated "messages/${generated}.js".`,
           hint: `Rename the segment, or map it in loclizr.config.ts: identifiers: { '${namespaceOf(message.key)}': 'app${pascalCase(message.namespace)}' }`,
           key: message.key,
           ...locationOf(message.key, sourceEntries),
@@ -625,6 +722,7 @@ function checkConfusableKeys(
 function buildGroups(
   config: Config,
   messages: readonly Message[],
+  sourceEntries: ReadonlyMap<string, CatalogEntry> | undefined,
 ): { readonly groups: readonly Group[]; readonly diagnostics: readonly Diagnostic[] } {
   const groups: Group[] = []
   const diagnostics: Diagnostic[] = []
@@ -643,6 +741,7 @@ function buildGroups(
       )
       continue
     }
+    diagnostics.push(...checkMemberProperties(name, members, sourceEntries))
     const heterogeneous = checkGroupArgs(name, members, messages)
     if (heterogeneous !== null) diagnostics.push(heterogeneous)
   }
@@ -698,15 +797,24 @@ function checkGroupArgs(
   })
 }
 
+// Two members typing one name as disjoint option unions intersect to `never`,
+// so the option list is part of the shape a dynamic call site has to satisfy.
 function argSignature(args: readonly Arg[]): string {
   return [...args]
-    .map((arg) => `${arg.name}:${arg.type.kind}`)
+    .map((arg) => `${arg.name}:${arg.type.kind}:${argOptions(arg.type)}`)
     .sort(compareCodepoint)
     .join('\u0000')
 }
 
+function argOptions(type: ArgType): string {
+  return type.kind === 'select' ? type.options.join('|') : ''
+}
+
+// A colliding id always collides again as a type base, so one set of groups
+// earns one diagnostic naming the first of the two that clashed.
 function checkGroupCollisions(groups: readonly Group[]): readonly Diagnostic[] {
   const diagnostics: Diagnostic[] = []
+  const reported = new Set<string>()
   for (const [label, pick] of [
     ['export identifier', (group: Group): string => group.id],
     ['type base', (group: Group): string => group.typeBase],
@@ -720,6 +828,9 @@ function checkGroupCollisions(groups: readonly Group[]): readonly Diagnostic[] {
     }
     for (const [value, bucket] of byValue) {
       if (bucket.length < 2) continue
+      const involved = bucket.map((group) => group.name).join('\u0000')
+      if (reported.has(involved)) continue
+      reported.add(involved)
       diagnostics.push(
         diag('identifier-collision', {
           message: `The groups ${bucket.map((group) => `"${group.name}"`).join(' and ')} share the ${label} "${value}".`,
@@ -727,6 +838,51 @@ function checkGroupCollisions(groups: readonly Group[]): readonly Diagnostic[] {
         }),
       )
     }
+  }
+  return diagnostics
+}
+
+// The member property is mangled from the key suffix alone, so an `identifiers`
+// entry cannot reach it and renaming the key is the only fix.
+function checkMemberProperties(
+  name: string,
+  members: readonly GroupMember[],
+  sourceEntries: ReadonlyMap<string, CatalogEntry> | undefined,
+): readonly Diagnostic[] {
+  const diagnostics: Diagnostic[] = []
+  const byProperty = new Map<string, GroupMember[]>()
+  for (const member of members) {
+    const bucket = byProperty.get(member.member)
+    if (bucket === undefined) byProperty.set(member.member, [member])
+    else bucket.push(member)
+  }
+  for (const [property, bucket] of byProperty) {
+    const [first, ...rest] = bucket
+    if (first === undefined) continue
+    if (property === PROTOTYPE_PROPERTY) {
+      diagnostics.push(
+        diag('identifier-reserved', {
+          message: `The key "${first.key}" becomes the member "${property}" of the group "${name}", which the group literal already defines as null.`,
+          hint: 'Rename the key. Two __proto__ properties in one object literal are a syntax error, so the generated groups module would not parse.',
+          key: first.key,
+          ...locationOf(first.key, sourceEntries),
+        }),
+      )
+      continue
+    }
+    // Members sharing an id are one key collision that LZ4001 already names.
+    if (new Set(bucket.map((member) => member.id)).size < 2) continue
+    diagnostics.push(
+      diag('identifier-collision', {
+        message: `${bucket.length} keys become the member "${property}" of the group "${name}".`,
+        hint: 'Rename one of the keys. A member property is mangled from the key suffix, so an identifiers entry cannot separate them.',
+        key: first.key,
+        ...locationOf(first.key, sourceEntries),
+        related: rest.map((member) =>
+          relatedKey(member.key, sourceEntries, `also becomes the member "${property}"`),
+        ),
+      }),
+    )
   }
   return diagnostics
 }
