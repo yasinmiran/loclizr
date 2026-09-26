@@ -87,7 +87,7 @@ describe('severity against the fatality scopes', () => {
   // The rule stops being fatal, which is what the exit code follows. It does
   // not stop being `always`, and that is what says no correct artifact exists:
   // the tree a collision would write holds one function declared twice.
-  it('moves the exit code of a fatal rule turned down to warn and writes nothing', async () => {
+  it('prints a fatal rule turned down to warn as a warning, writes nothing, and still exits 1', async () => {
     const result = await runPipeline(
       stages(
         {
@@ -106,12 +106,12 @@ describe('severity against the fatality scopes', () => {
     expect(result.diagnostics[0]?.severity).toBe('warn')
     expect(result.written).toEqual([])
     expect(await read('src/loclizr/messages.js')).toBeNull()
-    expect(result.exitCode).toBe(0)
+    expect(result.exitCode).toBe(1)
   })
 
   // The only report of the collision is gone, so the build that writes nothing
   // says nothing about why. Turning an `always` rule off is asking for that.
-  it('writes nothing for a fatal rule turned off, with no diagnostic left to say so', async () => {
+  it('writes nothing for a fatal rule turned off and exits 1 with no diagnostic left to say why', async () => {
     const result = await runPipeline(
       stages(
         {
@@ -129,7 +129,7 @@ describe('severity against the fatality scopes', () => {
 
     expect(result.diagnostics).toEqual([])
     expect(result.written).toEqual([])
-    expect(result.exitCode).toBe(0)
+    expect(result.exitCode).toBe(1)
   })
 
   it('refuses to turn output-unwritable off', async () => {
@@ -169,7 +169,7 @@ describe('a real catalog set whose identifiers collide, with the rule turned dow
     expect(result.files).toEqual([])
     expect(await read('src/loclizr/messages/nav.js')).toBeNull()
     expect(await read(RECORD)).toBeNull()
-    expect(result.exitCode).toBe(0)
+    expect(result.exitCode).toBe(1)
   })
 })
 

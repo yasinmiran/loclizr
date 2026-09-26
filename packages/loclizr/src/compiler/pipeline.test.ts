@@ -290,7 +290,7 @@ describe('the build sequence', () => {
     expect(readCatalogs).not.toHaveBeenCalled()
     expect(codes(result.diagnostics)).toEqual(['LZ1003'])
     expect(result.diagnostics[0]?.severity).toBe('warn')
-    expect(result.exitCode).toBe(0)
+    expect(result.exitCode).toBe(1)
   })
 
   it('hands scan a group membership map that cannot reach Object.prototype', async () => {

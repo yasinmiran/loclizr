@@ -120,7 +120,7 @@ export async function runPipeline(
     ...levelled,
     ...applySeverity(output.diagnostics, overrides),
   ])
-  const exitCode = resolveExitCode(diagnostics, options, reachedOutput)
+  const exitCode = resolveExitCode(diagnostics, options, reachedOutput, blocksOutput(collected))
   return {
     ok: !hasError(diagnostics),
     exitCode,
@@ -142,7 +142,7 @@ function halt(
   const diagnostics = sortDiagnostics(applySeverity(collected, overrides))
   return {
     ok: !hasError(diagnostics),
-    exitCode: exitCodeFor(diagnostics, options.maxWarnings),
+    exitCode: resolveExitCode(diagnostics, options, false, blocksOutput(collected)),
     program: null,
     diagnostics,
     files: [],
@@ -168,8 +168,13 @@ function resolveExitCode(
   diagnostics: readonly Diagnostic[],
   options: PipelineOptions,
   reachedOutput: boolean,
+  blocked: boolean,
 ): 0 | 1 | 2 {
   const ordinary = exitCodeFor(diagnostics, options.maxWarnings)
+  if (ordinary === 2) return 2
+  // A fatal diagnostic turned down to warn, or off, still blocks the tree; a
+  // run that could not produce output never exits 0, whatever was printed.
+  if (blocked) return 1
   if (ordinary !== 1) return ordinary
   if (options.mode !== 'build' || options.failOnError || !reachedOutput) return ordinary
   return 0
