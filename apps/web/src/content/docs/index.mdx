@@ -1,5 +1,5 @@
 ---
-title: Typed message functions and default-on catalog checks
+title: Typed message functions and catalog checks from JSON
 description: A compiler for the contract between code and translations. Typed ESM message functions from JSON catalogs, catalog checks inside the build, and a context record that lands in the pull request with the string.
 template: splash
 tableOfContents: false
@@ -7,4 +7,130 @@ prev: false
 next: false
 hero:
   title: Checking your catalog shouldn't be a tool you remember to add.
+  tagline: loclizr build turns your JSON translation catalogs into typed message functions, checks the catalogs on every build, and writes a context record for whoever translates next. No bundler plugin, and nothing rewrites your source.
+  actions:
+    - text: Quickstart
+      link: /start/quickstart/
+      icon: right-arrow
+    - text: How it works
+      link: /start/how-it-works/
+      variant: minimal
 ---
+
+import { Card, CardGrid, LinkCard } from '@astrojs/starlight/components'
+
+## Sixty seconds
+
+A catalog in, ICU MessageFormat by default. An existing i18next catalog is detected per file and
+converted in memory.
+
+```json title="locales/en.json"
+{
+  "cart": {
+    "greeting": "Hi {name}, your cart is ready",
+    "items": "{count, plural, =0 {Your cart is empty} one {# item in your cart} other {# items in your cart}}"
+  }
+}
+```
+
+```sh
+npx loclizr build
+```
+
+Typed functions out. The locale is read at call time, so `setLocale('de')` switches the language
+with no reload.
+
+```ts title="src/Cart.tsx"
+import * as m from './loclizr/messages'
+
+m.cart_greeting({ name: 'Ada' })   // "Hi Ada, your cart is ready"
+m.cart_items({ count: 3 })         // "3 items in your cart"
+m.cart_items({ count: '3' })       // type error: count is a number
+```
+
+## One pass, three outputs
+
+<CardGrid>
+  <Card title="Typed message functions" icon="seti:typescript">
+    Plain ESM with declarations, one function per message, every locale inlined. Runs in a Vite
+    SPA, server rendering, React Native and Node. Nothing to add to your bundler.
+  </Card>
+  <Card title="Checks that are already on" icon="approve-check">
+    Fifty-six rules run inside every build: missing and blank translations, ICU syntax,
+    arguments that differ between locales, markup mismatches, two keys sharing a text. Errors
+    fail the build. Other tools check catalogs too, usually as a step you add; here it is the
+    default.
+  </Card>
+  <Card title="A context record per message" icon="document">
+    Source text, argument types, plural shape, description, and the file and component where
+    the message is used. Deterministic, committed, and diffed in the same pull request as the
+    string change.
+  </Card>
+</CardGrid>
+
+## What a failing build looks like
+
+Take the example app's catalogs, delete `cart.total` from `de.json`, and misspell `{name}` as
+`{nmae}` in its `cart.greeting`. The next build prints this and exits 1:
+
+```txt frame="terminal" title="loclizr build"
+error  LZ3001  missing-translation  locales/de-AT.json  de-AT  cart.total
+
+  The de-AT catalog has no value for this key, so this message renders en text.
+
+  fix  add "cart.total" to locales/de-AT.json
+
+error  LZ3001  missing-translation  locales/de.json  de  cart.total
+
+  The de catalog has no value for this key, so this message renders en text.
+
+  fix  add "cart.total" to locales/de.json
+
+error  LZ3004  arg-missing  locales/de.json:24:18  de  cart.greeting
+
+  The en text uses {name} and the de translation does not.
+
+  fix  add {name} to "cart.greeting" in locales/de.json
+
+error  LZ3005  arg-extra  locales/de.json:24:18  de  cart.greeting
+
+  The de translation uses {nmae}, which the en text does not have, so this locale renders en text instead.
+
+  fix  check the spelling of {nmae} in locales/de.json, or add it to the en text
+
+wrote src/loclizr (19 files) and locales/loclizr.context.json
+commit locales/loclizr.context.json; `loclizr check` compares it
+26 messages, 3 locales (source en), 4 errors, 0 warnings
+fell back to source text: de 2, de-AT 1
+```
+
+The generated tree is still written, with the broken messages filled from the fallback chain, so
+the app keeps typechecking and the real errors are not buried under "cannot find module". The exit
+code is what gates. `loclizr build --no-fail` prints the same diagnostics and exits 0 for the dev
+server; `loclizr check` is the CI gate.
+
+## Where to go next
+
+<CardGrid>
+  <LinkCard title="Language switching" description="setLocale, cookie persistence, and what re-renders in React." href="/guides/language-switching/" />
+  <LinkCard title="Server rendering" description="Request-scoped locale through AsyncLocalStorage, cookie first, then Accept-Language." href="/guides/server-rendering/" />
+  <LinkCard title="Importing i18next catalogs" description="What converts, what does not, and the diagnostics that say so." href="/guides/i18next-import/" />
+  <LinkCard title="Comparison" description="i18next, next-intl, Paraglide, Lingui, FormatJS and Intlayer, and when to pick them instead." href="/project/comparison/" />
+</CardGrid>
+
+## What it deliberately does not do
+
+- **No per-locale delivery.** Every declared locale of every used message is inlined into that
+  message function, so bundle size grows with locale count.
+- **No runtime `format()` for content unknown at build time.** ICU is parsed at build time only
+  and the browser never ships a parser.
+- **No extraction.** It does not find hardcoded strings in your source or rewrite them into
+  message calls. Catalogs are authored or imported.
+- **Server rendering covers Web Fetch handlers.** Express and Fastify go through
+  `localeFromHeaders`. Next.js is not a first-class target in v0.1.
+- **No URL-prefix locale routing.** The locale comes from a cookie or from `Accept-Language`.
+- **No `--watch`.** `loclizr build --no-fail` in `predev`, or the example's inline Vite plugin,
+  is the dev loop.
+
+Day zero. No users yet, no track record, and no promise about how long this stays maintained.
+MIT, with the [maintenance situation written down](/project/continuity/) rather than implied.

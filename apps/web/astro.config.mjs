@@ -1,8 +1,6 @@
 import starlight from '@astrojs/starlight'
 import { defineConfig } from 'astro/config'
 
-import { ledgerDark, ledgerLight } from './src/styles/ec-themes.mjs'
-
 export default defineConfig({
   site: 'https://loclizr.dev',
   integrations: [
@@ -14,73 +12,7 @@ export default defineConfig({
         { icon: 'github', label: 'GitHub', href: 'https://github.com/loclizr/loclizr' },
       ],
       credits: false,
-      customCss: ['./src/styles/fonts.css', './src/styles/ledger.css', './src/styles/landing.css'],
-      components: {
-        Hero: './src/components/LedgerHero.astro',
-      },
-      head: [
-        {
-          tag: 'link',
-          attrs: {
-            rel: 'preload',
-            href: '/fonts/plexmono-600-normal-latin.woff2',
-            as: 'font',
-            type: 'font/woff2',
-            crossorigin: 'anonymous',
-          },
-        },
-        {
-          tag: 'link',
-          attrs: {
-            rel: 'preload',
-            href: '/fonts/archivo-400-700-normal-latin.woff2',
-            as: 'font',
-            type: 'font/woff2',
-            crossorigin: 'anonymous',
-          },
-        },
-      ],
-      expressiveCode: {
-        themes: [ledgerDark, ledgerLight],
-        useStarlightUiThemeColors: false,
-        useStarlightDarkModeSwitch: true,
-        styleOverrides: {
-          borderRadius: '0',
-          borderColor: 'var(--rule)',
-          codeBackground: 'var(--panel)',
-          codeFontFamily: 'var(--sl-font-mono)',
-          uiFontFamily: 'var(--sl-font-mono)',
-          codeFontSize: '0.8125rem',
-          codeLineHeight: '1.68',
-          codePaddingBlock: '0.875rem',
-          codePaddingInline: '1rem',
-          frames: {
-            frameBoxShadowCssValue: 'none',
-            editorTabBorderRadius: '0',
-            editorTabBarBackground: 'var(--panel-2)',
-            editorTabBarBorderBottomColor: 'var(--rule)',
-            editorActiveTabBackground: 'var(--panel)',
-            editorActiveTabForeground: 'var(--ink)',
-            editorActiveTabBorderColor: 'var(--rule)',
-            editorActiveTabIndicatorTopColor: 'transparent',
-            editorActiveTabIndicatorBottomColor: 'transparent',
-            editorBackground: 'var(--panel)',
-            // A dark terminal in a light theme would put the theme's ink on it,
-            // and there is no terminal foreground override to correct that. The
-            // plate treatment stays on the landing, where every colour is ours.
-            terminalBackground: 'var(--panel)',
-            terminalTitlebarBackground: 'var(--panel-2)',
-            terminalTitlebarForeground: 'var(--ink-3)',
-            terminalTitlebarBorderBottomColor: 'var(--rule)',
-            terminalTitlebarDotsForeground: 'var(--rule-strong)',
-            terminalTitlebarDotsOpacity: '1',
-            inlineButtonForeground: 'var(--ink-2)',
-            inlineButtonBorderOpacity: '0',
-            tooltipSuccessBackground: 'var(--accent)',
-            tooltipSuccessForeground: 'var(--on-accent)',
-          },
-        },
-      },
+      customCss: ['./src/styles/custom.css'],
       sidebar: [
         {
           label: 'Start here',

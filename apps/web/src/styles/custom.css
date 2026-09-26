@@ -1,0 +1,17 @@
+/* Diagrams are rendered from the specs in src/assets/diagrams (excalix). The
+   drawings carry dark ink on a transparent ground, so they sit on a light card
+   in both themes. */
+.sl-markdown-content figure.diagram {
+  margin: 1.5rem 0;
+  padding: 1rem;
+  background: #ffffff;
+  border: 1px solid var(--sl-color-hairline);
+  border-radius: 0.5rem;
+  overflow-x: auto;
+}
+.sl-markdown-content figure.diagram img {
+  display: block;
+  max-width: 100%;
+  height: auto;
+  margin: 0 auto;
+}
