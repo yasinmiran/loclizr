@@ -195,15 +195,39 @@ changing meaning.
 
 1. **Escape literal ICU syntax.** Scan the value for the i18next placeholder
    pattern `{{ name }}` and split into placeholder runs and literal runs. In
-   each literal run: replace every `'` with `''`, then wrap any maximal
-   substring containing `{`, `}`, `#` or `<` in single quotes. A literal run
-   with no ICU-special character is emitted unchanged. The function is
-   `escapeIcuLiteral`, owned by M1, because M3's `printIcu` needs the same
-   escaping and may not import M2.
+   each literal run, **quote every maximal run of ICU-special and apostrophe
+   characters that contains at least one special, doubling each apostrophe
+   inside that run**. A run of apostrophes alone is doubled and left unquoted,
+   and a literal run holding no special at all is emitted unchanged. The
+   function is `escapeIcuLiteral`, owned by M1, because M3's `printIcu` needs
+   the same escaping and may not import M2. **It takes the context it needs as
+   a parameter**, because neither half of the special set is context free.
 
    This is load bearing. Verified against the installed parser: without it,
    `Don''t {{x}}` parses to `Don't ` and loses an apostrophe, and
    `Set {color} in CSS` invents a required argument named `color`.
+
+   **One pass, not two.** Doubling every `'` first and wrapping specials second
+   closes a quote and immediately reopens it around the doubled pair: `{'}`
+   prints `'{''''}'`, which re-parses as `{''}`, one apostrophe too many,
+   because the parser reads `'''` as an escaped apostrophe still inside the
+   quote. Quoting apostrophes together with the specials they sit among prints
+   `'{''}'`, which round-trips. The doubling inside a quoted run stays
+   exhaustive rather than minimal: a lone trailing apostrophe left undoubled
+   opens a quote that swallows the enclosing plural branch's closing brace.
+
+   **The special set is `{`, `}` and `<`, plus `#` only for text that lands
+   directly inside a plural or selectordinal branch body.** `#` is not
+   universally special. Verified on 3.5.19 in the parser's `tryParseQuote`: it
+   opens a quoted section before `#` only when the enclosing argument is a
+   plural or a selectordinal, so `'#'` anywhere else is three literal
+   characters. Quoting it unconditionally would print `C'#' rocks` into
+   `Message.source`, and worse, the closing apostrophe binds forward:
+   `Order '#'` followed by `{id}` parses as one literal run and the `id`
+   argument disappears from the message entirely. Section 5.5 requires
+   `printIcu`'s output to be re-parseable ICU and this section requires the
+   same of `toIcu`, and a context-free escape cannot satisfy both, so the
+   caller passes `inPlural`.
 
    **`<` is in that set, and that is the difference between "your i18next
    catalog works unchanged" being true and being false.** The parser runs with
@@ -220,8 +244,11 @@ changing meaning.
    Every value that contained tag-shaped text raises
    `LZ1016 i18next-markup-literal` as a warning, so the conversion is visible
    rather than silent. A team that wants those tags lowered to real markup
-   arguments sets `i18nextMarkup: 'tags'`, which skips `<` in this step for the
-   whole catalog set. A file read as ICU is unaffected by any of this.
+   arguments sets `i18nextMarkup: 'tags'`, which takes `<` out of the special
+   set for the whole catalog set. That is the escape's second parameter,
+   `markup`: `toIcu` passes the configured mode through so the mode is
+   expressible in the one implementation of this step rather than forcing M2 to
+   fork it. A file read as ICU is unaffected by any of this.
 
 2. **Rewrite placeholders.** `{{ name }}` becomes `{name}`. Surrounding
    whitespace inside the braces is trimmed. A placeholder carrying an i18next
@@ -672,7 +699,9 @@ location, which maps to `LZ2004 plural-other-missing` and
 
 `#` cannot appear outside a plural body. Verified: the parser folds a stray `#`
 into literal text, and the i18next converter never emits one. There is no rule
-for it.
+for it, and it is the same fact that keeps `#` out of the escape's special set
+outside a plural body (section 2.1 step 1): a character the parser treats as
+literal must not be quoted, or the quote changes the text around it.
 
 **`#` inside a select inside a plural is a documented divergence of the chosen
 parser, and it is made visible rather than left silent.** Verified on 3.5.19:
@@ -739,7 +768,7 @@ The exact form, node by node:
 
 | Node | Printed |
 | --- | --- |
-| text | `escapeIcuLiteral(value)` |
+| text | `escapeIcuLiteral(value, { inPlural })` |
 | arg | `{name}` |
 | number | `{name, number}`, or `{name, number, STYLE}` |
 | dateTime | `{name, date}` / `{name, time}`, or with `, STYLE` |
@@ -747,6 +776,14 @@ The exact form, node by node:
 | plural | `{name, plural, BRANCHES}`, `selectordinal` when `ordinal` |
 | select | `{name, select, BRANCHES}` |
 | markup | `<tag>children</tag>` |
+
+**`inPlural` comes from the walk, not from a guess.** `printIcu` already
+descends through plural and selectordinal branches to print them, so it knows
+whether the text node it is printing sits directly inside one, and it passes
+that to the escape. `markup` is left at its default here: `printIcu` prints a
+`markup` node as a real tag, so any `<` still in a text node is literal text
+that has to stay quoted. This is the other half of what makes the round-trip
+property below hold rather than nearly hold.
 
 `STYLE` is the node's `style` token verbatim. A plural with a non-zero `offset`
 prints `offset:N ` immediately after the type keyword. Branches print as
@@ -3277,7 +3314,16 @@ export declare function hash16(input: string): string
 export declare function stableStringify(value: unknown): string
 export declare function compareCodepoint(a: string, b: string): number
 export declare function toPosix(path: string): string
-export declare function escapeIcuLiteral(text: string): string
+export declare function escapeIcuLiteral(
+  text: string,
+  options?: {
+    // True for text landing directly inside a plural or selectordinal branch
+    // body, which is the only place the parser unquotes `#`.
+    readonly inPlural?: boolean | undefined
+    // 'tags' takes `<` out of the special set, per i18nextMarkup.
+    readonly markup?: 'literal' | 'tags' | undefined
+  },
+): string
 export declare function requiredCategories(locale: string, ordinal: boolean): readonly string[]
 ```
 
@@ -3311,6 +3357,14 @@ is part of the generated bytes.
 
 `escapeIcuLiteral` implements section 2.1 step 1 and lives here because M2 needs
 it for conversion and M3 needs it for `printIcu`, and M3 may not import M2.
+**Both of its options exist so that there is exactly one implementation of that
+step.** `inPlural` is the parser's own rule about `#`, which M3 supplies from
+its node walk; `markup` is `i18nextMarkup`, which M2 supplies from the config.
+Neither is inferable from `text` alone, so without the parameters M2 would have
+to fork the function to express `'tags'` and M3 would have to fork it to avoid
+quoting a `#` the parser reads as literal. Both default to the conservative
+choice, `inPlural: false` and `markup: 'literal'`, so a one-argument call is
+still correct for top-level text.
 `requiredCategories` is
 `new Intl.PluralRules(locale, { type }).resolvedOptions().pluralCategories` and
 lives here for the same reason: M2's suffix folding, M3's lowering and M5's
@@ -3378,8 +3432,12 @@ export declare function classifyFormat(entries: readonly RawEntry[]): {
 `parseJsonWithSpans` is a hand-rolled JSON scanner, not `JSON.parse`, because
 positions and duplicate-key detection both need the token stream. `flatten`
 prefixes every key with `ns` when it is not null. `toIcu` implements section 2.1
-steps 1 through 3 using M1's `escapeIcuLiteral`, and `foldPluralSuffixes` does
-step 4 using M1's `requiredCategories`. `readCatalogs` returns one `RawCatalog`
+steps 1 through 3 using M1's `escapeIcuLiteral`, passing `context.markup`
+straight through as that call's `markup` option so `i18nextMarkup: 'tags'` needs
+no second implementation of step 1, and `foldPluralSuffixes` does step 4 using
+M1's `requiredCategories`. `toIcu` passes no `inPlural`: it runs before any
+parse, so there is no plural body to be inside yet, and the `#` in an i18next
+value is always literal text. `readCatalogs` returns one `RawCatalog`
 per matched **file**, so a `{ns}` pattern yields several per locale.
 
 **M2 decides each file's format and records it on `RawCatalog.format`.** Under
@@ -3452,7 +3510,10 @@ in the source locale and falls the locale through the chain with reason
 repeat through `unify` and raising `LZ2009` where that returns null.
 
 `printIcu` emits **re-parseable** ICU in the exact canonical form of section
-5.5, applying `escapeIcuLiteral` to every text node. `normalized` is
+5.5, applying `escapeIcuLiteral` to every text node and passing `inPlural` from
+its own walk, which already tracks whether it is inside a plural or
+selectordinal branch body. It passes no `markup`, because it prints markup nodes
+as real tags and any `<` surviving in a text node is literal. `normalized` is
 `printIcu(nodes)` and is what the record and `ambiguous-source` compare, so M3
 carries a round-trip property test over every fixture:
 `lower(printIcu(lower(x).nodes))` is node-equal to `lower(x)`.
@@ -4021,6 +4082,15 @@ recognisable as a breaking change.
   handler type, not a limit of the grammar.
 - A stray `#` outside a plural folds into literal text, and `C# rocks` stays one
   literal. There is no reachable pound-outside-plural error.
+- **`#` is not universally quotable.** Read out of the parser's
+  `tryParseQuote`: it opens a quoted section before `#` **only** when the
+  enclosing argument is a plural or a selectordinal. Everywhere else `'#'` is
+  three literal characters, so quoting a `#` at the top level both corrupts the
+  text and binds its closing apostrophe forward:
+  `escapeIcuLiteral('Order #') + '{id}'` under an unconditional rule yields
+  `Order '#'{id}`, which parses as one literal and loses the `id` argument.
+  This is why section 2.1 step 1's special set is conditional and
+  `escapeIcuLiteral` takes `inPlural`.
 - `#` inside a select inside a plural is **literal text**, not a pound element:
   `{a, plural, offset:1 other {# and {b, select, x {#} other {#}}}}` returns a
   `PoundElement` for the first and `{type: 0, value: "#"}` for the other two.
@@ -4029,13 +4099,31 @@ recognisable as a breaking change.
 - Escaping is load bearing. Without section 2.1's escape step, `Don''t {{x}}`
   parses to `Don't ` and silently loses an apostrophe, and
   `Set {color} in CSS` invents a required argument named `color`. A lone
-  apostrophe not adjacent to `{`, `}`, `#` or another apostrophe is literal, so
-  `Don't panic` needs no escaping.
+  apostrophe not adjacent to `{`, `}`, `#` or another apostrophe is literal to
+  the parser, so `Don't panic` survives unescaped. The escape doubles it
+  anyway, to `Don''t panic`, which parses back to the same text: doubling every
+  apostrophe unconditionally is what keeps the function safe under
+  concatenation, where the character that follows decides whether that
+  apostrophe opens a quote.
 - `<` is in that set for the same reason. `Click <b>here</b> {x}` unescaped
   returns a tag node, so `b` becomes a required argument and the return type
   changes shape; `Line<br>break` is `UNCLOSED_TAG`; `Read <a href="/t">terms</a>`
   is `INVALID_TAG`. Both `'<b>'` and `'<'b'>'` lower to literal text, so the
   escape works.
+- **Doubling apostrophes and quoting specials must be one pass, not two.**
+  Doubling first and wrapping second prints `{'}` as `'{''''}'`, which
+  re-parses as `{''}`, because the parser reads `'''` as an escaped apostrophe
+  still inside the quote. Quoting the apostrophes together with the specials
+  they sit among prints `'{''}'` and round-trips. The doubling inside a quoted
+  run must stay exhaustive: a lone trailing apostrophe left undoubled opens a
+  quote that swallows the enclosing plural branch's closing brace.
+- **The amended escape is exhaustively verified.** Every string of length 1
+  through 4 over the alphabet `a ' { } < #` round-trips through
+  `escapeIcuLiteral` and the parser in four positions: at the top level, inside
+  a plural branch body, inside a select inside a plural, and concatenated with
+  a following `{id}`. Zero failures. The pre-amendment context-free algorithm
+  fails 108 of those at the top level alone, which is the evidence behind
+  section 2.1 step 1's current form.
 - Argument names that reach `LZ2007` at all: `{user.name}`, `{user-name}` and
   `{$}` are `MALFORMED_ARGUMENT` at parse time, while `{9x}`, `{__proto__}`,
   `{constructor}`, `{toString}` and `{ä}` all parse cleanly. That is why section
