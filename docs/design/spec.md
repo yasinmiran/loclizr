@@ -1955,7 +1955,18 @@ error  LZ3012  ambiguous-source  locales/en.json:12:5
 ```
 
 Where the rule is left at its default it renders identically with `warn` in the
-severity column and the `or` line naming `'error'`.
+severity column and the `or` line reading `make this a hard gate` and naming
+`'error'`.
+
+**The `or` pair is chosen by M5, when it builds the hint.** It is the one place
+an analysis module looks at `config.severity`, and it looks at exactly one key,
+`config.severity['ambiguous-source']`: `'error'` prints the turn-it-down pair,
+anything else prints the harden-it pair. The alternative is a structured hint
+that M10 completes while re-levelling, which buys nothing, because the sentence
+is English rather than a decision. The load-bearing half of the seam is
+untouched: M5 still **stamps** the diagnostic at the rule's default severity,
+`warn`, and M10 still re-levels the whole set. M5 reads the setting to name it,
+never to decide whether or at what level to emit.
 
 JSON reporter prints `{ "schema": 1, "diagnostics": [...], "summary": {...} }`,
 diagnostics sorted by severity, then code, then file, then locale, then key,
@@ -1966,13 +1977,22 @@ source text.
 Every module emits a `Diagnostic` at its rule's **default** severity, stamping
 `RULES[rule].severity === 'off' ? 'warn' : RULES[rule].severity`, because
 `Diagnostic.severity` is `'warn' | 'error'` and a default-`off` rule has no
-representable stamp. M10 is the only module that reads `config.severity`. It
-applies `applySeverity` to the whole set once, before reporting: the effective
-severity is `overrides[rule] ?? RULES[rule].severity`, the diagnostic is dropped
-when that is `off`, and otherwise its severity is rewritten to it. That is what
-makes a default-`off` rule work with no configuration reaching its producing
-module: M7 always emits `LZ5005`, and M10 always drops it unless the user asked
-for it. No analysis module reads configuration.
+representable stamp. **No analysis module re-levels a diagnostic, and M10 alone
+applies `config.severity`.** It runs `applySeverity` over the whole set once,
+before reporting: the effective severity is
+`overrides[rule] ?? RULES[rule].severity`, the diagnostic is dropped when that
+is `off`, and otherwise its severity is rewritten to it. That is what makes a
+default-`off` rule work with no severity decision reaching its producing module:
+M7 always emits `LZ5005`, and M10 always drops it unless the user asked for it.
+
+The invariant is about **deciding**, not about reading, and the difference is
+worth stating because the frozen wording read as the second and no module could
+keep it. Analysis modules do read configuration where the spec tells them to:
+M5 resolves `LZ3001`'s `file` from `config.catalogs`, gates `LZ3011` on
+`config.formats.timeZone`, and names `config.severity['ambiguous-source']` in
+`LZ3012`'s hint. What none of them may do is change whether a diagnostic is
+raised, or at what severity it is stamped, based on `config.severity`. Exactly
+one rule reaches into that field at all, for one key, to write a sentence.
 
 ## 11. Locale store, SSR and hydration
 
@@ -3236,8 +3256,10 @@ Rules of engagement:
 - Fixtures live in `<module dir>/__fixtures__/` and are **never shared**. A
   shared catalog fixture is the first place disjointness breaks.
 - Every module emits diagnostics at the rule's **default** severity, stamping
-  `warn` where that default is `off`, and never reads `config.severity`. M10
-  re-levels the whole set once.
+  `warn` where that default is `off`, and no module re-levels. M10 alone applies
+  `config.severity`, once, over the whole set. The single read of that field
+  outside M10 is M5 naming `config.severity['ambiguous-source']` in `LZ3012`'s
+  hint (section 10.1), which changes a sentence and not a severity.
 - `packages/loclizr/package.json` is frozen. No module adds a dependency. The
   freeze is scoped to that one file; `examples/vite-react/package.json` belongs
   to M13.
@@ -3598,6 +3620,14 @@ no entry in `Message.spans`, so its `file` is `config.catalogs` with `{locale}`
 substituted, which it can do because section 3 fixes what that pattern is
 relative to.
 
+It reads exactly four fields of `Config`, each of them for a string it has to
+print: `config.catalogs` for `LZ3001`'s `file`, `config.meta` for the path
+`LZ3012`'s fix line tells the user to edit, `config.formats.timeZone` to gate
+`LZ3011`, and `config.severity['ambiguous-source']` to pick the `or` pair in
+`LZ3012`'s hint (section 10.1). It stamps every diagnostic at the rule's default
+severity and re-levels nothing. The source locale comes from
+`Program.sourceLocale`, not from the config.
+
 `Message.bodies` is sparse by design (section 5), so every comparison here
 iterates `bodies` rather than `locales` and a locale with no entry is simply not
 compared; `Message.origins` already says why it has none. A locale whose origin
@@ -3803,8 +3833,11 @@ types, exactly as M12 already does for the runtime half, so it moves no file
 ownership.
 
 This is the `loclizr/compiler` entry and the integration seat. It is the only
-module that touches the filesystem for **output**, the only one that reads
-`config.severity`, and the only one that decides the exit code. Sequence:
+module that touches the filesystem for **output**, the only one that **applies**
+`config.severity`, and the only one that decides the exit code. M5 reads one key
+of that field to name it in `LZ3012`'s hint (section 10.1) and re-levels
+nothing, so `applySeverity` here stays the single point where severity is
+decided. Sequence:
 
 0. Probe `Intl` once and raise `LZ1019` if the build machine's ICU data is
    truncated, which also forces `LZ3007` and `LZ3013` to `off` for this run.
