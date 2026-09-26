@@ -1,7 +1,17 @@
+import { AsyncLocalStorage } from 'node:async_hooks'
 import type { NegotiateOptions } from '../types'
+import { readCookie } from '../runtime/cookie'
+import { localeScope, setLocaleScope } from '../runtime/state'
+import { matchLocale } from '../runtime/store'
+
+interface AcceptedRange {
+  readonly tag: string
+  readonly quality: number
+  readonly order: number
+}
 
 export function runWithLocale<T>(locale: string, fn: () => T): T {
-  throw new Error('not implemented')
+  return scope().run(locale, fn)
 }
 
 // withLocale sets Content-Language and Vary: Accept-Language on the response.
@@ -9,13 +19,102 @@ export function withLocale<A extends unknown[]>(
   handler: (request: Request, ...rest: A) => Response | Promise<Response>,
   options: NegotiateOptions,
 ): (request: Request, ...rest: A) => Promise<Response> {
-  throw new Error('not implemented')
+  return async (request, ...rest) => {
+    const locale = localeFromRequest(request, options)
+    const response = await runWithLocale(locale, () => handler(request, ...rest))
+    return announce(response, locale)
+  }
 }
 
 export function negotiate(accepted: readonly string[], options: NegotiateOptions): string {
-  throw new Error('not implemented')
+  const ranked: AcceptedRange[] = accepted
+    .map(parseRange)
+    .filter((range) => range.quality > 0 && range.tag !== '' && range.tag !== '*')
+    .sort((a, b) => b.quality - a.quality || a.order - b.order)
+  for (const range of ranked) {
+    // The empty fallback separates "this range matched nothing" from "this
+    // range matched the source locale", so a later range still gets its turn.
+    const matched = matchLocale(range.tag, options.locales, '')
+    if (matched !== '') return matched
+  }
+  return options.sourceLocale
 }
 
 export function localeFromRequest(request: Request, options: NegotiateOptions): string {
-  throw new Error('not implemented')
+  return localeFromHeaders(
+    {
+      cookie: request.headers.get('cookie') ?? undefined,
+      acceptLanguage: request.headers.get('accept-language') ?? undefined,
+    },
+    options,
+  )
+}
+
+// The primitive. localeFromRequest is a thin wrapper that reads the two headers
+// off a Fetch Request and calls this, so the two cannot drift.
+export function localeFromHeaders(
+  headers: {
+    readonly cookie?: string | undefined
+    readonly acceptLanguage?: string | undefined
+  },
+  options: NegotiateOptions,
+): string {
+  const cookie =
+    headers.cookie === undefined ? null : readCookie(headers.cookie, options.cookie ?? 'locale')
+  // A cookie that matches nothing resolves to the source locale rather than
+  // falling through to Accept-Language, because the client reads the same
+  // cookie through the same matcher and the two answers have to agree across
+  // the hydration boundary.
+  if (cookie !== null) return matchLocale(cookie, options.locales, options.sourceLocale)
+  const accepted = headers.acceptLanguage
+  if (accepted !== undefined && accepted.trim() !== '') {
+    return negotiate(accepted.split(','), options)
+  }
+  return options.sourceLocale
+}
+
+function scope(): AsyncLocalStorage<string> {
+  const installed = localeScope()
+  if (installed !== undefined) return installed as AsyncLocalStorage<string>
+  const created = new AsyncLocalStorage<string>()
+  setLocaleScope(created)
+  return created
+}
+
+function parseRange(entry: string, order: number): AcceptedRange {
+  const [head = '', ...parameters] = entry.split(';')
+  let quality = 1
+  for (const parameter of parameters) {
+    const [name = '', value = ''] = parameter.split('=')
+    if (name.trim().toLowerCase() !== 'q') continue
+    const parsed = Number.parseFloat(value)
+    quality = Number.isNaN(parsed) ? 0 : parsed
+  }
+  return { tag: head.trim(), quality, order }
+}
+
+function announce(response: Response, locale: string): Response {
+  try {
+    stamp(response.headers, locale)
+    return response
+  } catch {
+    const headers = new Headers(response.headers)
+    stamp(headers, locale)
+    return new Response(response.body, {
+      status: response.status,
+      statusText: response.statusText,
+      headers,
+    })
+  }
+}
+
+function stamp(headers: Headers, locale: string): void {
+  headers.set('Content-Language', locale)
+  const vary = headers.get('Vary')
+  if (vary === null) {
+    headers.set('Vary', 'Accept-Language')
+    return
+  }
+  const lists = vary.split(',').some((field) => field.trim().toLowerCase() === 'accept-language')
+  if (!lists) headers.set('Vary', `${vary}, Accept-Language`)
 }
