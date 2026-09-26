@@ -149,7 +149,16 @@ export function renderHuman(
 }
 
 export function renderJson(diagnostics: readonly Diagnostic[], summary: Summary): string {
-  return JSON.stringify({ schema: 1, diagnostics: sortDiagnostics(diagnostics), summary }, null, 2)
+  const json = JSON.stringify(
+    { schema: 1, diagnostics: sortDiagnostics(diagnostics), summary },
+    null,
+    2,
+  )
+  // JSON.stringify escapes C0 already but emits DEL and the C1 block raw, and a
+  // UTF-8 terminal tailing this output still reads U+009B as CSI. Escaping is
+  // lossless where the human reporter's placeholder cannot be: a parser decodes
+  // these back to the bytes the catalog held.
+  return json.replaceAll(/[\u007f-\u009f]/gu, (char) => `\\u${hex(char)}`)
 }
 
 interface Palette {
@@ -195,7 +204,7 @@ function compareNullable(a: string | null, b: string | null): number {
 
 function renderOne(diagnostic: Diagnostic, paint: Palette): string {
   const lines: string[] = [renderHeader(diagnostic, paint), '']
-  for (const line of diagnostic.message.split('\n')) lines.push(indent(line, 2))
+  for (const line of bodyLines(diagnostic.message)) lines.push(indent(line, 2))
   if (diagnostic.related.length > 0) {
     lines.push('')
     for (const line of renderRelated(diagnostic.related)) lines.push(line)
@@ -207,20 +216,27 @@ function renderOne(diagnostic: Diagnostic, paint: Palette): string {
   return lines.join('\n')
 }
 
+// A message and a hint are the two fields whose own newlines are deliberate, so
+// they are split before the sanitizer runs and every other control character is
+// neutralized inside each line.
+function bodyLines(text: string): readonly string[] {
+  return text.replaceAll('\r\n', '\n').split('\n').map(sanitize)
+}
+
 function renderHeader(diagnostic: Diagnostic, paint: Palette): string {
   const parts = [paint.severity(diagnostic.severity), paint.code(diagnostic.code), diagnostic.rule]
   const location = locationOf(diagnostic.file, diagnostic.span)
-  if (location !== '') parts.push(paint.location(location))
-  if (diagnostic.locale !== null) parts.push(diagnostic.locale)
-  if (diagnostic.key !== null) parts.push(diagnostic.key)
+  if (location !== '') parts.push(paint.location(oneLine(location)))
+  if (diagnostic.locale !== null) parts.push(oneLine(diagnostic.locale))
+  if (diagnostic.key !== null) parts.push(oneLine(diagnostic.key))
   return parts.join('  ')
 }
 
 function renderRelated(related: readonly Related[]): readonly string[] {
   const rows = related.map((entry) => ({
-    label: entry.key ?? entry.locale ?? '',
-    location: locationOf(entry.file, entry.span),
-    message: entry.message,
+    label: oneLine(entry.key ?? entry.locale ?? ''),
+    location: oneLine(locationOf(entry.file, entry.span)),
+    message: oneLine(entry.message),
   }))
   const labelWidth = Math.max(...rows.map((row) => row.label.length))
   const locationWidth = Math.max(...rows.map((row) => row.location.length))
@@ -233,7 +249,7 @@ function renderRelated(related: readonly Related[]): readonly string[] {
 }
 
 function renderHint(hint: string): readonly string[] {
-  const [first = '', ...rest] = hint.split('\n')
+  const [first = '', ...rest] = bodyLines(hint)
   return [indent(`fix  ${first}`, 2), ...rest.map((line) => indent(line, 2))]
 }
 
@@ -244,4 +260,33 @@ function locationOf(file: string | null, span: Diagnostic['span']): string {
 
 function indent(line: string, width: number): string {
   return line === '' ? '' : `${' '.repeat(width)}${line}`
+}
+
+// A key, a locale and a related row's own text are catalog contents, and a
+// newline in any of them would break the one-line header or the three-column
+// layout, or print what reads as a second diagnostic. A run collapses to one
+// space rather than one per newline, because two spaces are what separates two
+// header fields.
+function oneLine(text: string): string {
+  return sanitize(text.replaceAll(/[\r\n]+/gu, ' '))
+}
+
+// Catalog keys, translator-authored source text, descriptions and file paths
+// all reach a terminal and a CI log through this reporter, and a terminal reads
+// this range as commands: an ANSI sequence can erase lines already printed and
+// forge a clean diagnostic over a real one, and an OSC 8 run can plant a
+// hyperlink pointing anywhere. Tab and the deliberate newline survive; the rest
+// is shown rather than obeyed, so the text stays legible and the attack does
+// not.
+function sanitize(text: string): string {
+  return text.replaceAll(
+    /[\u0000-\u0008\u000b-\u001f\u007f-\u009f]/gu,
+    (char) => `<U+${hex(char).toUpperCase()}>`,
+  )
+}
+
+// Lower case, so an escape added here reads the same as the ones
+// `JSON.stringify` already wrote for the C0 range beside it.
+function hex(char: string): string {
+  return (char.codePointAt(0) ?? 0).toString(16).padStart(4, '0')
 }

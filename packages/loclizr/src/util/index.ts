@@ -1,7 +1,5 @@
 import { createHash } from 'node:crypto'
 
-const ICU_SPECIAL: ReadonlySet<string> = new Set(['{', '}', '#', '<'])
-
 const pluralCategoryCache = new Map<string, readonly string[]>()
 
 export function hash16(input: string): string {
@@ -28,21 +26,46 @@ export function toPosix(path: string): string {
   return path.replaceAll('\\', '/')
 }
 
-export function escapeIcuLiteral(text: string): string {
+// One quoted run per maximal stretch of special and apostrophe characters that
+// holds at least one special, with every apostrophe doubled. Both halves are
+// load bearing. A closing quote followed by an apostrophe reads as still inside
+// the quote, so "{'}" has to print as one run, `'{''}'`, and never as `'{'` then
+// `''` then `'}'`, which comes back with an apostrophe too many. And an
+// undoubled apostrophe at the end of the text would open a quote that swallows
+// the enclosing plural branch's closing brace.
+export function escapeIcuLiteral(
+  text: string,
+  options?: {
+    // `#` is the count only directly inside a plural or selectordinal body.
+    // Anywhere else the parser leaves the apostrophes in the text, so quoting a
+    // pound there rewrites the copy and the closing quote swallows whatever
+    // argument follows: `Order '#'{id}` is one literal and `id` is gone.
+    readonly inPlural?: boolean | undefined
+    // 'tags' leaves `<` alone, so tag-shaped text lowers to real markup.
+    readonly markup?: 'literal' | 'tags' | undefined
+  },
+): string {
+  const inPlural = options?.inPlural === true
+  const tags = options?.markup === 'tags'
   let out = ''
-  let special = ''
-  for (const char of text.replaceAll("'", "''")) {
-    if (ICU_SPECIAL.has(char)) {
-      special += char
+  let run = ''
+  let quoted = false
+  for (const char of text) {
+    if (isIcuSpecial(char, inPlural, tags)) {
+      run += char
+      quoted = true
       continue
     }
-    if (special !== '') {
-      out += `'${special}'`
-      special = ''
+    if (char === "'") {
+      run += char
+      continue
     }
+    out += emitRun(run, quoted)
+    run = ''
+    quoted = false
     out += char
   }
-  return special === '' ? out : `${out}'${special}'`
+  return out + emitRun(run, quoted)
 }
 
 export function requiredCategories(locale: string, ordinal: boolean): readonly string[] {
@@ -55,6 +78,18 @@ export function requiredCategories(locale: string, ordinal: boolean): readonly s
   )
   pluralCategoryCache.set(cacheKey, categories)
   return categories
+}
+
+function isIcuSpecial(char: string, inPlural: boolean, tags: boolean): boolean {
+  if (char === '{' || char === '}') return true
+  if (char === '<') return !tags
+  return char === '#' && inPlural
+}
+
+function emitRun(run: string, quoted: boolean): string {
+  if (run === '') return ''
+  const doubled = run.replaceAll("'", "''")
+  return quoted ? `'${doubled}'` : doubled
 }
 
 function encode(value: unknown): string | undefined {

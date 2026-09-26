@@ -270,8 +270,8 @@ export interface RawEntry {
   // `{ns}`. This is the key every diagnostic, the meta sidecar and the record
   // print.
   readonly key: string
-  // Always ICU MessageFormat. In a file read as i18next, M2 has already applied
-  // section 2.1; in a file read as ICU it is the catalog text verbatim. M4
+  // Always ICU MessageFormat. In a file read as i18next, M2 has already
+  // converted it; in a file read as ICU it is the catalog text verbatim. M4
   // lowers this directly and never calls toIcu.
   readonly value: string
   readonly span: Span
@@ -282,8 +282,8 @@ export interface RawCatalog {
   readonly ns: string | null
   readonly file: string
   // The format this one file was read as. Under catalogFormat 'auto' M2
-  // classified it per section 2; otherwise it is the configured value. M4
-  // passes it into LowerContext and nobody re-derives it.
+  // classified it from that one file's entries; otherwise it is the configured
+  // value. M4 passes it into LowerContext and nobody re-derives it.
   readonly format: 'icu' | 'i18next'
   readonly entries: readonly RawEntry[]
 }
@@ -332,8 +332,7 @@ export interface Config {
   readonly locales: readonly string[]
   readonly sourceLocale: string
   readonly catalogs: string
-  // 'auto' decides per file in M2, per section 2. 'icu' and 'i18next' force
-  // every file.
+  // 'auto' decides per file in M2. 'icu' and 'i18next' force every file.
   readonly catalogFormat: 'auto' | 'icu' | 'i18next'
   readonly i18nextMarkup: 'literal' | 'tags'
   readonly meta: string | false
@@ -443,8 +442,9 @@ export interface RecordTranslation {
   readonly reason: FallbackReason | null
 }
 
-// No line, column or snippet: see section 14. `UsageSite` keeps all five, and
-// reaches a caller through `BuildResult.program.usages`.
+// No line, column or snippet: a position churns the record on every unrelated
+// edit above it. `UsageSite` keeps all five and reaches a caller through
+// `BuildResult.program.usages`.
 export interface RecordUsage {
   readonly file: string
   readonly scope: string | null

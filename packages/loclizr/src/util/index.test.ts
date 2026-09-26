@@ -1,4 +1,9 @@
-import { isLiteralElement, isPluralElement, parse } from '@formatjs/icu-messageformat-parser'
+import {
+  isArgumentElement,
+  isLiteralElement,
+  isPluralElement,
+  parse,
+} from '@formatjs/icu-messageformat-parser'
 import { describe, expect, test } from 'vitest'
 import {
   compareCodepoint,
@@ -24,6 +29,24 @@ function readLiteral(icu: string): string {
     throw new Error(`expected one literal element from ${JSON.stringify(icu)}`)
   }
   return only.value
+}
+
+// printIcu and toIcu both concatenate escaped text with the nodes around it, so
+// an escape that leaves a quote open eats the argument that follows.
+function readLiteralBeforeArgument(icu: string): string {
+  const elements = parse(`${icu}{id}`, PARSE_OPTIONS)
+  const last = elements.at(-1)
+  if (last === undefined || !isArgumentElement(last) || last.value !== 'id') {
+    throw new Error(`${JSON.stringify(icu)} swallowed the argument that followed it`)
+  }
+  let out = ''
+  for (const element of elements.slice(0, -1)) {
+    if (!isLiteralElement(element)) {
+      throw new Error(`${JSON.stringify(icu)} lowered to more than literal text`)
+    }
+    out += element.value
+  }
+  return out
 }
 
 function readLiteralInsidePlural(icu: string): string {
@@ -142,6 +165,14 @@ describe('escapeIcuLiteral', () => {
     'a > b',
     "a'>b",
     '50% off',
+    'Order #',
+    'C# rocks',
+    'issue #12',
+    "{'}",
+    "a{'}b",
+    "}'{",
+    "<'<",
+    "Use {'{'} for a literal brace",
   ]
 
   test.each(roundTrips)('escapes %j back to itself at the top level', (text) => {
@@ -151,9 +182,13 @@ describe('escapeIcuLiteral', () => {
   test.each(roundTrips.filter((text) => text !== ''))(
     'escapes %j back to itself inside a plural body',
     (text) => {
-      expect(readLiteralInsidePlural(escapeIcuLiteral(text))).toBe(text)
+      expect(readLiteralInsidePlural(escapeIcuLiteral(text, { inPlural: true }))).toBe(text)
     },
   )
+
+  test.each(roundTrips)('escapes %j without swallowing the argument after it', (text) => {
+    expect(readLiteralBeforeArgument(escapeIcuLiteral(text))).toBe(text)
+  })
 
   test('quotes the characters that would otherwise change the parse', () => {
     expect(escapeIcuLiteral('Set {color} in CSS')).toBe("Set '{'color'}' in CSS")
@@ -187,14 +222,26 @@ describe('escapeIcuLiteral', () => {
     const [plural] = body
     if (plural === undefined || !isPluralElement(plural)) throw new Error('expected a plural')
     expect(plural.options['other']?.value).toHaveLength(3)
-    expect(readLiteralInsidePlural(escapeIcuLiteral('C# rocks'))).toBe('C# rocks')
-    expect(readLiteralInsidePlural(escapeIcuLiteral("a '#' b"))).toBe("a '#' b")
+    expect(escapeIcuLiteral('C# rocks', { inPlural: true })).toBe("C'#' rocks")
+    expect(readLiteralInsidePlural(escapeIcuLiteral('C# rocks', { inPlural: true }))).toBe('C# rocks')
+    expect(readLiteralInsidePlural(escapeIcuLiteral("a '#' b", { inPlural: true }))).toBe("a '#' b")
   })
 
-  test('quoting a pound is visible at the top level, where a pound is already literal', () => {
-    expect(escapeIcuLiteral('C# rocks')).toBe("C'#' rocks")
-    expect(readLiteral('C# rocks')).toBe('C# rocks')
-    expect(readLiteral(escapeIcuLiteral('C# rocks'))).toBe("C'#' rocks")
+  test('leaves a pound alone outside a plural body, where the parser keeps the quotes as text', () => {
+    expect(escapeIcuLiteral('C# rocks')).toBe('C# rocks')
+    expect(readLiteral("C'#' rocks")).toBe("C'#' rocks")
+  })
+
+  test('keeps an apostrophe and a special character in one quoted run', () => {
+    expect(escapeIcuLiteral("{'}")).toBe("'{''}'")
+    expect(escapeIcuLiteral("}'{")).toBe("'}''{'")
+  })
+
+  test('lowers tag-shaped text to markup under the tags mode and still quotes braces', () => {
+    expect(escapeIcuLiteral("It's <b>{name}</b>", { markup: 'tags' })).toBe(
+      "It''s <b>'{'name'}'</b>",
+    )
+    expect(escapeIcuLiteral('Click <b>here</b>', { markup: 'tags' })).toBe('Click <b>here</b>')
   })
 })
 
