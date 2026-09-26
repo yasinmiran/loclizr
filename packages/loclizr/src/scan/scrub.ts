@@ -10,12 +10,20 @@ interface Lexed {
   readonly literals: readonly Range[]
 }
 
+interface Literal {
+  readonly chunks: readonly Range[]
+  readonly end: number
+}
+
 const IDENT_START = /[\p{ID_Start}$_]/u
 const IDENT_PART = /[\p{ID_Continue}$]/u
 const NUMBER_PART = /[0-9A-Za-z_$.]/u
+const WORD_BEFORE = /[\p{ID_Start}$_][\p{ID_Continue}$]*$/u
+const WORD_WINDOW = 32
 
-// A `/` directly after one of these opens a regular expression, not a division.
-const REGEX_AFTER_WORD: ReadonlySet<string> = new Set([
+// Expression position: a `/` here opens a regular expression rather than a
+// division, and a quote here opens a string rather than prose.
+const BEFORE_EXPRESSION: ReadonlySet<string> = new Set([
   'await',
   'case',
   'delete',
@@ -32,26 +40,29 @@ const REGEX_AFTER_WORD: ReadonlySet<string> = new Set([
   'yield',
 ])
 
-// JSX text is not a string to any JS tokenizer, so a bare apostrophe in
-// `<p>Don't forget</p>` would open a string literal that swallows every usage
-// until the next one. Section 12 trades that false negative for false
-// positives: comments only, then pass two over the remainder.
+const PUNCTUATOR_BEFORE_EXPRESSION: ReadonlySet<string> = new Set([
+  '=',
+  '(',
+  '[',
+  '{',
+  ',',
+  ':',
+  ';',
+  '?',
+])
+
 export function scrub(text: string, jsx: boolean): Scrubbed {
-  if (jsx) {
-    const stripped = blank(text, commentRanges(text))
-    return { withoutComments: stripped, codeOnly: stripped }
-  }
-  const lexed = lex(text)
+  const lexed = jsx ? lexJsx(text) : lex(text)
   const withoutComments = blank(text, lexed.comments)
   return { withoutComments, codeOnly: blank(withoutComments, lexed.literals) }
 }
 
-export function isIdentStart(char: string): boolean {
+// Identifiers are read by code point, not by code unit. The mangler keeps every
+// ID_Continue character, so a plane 2 CJK key reaches source as a surrogate pair
+// that `\p{ID_Start}` rejects one half at a time.
+export function isIdentStartAt(text: string, index: number): boolean {
+  const char = codePointAt(text, index)
   return char !== '' && IDENT_START.test(char)
-}
-
-export function isIdentPart(char: string): boolean {
-  return char !== '' && IDENT_PART.test(char)
 }
 
 export function isDigit(char: string): boolean {
@@ -60,7 +71,11 @@ export function isDigit(char: string): boolean {
 
 export function readIdentEnd(text: string, start: number): number {
   let index = start
-  while (isIdentPart(text.charAt(index))) index += 1
+  while (index < text.length) {
+    const char = codePointAt(text, index)
+    if (char === '' || !IDENT_PART.test(char)) return index
+    index += char.length
+  }
   return index
 }
 
@@ -70,26 +85,122 @@ export function readNumberEnd(text: string, start: number): number {
   return index
 }
 
-function commentRanges(text: string): readonly Range[] {
-  const ranges: Range[] = []
+export function previousSignificant(text: string, at: number): number {
+  let index = at - 1
+  while (index >= 0) {
+    const char = text.charAt(index)
+    if (char !== ' ' && char !== '\t' && char !== '\n' && char !== '\r') return index
+    index -= 1
+  }
+  return -1
+}
+
+function codePointAt(text: string, index: number): string {
+  const code = text.codePointAt(index)
+  return code === undefined ? '' : String.fromCodePoint(code)
+}
+
+// JSX text is not a string to any JS tokenizer, so `<p>Don't forget</p>` presents
+// a bare apostrophe that a full lexer reads as an opening quote, swallowing every
+// usage until the next one. The JSX lexer therefore opens a literal only where
+// prose cannot reach: in expression position, closing on the same line. It reads
+// no regular expressions at all, because `<p>a</p><p>b</p>` offers `/p><p>b</` as
+// one, and it ends an unterminated block comment with its line, because a stray
+// `/*` in markup would otherwise blank the file from there down.
+function lexJsx(text: string): Lexed {
+  const comments: Range[] = []
+  const literals: Range[] = []
   let index = 0
   while (index < text.length) {
     const char = text.charAt(index)
     if (char === '/' && text.charAt(index + 1) === '/') {
+      // A scheme-qualified URL in JSX text sits in no string, so it needs its own
+      // carve-out before the line is read as a comment.
+      if (text.charAt(index - 1) === ':') {
+        index += 2
+        continue
+      }
       const start = index
       index = endOfLineComment(text, index)
-      ranges.push([start, index])
+      comments.push([start, index])
       continue
     }
     if (char === '/' && text.charAt(index + 1) === '*') {
       const start = index
-      index = endOfBlockComment(text, index)
-      ranges.push([start, index])
+      index = endOfBlockComment(text, index, true)
+      comments.push([start, index])
+      continue
+    }
+    if ((char === '"' || char === "'" || char === '`') && opensJsxLiteral(text, index)) {
+      const literal = readSameLineLiteral(text, index)
+      if (literal !== null) {
+        literals.push(...literal.chunks)
+        index = literal.end
+        continue
+      }
+    }
+    index += 1
+  }
+  return { comments, literals }
+}
+
+function opensJsxLiteral(text: string, at: number): boolean {
+  const before = previousSignificant(text, at)
+  if (before === -1) return true
+  const char = text.charAt(before)
+  if (PUNCTUATOR_BEFORE_EXPRESSION.has(char)) return true
+  if (char === '>' && text.charAt(before - 1) === '=') return true
+  return BEFORE_EXPRESSION.has(wordEndingAt(text, before))
+}
+
+function wordEndingAt(text: string, at: number): string {
+  const window = text.slice(Math.max(0, at - WORD_WINDOW), at + 1)
+  return WORD_BEFORE.exec(window)?.[0] ?? ''
+}
+
+function readSameLineLiteral(text: string, start: number): Literal | null {
+  const quote = text.charAt(start)
+  const chunks: Range[] = []
+  let chunkStart = start + 1
+  let index = chunkStart
+  while (index < text.length) {
+    const char = text.charAt(index)
+    if (char === '\n') return null
+    if (char === '\\') {
+      index += 2
+      continue
+    }
+    if (char === quote) {
+      chunks.push([chunkStart, index])
+      return { chunks, end: index + 1 }
+    }
+    if (quote === '`' && char === '$' && text.charAt(index + 1) === '{') {
+      const hole = endOfHole(text, index + 2)
+      if (hole === null) return null
+      chunks.push([chunkStart, index])
+      index = hole
+      chunkStart = hole
       continue
     }
     index += 1
   }
-  return ranges
+  return null
+}
+
+function endOfHole(text: string, from: number): number | null {
+  let depth = 1
+  let index = from
+  while (index < text.length) {
+    const char = text.charAt(index)
+    if (char === '\n') return null
+    if (char === '{') depth += 1
+    if (char === '}') {
+      depth -= 1
+      if (depth === 0) return index + 1
+    }
+    index += 1
+  }
+  return null
 }
 
 function lex(text: string): Lexed {
@@ -136,7 +247,7 @@ function lex(text: string): Lexed {
     }
     if (char === '/' && text.charAt(index + 1) === '*') {
       const start = index
-      index = endOfBlockComment(text, index)
+      index = endOfBlockComment(text, index, false)
       comments.push([start, index])
       continue
     }
@@ -184,9 +295,9 @@ function lex(text: string): Lexed {
       afterValue = false
       continue
     }
-    if (isIdentStart(char)) {
+    if (isIdentStartAt(text, index)) {
       const end = readIdentEnd(text, index)
-      afterValue = !REGEX_AFTER_WORD.has(text.slice(index, end))
+      afterValue = !BEFORE_EXPRESSION.has(text.slice(index, end))
       index = end
       continue
     }
@@ -213,13 +324,12 @@ function endOfLineComment(text: string, start: number): number {
   return index
 }
 
-function endOfBlockComment(text: string, start: number): number {
-  let index = start + 2
-  while (index < text.length) {
-    if (text.charAt(index) === '*' && text.charAt(index + 1) === '/') return index + 2
-    index += 1
-  }
-  return text.length
+function endOfBlockComment(text: string, start: number, capUnterminated: boolean): number {
+  const close = text.indexOf('*/', start + 2)
+  if (close !== -1) return close + 2
+  if (!capUnterminated) return text.length
+  const newline = text.indexOf('\n', start + 2)
+  return newline === -1 ? text.length : newline
 }
 
 function readQuoted(text: string, start: number): { readonly contentEnd: number; readonly end: number } {

@@ -1,4 +1,5 @@
 import type { ScanGroup } from './index'
+import type { Scrubbed } from './scrub'
 
 export interface Bindings {
   readonly namespaces: ReadonlySet<string>
@@ -7,33 +8,44 @@ export interface Bindings {
   readonly groupsById: ReadonlyMap<string, ScanGroup>
   // True as soon as one specifier resolved into the generated tree, whether or
   // not it bound anything callable. LZ5004 asks whether the glob reached the
-  // sources, so a switcher importing only `locales` answers it.
+  // sources, so a switcher importing only `locales`, a barrel re-export and a
+  // side-effect import all answer it.
   readonly importedGenerated: boolean
 }
 
-const IMPORT = /\bimport\s+(?![('"`])([^'"`;]*?)\bfrom\s*(['"])([^'"\n]*)\2/gu
+// The clause cannot open on whitespace, so it can never re-consume what the
+// leading `\s+` took. Without that bound the two overlap and a keyword followed
+// by a long whitespace run, which is what a blanked banner comment leaves
+// behind, costs one pass per split of the run.
+const IMPORT = /\bimport\s+(?![('"`])([^\s'"`;][^'"`;]*?)?\bfrom\b\s*(['"])([^'"\n]*)\2/gu
+// A re-export reaches the generated tree without binding anything callable here,
+// which keeps "renamed re-exports are not followed" true while LZ5004 stops
+// blaming the glob for a barrel.
+const REEXPORT = /\bexport\s+(?![('"`])(?:[^\s'"`;][^'"`;]*?)?\bfrom\b\s*(['"])([^'"\n]*)\1/gu
+const SIDE_EFFECT = /\bimport\s*(['"])([^'"\n]*)\1/gu
 const NAMESPACE = /\*\s*as\s+([\p{ID_Start}$_][\p{ID_Continue}$]*)/u
 const NAMED_BLOCK = /\{([^}]*)\}/u
 const NAMED_ENTRY =
   /^\s*(?:type\s+)?([\p{ID_Start}$_][\p{ID_Continue}$]*)(?:\s+as\s+([\p{ID_Start}$_][\p{ID_Continue}$]*))?\s*$/u
 const TYPE_ONLY = /^type\b/u
+const TRAILING_SLASHES = /\/+$/u
 
 export function bindImports(input: {
-  readonly withoutComments: string
-  readonly file: string
+  readonly scrubbed: Scrubbed
   readonly outDir: string
   readonly ids: ReadonlySet<string>
   readonly groups: readonly ScanGroup[]
 }): Bindings {
+  const text = input.scrubbed.withoutComments
   const namespaces = new Set<string>()
   const messages = new Map<string, string>()
   const groups = new Map<string, ScanGroup>()
   const groupsById = new Map<string, ScanGroup>()
   for (const group of input.groups) groupsById.set(group.id, group)
   let importedGenerated = false
-  for (const match of input.withoutComments.matchAll(IMPORT)) {
-    const specifier = match[3] ?? ''
-    if (!resolvesToGenerated(specifier, input.file, input.outDir)) continue
+  for (const match of text.matchAll(IMPORT)) {
+    if (!isCode(input.scrubbed, match.index, 'import')) continue
+    if (!bindsGeneratedTree(match[3] ?? '', input.outDir)) continue
     importedGenerated = true
     const clause = (match[1] ?? '').trim()
     if (TYPE_ONLY.test(clause)) continue
@@ -48,23 +60,52 @@ export function bindImports(input: {
       if (group !== undefined) groups.set(entry.local, group)
     }
   }
+  for (const [pattern, keyword] of [
+    [REEXPORT, 'export'],
+    [SIDE_EFFECT, 'import'],
+  ] as const) {
+    for (const match of text.matchAll(pattern)) {
+      if (!isCode(input.scrubbed, match.index, keyword)) continue
+      if (bindsGeneratedTree(match[2] ?? '', input.outDir)) importedGenerated = true
+    }
+  }
   return { namespaces, messages, groups, groupsById, importedGenerated }
 }
 
-export function resolvesToGenerated(specifier: string, file: string, outDir: string): boolean {
-  if (!specifier.startsWith('./') && !specifier.startsWith('../')) return false
-  const resolved = resolvePosix(dirnamePosix(file), specifier)
-  const bare = resolved.endsWith('.js') ? resolved.slice(0, -'.js'.length) : resolved
-  const base = outDir.replace(/\/+$/u, '')
-  const prefix = base === '' || base === '.' ? '' : `${base}/`
-  return (
-    bare === `${prefix}messages` ||
-    bare === `${prefix}groups` ||
-    bare.startsWith(`${prefix}messages/`)
-  )
+// The clause is read off the text that still holds string contents, because the
+// specifier lives in one. `codeOnly` blanks those contents in place, so a
+// keyword still standing there is a statement rather than a quoted example.
+function isCode(scrubbed: Scrubbed, at: number, keyword: string): boolean {
+  return scrubbed.codeOnly.startsWith(keyword, at)
 }
 
-function namedEntries(clause: string): readonly { readonly imported: string; readonly local: string }[] {
+// Matching by suffix rather than by resolution is what makes `@/loclizr/messages`
+// and `#app/loclizr/groups` bind with no tsconfig, vite config or imports map
+// read. It errs toward false positives, and the `ids` set filters those out.
+export function bindsGeneratedTree(specifier: string, outDir: string): boolean {
+  const base = basenameOf(outDir)
+  if (base === '') return false
+  const bare = stripExtension(specifier)
+  if (bare.endsWith(`${base}/messages`) || bare.endsWith(`${base}/groups`)) return true
+  const cut = bare.lastIndexOf('/')
+  return cut > 0 && bare.slice(0, cut).endsWith(`${base}/messages`)
+}
+
+export function basenameOf(dir: string): string {
+  const trimmed = dir.replace(TRAILING_SLASHES, '')
+  const cut = trimmed.lastIndexOf('/')
+  return cut === -1 ? trimmed : trimmed.slice(cut + 1)
+}
+
+function stripExtension(specifier: string): string {
+  const slash = specifier.lastIndexOf('/')
+  const dot = specifier.lastIndexOf('.')
+  return dot > slash + 1 ? specifier.slice(0, dot) : specifier
+}
+
+function namedEntries(
+  clause: string,
+): readonly { readonly imported: string; readonly local: string }[] {
   const block = NAMED_BLOCK.exec(clause)?.[1]
   if (block === undefined) return []
   const entries: { imported: string; local: string }[] = []
@@ -75,22 +116,4 @@ function namedEntries(clause: string): readonly { readonly imported: string; rea
     entries.push({ imported, local: parsed?.[2] ?? imported })
   }
   return entries
-}
-
-function dirnamePosix(file: string): string {
-  const cut = file.lastIndexOf('/')
-  return cut === -1 ? '' : file.slice(0, cut)
-}
-
-function resolvePosix(dir: string, specifier: string): string {
-  const segments: string[] = []
-  for (const segment of `${dir === '' ? '' : `${dir}/`}${specifier}`.split('/')) {
-    if (segment === '' || segment === '.') continue
-    if (segment === '..') {
-      segments.pop()
-      continue
-    }
-    segments.push(segment)
-  }
-  return segments.join('/')
 }
