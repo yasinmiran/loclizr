@@ -32,6 +32,12 @@ is an open question.
 
 ## A Fetch handler
 
+<figure class="diagram">
+
+![A request path: the page sends GET /cart with its cookie and Accept-Language, withLocale negotiates the locale and opens a runWithLocale scope, your handler renders through the generated message functions, and the response carries Content-Language. In the browser the loclizr store reads the cookie first, so hydration lands on the same locale.](../../../assets/diagrams/server-request.svg)
+
+</figure>
+
 ```ts title="src/server.ts"
 import { withLocale } from 'loclizr/server'
 import * as m from './loclizr/messages.js'

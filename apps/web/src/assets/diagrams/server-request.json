@@ -1,0 +1,22 @@
+{
+  "direction": "tb",
+  "groups": [
+    { "id": "browser", "label": "browser" },
+    { "id": "server", "label": "your server" }
+  ],
+  "nodes": [
+    { "id": "page", "label": "Page", "kind": "client", "group": "browser" },
+    { "id": "store", "label": "loclizr store\ncookie first, then html lang", "kind": "cache", "group": "browser" },
+    { "id": "with", "label": "withLocale(handler)\ncookie, then Accept-Language", "kind": "service", "group": "server" },
+    { "id": "scope", "label": "runWithLocale(locale)\nAsyncLocalStorage scope", "kind": "service", "group": "server" },
+    { "id": "handler", "label": "Your handler\nrenders with m.*()", "kind": "service", "group": "server" },
+    { "id": "messages", "label": "src/loclizr/messages\ngenerated functions", "kind": "service", "group": "server" }
+  ],
+  "edges": [
+    { "from": "page", "to": "with", "label": "GET /cart with Cookie\n200 with Content-Language", "arrows": "both" },
+    { "from": "with", "to": "scope", "label": "locale" },
+    { "from": "scope", "to": "handler" },
+    { "from": "handler", "to": "messages", "label": "m.cart_items()" },
+    { "from": "page", "to": "store", "label": "hydrate\nsame locale" }
+  ]
+}

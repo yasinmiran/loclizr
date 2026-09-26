@@ -16,6 +16,12 @@ the config. It never reads its own previous value, so a fresh regenerate and an 
 agree byte for byte, and two branches editing the same string cannot merge-conflict on a sticky
 flag inside a generated file.
 
+<figure class="diagram">
+
+![Catalogs, the meta sidecar and the usage scan feed the record step of loclizr build, which writes locales/loclizr.context.json deterministically. The file is committed, so its diff sits in the pull request beside the string change, loclizr check gates it in CI, and a translator, a model or a TMS reads it.](../../../assets/diagrams/context-record.svg)
+
+</figure>
+
 ## A real file
 
 Three of the twenty-six messages the example app's build wrote, quoted in full: a plural with a

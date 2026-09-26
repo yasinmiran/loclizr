@@ -1,0 +1,22 @@
+{
+  "direction": "tb",
+  "nodes": [
+    { "id": "catalogs", "label": "locales/*.json\nsource text, arguments", "kind": "datastore" },
+    { "id": "meta", "label": "en.meta.json\ndescriptions, placeholder notes", "kind": "datastore" },
+    { "id": "scan", "label": "Usage scan\nfile and enclosing scope", "kind": "service" },
+    { "id": "build", "label": "loclizr build\nrecord step", "kind": "service" },
+    { "id": "file", "label": "locales/loclizr.context.json\nno timestamps, no line numbers", "kind": "datastore" },
+    { "id": "pr", "label": "Pull request\nrecord diff beside the string change", "kind": "service" },
+    { "id": "check", "label": "loclizr check\nrecord-stale gate", "kind": "service" },
+    { "id": "translator", "label": "Translator, LLM, or TMS\nreads the record", "kind": "external" }
+  ],
+  "edges": [
+    { "from": "catalogs", "to": "build" },
+    { "from": "meta", "to": "build" },
+    { "from": "scan", "to": "build" },
+    { "from": "build", "to": "file", "label": "deterministic" },
+    { "from": "file", "to": "pr", "label": "committed" },
+    { "from": "pr", "to": "check", "label": "CI" },
+    { "from": "file", "to": "translator" }
+  ]
+}

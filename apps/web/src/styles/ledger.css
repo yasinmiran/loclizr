@@ -446,3 +446,21 @@ main footer .pagination-links .link-title {
   font-weight: 500;
   color: var(--ink);
 }
+
+/* Diagrams are rendered from the specs in src/assets/diagrams (excalix); the
+   drawings carry dark ink on a transparent ground, so they sit on a light
+   card in both themes. */
+.sl-markdown-content figure.diagram {
+  margin: 1.5rem 0;
+  padding: 1rem;
+  background: #fbfaf6;
+  border: 1px solid var(--sl-color-hairline);
+  border-radius: 0.375rem;
+  overflow-x: auto;
+}
+.sl-markdown-content figure.diagram img {
+  display: block;
+  max-width: 100%;
+  height: auto;
+  margin: 0 auto;
+}

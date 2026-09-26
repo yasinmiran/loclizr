@@ -5,23 +5,11 @@ description: One pass over your catalogs, one lowered representation, three cons
 
 import { Aside } from '@astrojs/starlight/components'
 
-```txt frame="none"
-locales/en.json  de.json  de-AT.json        locales/en.meta.json
-        │                                          │
-        ▼                                          │
-read, flatten, classify per file                   │ descriptions,
-(ICU, or i18next converted in memory)              │ placeholder notes
-        │                                          │
-        ▼                                          ▼
-parse ICU once  ──►  one lowered representation per message
-                     (nodes, arguments, markup, per-locale origin)
-        │
-        ├────────────────────┬─────────────────────┐
-        ▼                    ▼                     ▼
-      emit                check                 record
-  src/loclizr/**      56 rules, exit code   loclizr.context.json
-  plain ESM + .d.ts   same pass, no flag    committed, diffable
-```
+<figure class="diagram">
+
+![One build pass: catalogs and the meta sidecar are read and classified per file, parsed once into one lowered tree per message, and that tree feeds emit, check and record. App source feeds the usage scan into the record. Out come the generated tree, the diagnostics with an exit code, and the committed context record.](../../../assets/diagrams/pipeline.svg)
+
+</figure>
 
 ## Catalog in
 

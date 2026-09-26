@@ -1,0 +1,22 @@
+{
+  "direction": "tb",
+  "nodes": [
+    { "id": "switcher", "label": "Switcher\nsetLocale('de')", "kind": "client" },
+    { "id": "store", "label": "Locale store\nmodule state", "kind": "cache" },
+    { "id": "cookie", "label": "document.cookie\nlocale=de", "kind": "datastore" },
+    { "id": "hook", "label": "useLocale()\nuseSyncExternalStore", "kind": "service" },
+    { "id": "root", "label": "<App key={locale}>\nremounts the tree", "kind": "service" },
+    { "id": "note", "label": "CourierNote\nm.note({}, { locale })\nre-renders in place", "kind": "service" },
+    { "id": "messages", "label": "m.*()\nreads the locale at call time", "kind": "service" }
+  ],
+  "edges": [
+    { "from": "switcher", "to": "store", "label": "setLocale" },
+    { "from": "store", "to": "cookie", "label": "persist" },
+    { "from": "store", "to": "hook", "label": "notify", "style": "async" },
+    { "from": "store", "to": "messages", "label": "getLocale" },
+    { "from": "hook", "to": "root", "label": "key changes" },
+    { "from": "hook", "to": "note", "label": "locale" },
+    { "from": "root", "to": "messages" },
+    { "from": "note", "to": "messages", "label": "per-call override" }
+  ]
+}

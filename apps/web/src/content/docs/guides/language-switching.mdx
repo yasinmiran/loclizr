@@ -91,6 +91,12 @@ next section.
 
 ## What re-renders, and what does not
 
+<figure class="diagram">
+
+![setLocale writes the locale store, which persists to the cookie and notifies useLocale subscribers. The root keyed on the locale remounts its tree; a component that passes the locale per call re-renders in place. Message functions read the store at call time either way.](../../../assets/diagrams/language-switch.svg)
+
+</figure>
+
 Calling `m.nav_home()` does not subscribe a component to anything. It is a plain function call into
 generated code, which by design imports nothing from React. So after `setLocale('de')` a component
 that only calls messages shows German the next time its parent happens to render it, and not

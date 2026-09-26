@@ -1,0 +1,35 @@
+{
+  "direction": "tb",
+  "groups": [
+    { "id": "inputs", "label": "your repo" },
+    { "id": "build", "label": "loclizr build" },
+    { "id": "outputs", "label": "outputs" }
+  ],
+  "nodes": [
+    { "id": "catalogs", "label": "locales/{locale}.json\nen, de, de-AT", "kind": "datastore", "group": "inputs" },
+    { "id": "meta", "label": "locales/en.meta.json\ndescriptions, notes", "kind": "datastore", "group": "inputs" },
+    { "id": "src", "label": "src/**\napp source", "kind": "datastore", "group": "inputs" },
+    { "id": "read", "label": "Read and classify\nper file: ICU or i18next", "kind": "service", "group": "build" },
+    { "id": "lower", "label": "Parse ICU once\none lowered tree per message", "kind": "service", "group": "build" },
+    { "id": "scan", "label": "Scan usage sites\nfile and scope", "kind": "service", "group": "build" },
+    { "id": "emit", "label": "Emit", "kind": "service", "group": "build" },
+    { "id": "check", "label": "Check\n56 rules", "kind": "service", "group": "build" },
+    { "id": "record", "label": "Record", "kind": "service", "group": "build" },
+    { "id": "tree", "label": "src/loclizr/\ntyped ESM and .d.ts", "kind": "datastore", "group": "outputs" },
+    { "id": "report", "label": "Diagnostics\nand exit code", "kind": "service", "group": "outputs" },
+    { "id": "ctx", "label": "locales/loclizr.context.json\ncommitted, diffable", "kind": "datastore", "group": "outputs" }
+  ],
+  "edges": [
+    { "from": "catalogs", "to": "read" },
+    { "from": "meta", "to": "read" },
+    { "from": "read", "to": "lower" },
+    { "from": "src", "to": "scan" },
+    { "from": "lower", "to": "emit" },
+    { "from": "lower", "to": "check" },
+    { "from": "lower", "to": "record" },
+    { "from": "scan", "to": "record" },
+    { "from": "emit", "to": "tree" },
+    { "from": "check", "to": "report" },
+    { "from": "record", "to": "ctx" }
+  ]
+}
