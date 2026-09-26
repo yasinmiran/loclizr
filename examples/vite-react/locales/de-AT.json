@@ -1,0 +1,16 @@
+{
+  "app": {
+    "cart": "Einkaufswagerl",
+    "note": "Nachricht an den Zusteller",
+    "notePlaceholder": "Bitte beim Nachbarn abgeben"
+  },
+  "nav": {
+    "cart": "Einkaufswagerl"
+  },
+  "cart": {
+    "greeting": "Servus {{name}}, dein Einkaufswagerl ist fertig",
+    "items_zero": "Dein Einkaufswagerl ist leer",
+    "items_one": "{{count}} Artikel im Einkaufswagerl",
+    "items_other": "{{count}} Artikel im Einkaufswagerl"
+  }
+}

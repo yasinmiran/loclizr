@@ -1,0 +1,38 @@
+{
+  "app.cart": {
+    "description": "Heading over the cart panel. A section title, not a link."
+  },
+  "nav.cart": {
+    "description": "Top navigation link that opens the cart page."
+  },
+  "cart.items": {
+    "description": "Badge under the cart icon on every page.",
+    "placeholders": {
+      "count": "Number of line items, not total quantity."
+    }
+  },
+  "cart.total": {
+    "description": "Order total in the cart panel.",
+    "placeholders": {
+      "amount": "Sum of every line, before shipping and tax."
+    }
+  },
+  "cart.updated": {
+    "description": "Timestamp under the cart total.",
+    "placeholders": {
+      "at": "When the shopper last changed the cart."
+    }
+  },
+  "order.status": {
+    "description": "Chip in the order list. Past tense."
+  },
+  "errors.rate_limited": {
+    "description": "Shown when the shopper has hit the request limit.",
+    "placeholders": {
+      "seconds": "Whole seconds until the next attempt is allowed."
+    }
+  },
+  "terms.accept": {
+    "description": "Sits under the checkout button. The link opens the terms page."
+  }
+}

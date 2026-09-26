@@ -1,0 +1,40 @@
+{
+  "app": {
+    "tagline": "Jedes Wort auf dieser Seite stammt aus einer kompilierten Nachrichtenfunktion. Wechsle die Sprache und die Seite schreibt sich an Ort und Stelle neu.",
+    "language": "Sprache",
+    "cart": "Warenkorb",
+    "name": "Dein Name",
+    "count": "Artikel",
+    "fewer": "Ein Artikel weniger",
+    "more": "Ein Artikel mehr",
+    "amount": "Bestellwert",
+    "updated": "Letzte Änderung",
+    "delivery": "Lieferung",
+    "problem": "Letztes Problem",
+    "retry": "Erneut versuchen nach",
+    "note": "Nachricht an den Boten",
+    "notePlaceholder": "Bitte beim Nachbarn abgeben",
+    "noteKeeps": "Dieses Feld wird an Ort und Stelle neu gerendert, deine Notiz überlebt also den Sprachwechsel."
+  },
+  "nav": {
+    "home": "Startseite",
+    "cart": "Warenkorb"
+  },
+  "cart": {
+    "greeting": "Hallo {name}, dein Warenkorb ist fertig",
+    "items": "{count, plural, =0 {Dein Warenkorb ist leer} one {# Artikel in deinem Warenkorb} other {# Artikel in deinem Warenkorb}}",
+    "total": "Summe: {amount, number, ::currency/USD}",
+    "updated": "Aktualisiert {at, date, medium}"
+  },
+  "order": {
+    "status": "{state, select, packing {Wird verpackt} shipped {Unterwegs} delivered {Zugestellt} other {In Bearbeitung}}"
+  },
+  "errors": {
+    "forbidden": "Du hast keinen Zugriff",
+    "not_found": "Wir konnten die Seite nicht finden",
+    "rate_limited": "Zu viele Anfragen. Versuche es in {seconds, number} Sekunden erneut."
+  },
+  "terms": {
+    "accept": "Lies unsere <link>AGB</link>, bevor du fortfährst."
+  }
+}

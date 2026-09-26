@@ -1,0 +1,40 @@
+{
+  "app": {
+    "tagline": "Every word on this page comes from a compiled message function. Change the language and the page rewrites itself where it stands.",
+    "language": "Language",
+    "cart": "Cart",
+    "name": "Your name",
+    "count": "Items",
+    "fewer": "One item fewer",
+    "more": "One item more",
+    "amount": "Order total",
+    "updated": "Last change",
+    "delivery": "Delivery",
+    "problem": "Latest problem",
+    "retry": "Retry after",
+    "note": "Note for the courier",
+    "notePlaceholder": "Leave it with the neighbour",
+    "noteKeeps": "This panel renders in place, so the note you type survives a language change."
+  },
+  "nav": {
+    "home": "Home",
+    "cart": "Cart"
+  },
+  "cart": {
+    "greeting": "Hi {name}, your cart is ready",
+    "items": "{count, plural, =0 {Your cart is empty} one {# item in your cart} other {# items in your cart}}",
+    "total": "Total: {amount, number, ::currency/USD}",
+    "updated": "Updated {at, date, medium}"
+  },
+  "order": {
+    "status": "{state, select, packing {Being packed} shipped {On its way} delivered {Delivered} other {Processing}}"
+  },
+  "errors": {
+    "forbidden": "You do not have access",
+    "not_found": "We could not find that page",
+    "rate_limited": "Too many requests. Try again in {seconds, number} seconds."
+  },
+  "terms": {
+    "accept": "Read our <link>terms</link> before you continue."
+  }
+}

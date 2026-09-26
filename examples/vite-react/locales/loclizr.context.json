@@ -1,0 +1,1079 @@
+{
+  "schema": 1,
+  "sourceLocale": "en",
+  "locales": [
+    "de",
+    "de-AT",
+    "en"
+  ],
+  "messages": [
+    {
+      "key": "app.amount",
+      "id": "app_amount",
+      "module": "messages/app.js",
+      "kind": "text",
+      "source": "Order total",
+      "sourceHash": "51bfcbca9c675239",
+      "description": null,
+      "args": [],
+      "variants": [],
+      "markup": [],
+      "translations": [
+        {
+          "locale": "de",
+          "status": "translated",
+          "from": null,
+          "reason": null
+        },
+        {
+          "locale": "de-AT",
+          "status": "inherited",
+          "from": "de",
+          "reason": null
+        },
+        {
+          "locale": "en",
+          "status": "translated",
+          "from": null,
+          "reason": null
+        }
+      ],
+      "usage": [
+        {
+          "file": "src/App.tsx",
+          "scope": "App"
+        }
+      ]
+    },
+    {
+      "key": "app.cart",
+      "id": "app_cart",
+      "module": "messages/app.js",
+      "kind": "text",
+      "source": "Cart",
+      "sourceHash": "6d2d59aed44f1efa",
+      "description": "Heading over the cart panel. A section title, not a link.",
+      "args": [],
+      "variants": [],
+      "markup": [],
+      "translations": [
+        {
+          "locale": "de",
+          "status": "translated",
+          "from": null,
+          "reason": null
+        },
+        {
+          "locale": "de-AT",
+          "status": "translated",
+          "from": null,
+          "reason": null
+        },
+        {
+          "locale": "en",
+          "status": "translated",
+          "from": null,
+          "reason": null
+        }
+      ],
+      "usage": [
+        {
+          "file": "src/App.tsx",
+          "scope": "App"
+        }
+      ]
+    },
+    {
+      "key": "app.count",
+      "id": "app_count",
+      "module": "messages/app.js",
+      "kind": "text",
+      "source": "Items",
+      "sourceHash": "fb8e7a1a3cb7b25d",
+      "description": null,
+      "args": [],
+      "variants": [],
+      "markup": [],
+      "translations": [
+        {
+          "locale": "de",
+          "status": "translated",
+          "from": null,
+          "reason": null
+        },
+        {
+          "locale": "de-AT",
+          "status": "inherited",
+          "from": "de",
+          "reason": null
+        },
+        {
+          "locale": "en",
+          "status": "translated",
+          "from": null,
+          "reason": null
+        }
+      ],
+      "usage": [
+        {
+          "file": "src/App.tsx",
+          "scope": "App"
+        }
+      ]
+    },
+    {
+      "key": "app.delivery",
+      "id": "app_delivery",
+      "module": "messages/app.js",
+      "kind": "text",
+      "source": "Delivery",
+      "sourceHash": "52bfe584a5fc4505",
+      "description": null,
+      "args": [],
+      "variants": [],
+      "markup": [],
+      "translations": [
+        {
+          "locale": "de",
+          "status": "translated",
+          "from": null,
+          "reason": null
+        },
+        {
+          "locale": "de-AT",
+          "status": "inherited",
+          "from": "de",
+          "reason": null
+        },
+        {
+          "locale": "en",
+          "status": "translated",
+          "from": null,
+          "reason": null
+        }
+      ],
+      "usage": [
+        {
+          "file": "src/App.tsx",
+          "scope": "App"
+        }
+      ]
+    },
+    {
+      "key": "app.fewer",
+      "id": "app_fewer",
+      "module": "messages/app.js",
+      "kind": "text",
+      "source": "One item fewer",
+      "sourceHash": "da7c244d238de191",
+      "description": null,
+      "args": [],
+      "variants": [],
+      "markup": [],
+      "translations": [
+        {
+          "locale": "de",
+          "status": "translated",
+          "from": null,
+          "reason": null
+        },
+        {
+          "locale": "de-AT",
+          "status": "inherited",
+          "from": "de",
+          "reason": null
+        },
+        {
+          "locale": "en",
+          "status": "translated",
+          "from": null,
+          "reason": null
+        }
+      ],
+      "usage": [
+        {
+          "file": "src/App.tsx",
+          "scope": "App"
+        }
+      ]
+    },
+    {
+      "key": "app.language",
+      "id": "app_language",
+      "module": "messages/app.js",
+      "kind": "text",
+      "source": "Language",
+      "sourceHash": "a4fe65264ef7dbb3",
+      "description": null,
+      "args": [],
+      "variants": [],
+      "markup": [],
+      "translations": [
+        {
+          "locale": "de",
+          "status": "translated",
+          "from": null,
+          "reason": null
+        },
+        {
+          "locale": "de-AT",
+          "status": "inherited",
+          "from": "de",
+          "reason": null
+        },
+        {
+          "locale": "en",
+          "status": "translated",
+          "from": null,
+          "reason": null
+        }
+      ],
+      "usage": [
+        {
+          "file": "src/Switcher.tsx",
+          "scope": "Switcher"
+        }
+      ]
+    },
+    {
+      "key": "app.more",
+      "id": "app_more",
+      "module": "messages/app.js",
+      "kind": "text",
+      "source": "One item more",
+      "sourceHash": "63ca1e87d872fec4",
+      "description": null,
+      "args": [],
+      "variants": [],
+      "markup": [],
+      "translations": [
+        {
+          "locale": "de",
+          "status": "translated",
+          "from": null,
+          "reason": null
+        },
+        {
+          "locale": "de-AT",
+          "status": "inherited",
+          "from": "de",
+          "reason": null
+        },
+        {
+          "locale": "en",
+          "status": "translated",
+          "from": null,
+          "reason": null
+        }
+      ],
+      "usage": [
+        {
+          "file": "src/App.tsx",
+          "scope": "App"
+        }
+      ]
+    },
+    {
+      "key": "app.name",
+      "id": "app_name",
+      "module": "messages/app.js",
+      "kind": "text",
+      "source": "Your name",
+      "sourceHash": "2c6b2e253c01fb2e",
+      "description": null,
+      "args": [],
+      "variants": [],
+      "markup": [],
+      "translations": [
+        {
+          "locale": "de",
+          "status": "translated",
+          "from": null,
+          "reason": null
+        },
+        {
+          "locale": "de-AT",
+          "status": "inherited",
+          "from": "de",
+          "reason": null
+        },
+        {
+          "locale": "en",
+          "status": "translated",
+          "from": null,
+          "reason": null
+        }
+      ],
+      "usage": [
+        {
+          "file": "src/App.tsx",
+          "scope": "App"
+        }
+      ]
+    },
+    {
+      "key": "app.note",
+      "id": "app_note",
+      "module": "messages/app.js",
+      "kind": "text",
+      "source": "Note for the courier",
+      "sourceHash": "2c5eef735aed9d3c",
+      "description": null,
+      "args": [],
+      "variants": [],
+      "markup": [],
+      "translations": [
+        {
+          "locale": "de",
+          "status": "translated",
+          "from": null,
+          "reason": null
+        },
+        {
+          "locale": "de-AT",
+          "status": "translated",
+          "from": null,
+          "reason": null
+        },
+        {
+          "locale": "en",
+          "status": "translated",
+          "from": null,
+          "reason": null
+        }
+      ],
+      "usage": [
+        {
+          "file": "src/CourierNote.tsx",
+          "scope": "CourierNote"
+        }
+      ]
+    },
+    {
+      "key": "app.noteKeeps",
+      "id": "app_noteKeeps",
+      "module": "messages/app.js",
+      "kind": "text",
+      "source": "This panel renders in place, so the note you type survives a language change.",
+      "sourceHash": "8bc21d994e966526",
+      "description": null,
+      "args": [],
+      "variants": [],
+      "markup": [],
+      "translations": [
+        {
+          "locale": "de",
+          "status": "translated",
+          "from": null,
+          "reason": null
+        },
+        {
+          "locale": "de-AT",
+          "status": "inherited",
+          "from": "de",
+          "reason": null
+        },
+        {
+          "locale": "en",
+          "status": "translated",
+          "from": null,
+          "reason": null
+        }
+      ],
+      "usage": [
+        {
+          "file": "src/CourierNote.tsx",
+          "scope": "CourierNote"
+        }
+      ]
+    },
+    {
+      "key": "app.notePlaceholder",
+      "id": "app_notePlaceholder",
+      "module": "messages/app.js",
+      "kind": "text",
+      "source": "Leave it with the neighbour",
+      "sourceHash": "fb1dc9d1fd715172",
+      "description": null,
+      "args": [],
+      "variants": [],
+      "markup": [],
+      "translations": [
+        {
+          "locale": "de",
+          "status": "translated",
+          "from": null,
+          "reason": null
+        },
+        {
+          "locale": "de-AT",
+          "status": "translated",
+          "from": null,
+          "reason": null
+        },
+        {
+          "locale": "en",
+          "status": "translated",
+          "from": null,
+          "reason": null
+        }
+      ],
+      "usage": [
+        {
+          "file": "src/CourierNote.tsx",
+          "scope": "CourierNote"
+        }
+      ]
+    },
+    {
+      "key": "app.problem",
+      "id": "app_problem",
+      "module": "messages/app.js",
+      "kind": "text",
+      "source": "Latest problem",
+      "sourceHash": "cf4cba5b075cb3d1",
+      "description": null,
+      "args": [],
+      "variants": [],
+      "markup": [],
+      "translations": [
+        {
+          "locale": "de",
+          "status": "translated",
+          "from": null,
+          "reason": null
+        },
+        {
+          "locale": "de-AT",
+          "status": "inherited",
+          "from": "de",
+          "reason": null
+        },
+        {
+          "locale": "en",
+          "status": "translated",
+          "from": null,
+          "reason": null
+        }
+      ],
+      "usage": [
+        {
+          "file": "src/App.tsx",
+          "scope": "App"
+        }
+      ]
+    },
+    {
+      "key": "app.retry",
+      "id": "app_retry",
+      "module": "messages/app.js",
+      "kind": "text",
+      "source": "Retry after",
+      "sourceHash": "c37e58018b922440",
+      "description": null,
+      "args": [],
+      "variants": [],
+      "markup": [],
+      "translations": [
+        {
+          "locale": "de",
+          "status": "translated",
+          "from": null,
+          "reason": null
+        },
+        {
+          "locale": "de-AT",
+          "status": "inherited",
+          "from": "de",
+          "reason": null
+        },
+        {
+          "locale": "en",
+          "status": "translated",
+          "from": null,
+          "reason": null
+        }
+      ],
+      "usage": [
+        {
+          "file": "src/App.tsx",
+          "scope": "App"
+        }
+      ]
+    },
+    {
+      "key": "app.tagline",
+      "id": "app_tagline",
+      "module": "messages/app.js",
+      "kind": "text",
+      "source": "Every word on this page comes from a compiled message function. Change the language and the page rewrites itself where it stands.",
+      "sourceHash": "9a3e5aaccead4124",
+      "description": null,
+      "args": [],
+      "variants": [],
+      "markup": [],
+      "translations": [
+        {
+          "locale": "de",
+          "status": "translated",
+          "from": null,
+          "reason": null
+        },
+        {
+          "locale": "de-AT",
+          "status": "inherited",
+          "from": "de",
+          "reason": null
+        },
+        {
+          "locale": "en",
+          "status": "translated",
+          "from": null,
+          "reason": null
+        }
+      ],
+      "usage": [
+        {
+          "file": "src/App.tsx",
+          "scope": "App"
+        }
+      ]
+    },
+    {
+      "key": "app.updated",
+      "id": "app_updated",
+      "module": "messages/app.js",
+      "kind": "text",
+      "source": "Last change",
+      "sourceHash": "8b0275e2260957c7",
+      "description": null,
+      "args": [],
+      "variants": [],
+      "markup": [],
+      "translations": [
+        {
+          "locale": "de",
+          "status": "translated",
+          "from": null,
+          "reason": null
+        },
+        {
+          "locale": "de-AT",
+          "status": "inherited",
+          "from": "de",
+          "reason": null
+        },
+        {
+          "locale": "en",
+          "status": "translated",
+          "from": null,
+          "reason": null
+        }
+      ],
+      "usage": [
+        {
+          "file": "src/App.tsx",
+          "scope": "App"
+        }
+      ]
+    },
+    {
+      "key": "cart.greeting",
+      "id": "cart_greeting",
+      "module": "messages/cart.js",
+      "kind": "text",
+      "source": "Hi {name}, your cart is ready",
+      "sourceHash": "54db56b1aeaf77ae",
+      "description": null,
+      "args": [
+        {
+          "name": "name",
+          "type": "text",
+          "options": null,
+          "note": null
+        }
+      ],
+      "variants": [],
+      "markup": [],
+      "translations": [
+        {
+          "locale": "de",
+          "status": "translated",
+          "from": null,
+          "reason": null
+        },
+        {
+          "locale": "de-AT",
+          "status": "translated",
+          "from": null,
+          "reason": null
+        },
+        {
+          "locale": "en",
+          "status": "translated",
+          "from": null,
+          "reason": null
+        }
+      ],
+      "usage": [
+        {
+          "file": "src/App.tsx",
+          "scope": "App"
+        }
+      ]
+    },
+    {
+      "key": "cart.items",
+      "id": "cart_items",
+      "module": "messages/cart.js",
+      "kind": "text",
+      "source": "{count, plural, =0 {Your cart is empty} one {# item in your cart} other {# items in your cart}}",
+      "sourceHash": "a826cf6a40d3293e",
+      "description": "Badge under the cart icon on every page.",
+      "args": [
+        {
+          "name": "count",
+          "type": "number",
+          "options": null,
+          "note": "Number of line items, not total quantity."
+        }
+      ],
+      "variants": [
+        {
+          "arg": "count",
+          "kind": "plural",
+          "matches": [
+            "=0",
+            "one",
+            "other"
+          ]
+        }
+      ],
+      "markup": [],
+      "translations": [
+        {
+          "locale": "de",
+          "status": "translated",
+          "from": null,
+          "reason": null
+        },
+        {
+          "locale": "de-AT",
+          "status": "translated",
+          "from": null,
+          "reason": null
+        },
+        {
+          "locale": "en",
+          "status": "translated",
+          "from": null,
+          "reason": null
+        }
+      ],
+      "usage": [
+        {
+          "file": "src/App.tsx",
+          "scope": "App"
+        }
+      ]
+    },
+    {
+      "key": "cart.total",
+      "id": "cart_total",
+      "module": "messages/cart.js",
+      "kind": "text",
+      "source": "Total: {amount, number, ::currency/USD}",
+      "sourceHash": "e397c1e75ec3fa08",
+      "description": "Order total in the cart panel.",
+      "args": [
+        {
+          "name": "amount",
+          "type": "number",
+          "options": null,
+          "note": "Sum of every line, before shipping and tax."
+        }
+      ],
+      "variants": [],
+      "markup": [],
+      "translations": [
+        {
+          "locale": "de",
+          "status": "translated",
+          "from": null,
+          "reason": null
+        },
+        {
+          "locale": "de-AT",
+          "status": "inherited",
+          "from": "de",
+          "reason": null
+        },
+        {
+          "locale": "en",
+          "status": "translated",
+          "from": null,
+          "reason": null
+        }
+      ],
+      "usage": [
+        {
+          "file": "src/App.tsx",
+          "scope": "App"
+        }
+      ]
+    },
+    {
+      "key": "cart.updated",
+      "id": "cart_updated",
+      "module": "messages/cart.js",
+      "kind": "text",
+      "source": "Updated {at, date, medium}",
+      "sourceHash": "0aba80bcb5e14646",
+      "description": "Timestamp under the cart total.",
+      "args": [
+        {
+          "name": "at",
+          "type": "date",
+          "options": null,
+          "note": "When the shopper last changed the cart."
+        }
+      ],
+      "variants": [],
+      "markup": [],
+      "translations": [
+        {
+          "locale": "de",
+          "status": "translated",
+          "from": null,
+          "reason": null
+        },
+        {
+          "locale": "de-AT",
+          "status": "inherited",
+          "from": "de",
+          "reason": null
+        },
+        {
+          "locale": "en",
+          "status": "translated",
+          "from": null,
+          "reason": null
+        }
+      ],
+      "usage": [
+        {
+          "file": "src/App.tsx",
+          "scope": "App"
+        }
+      ]
+    },
+    {
+      "key": "errors.forbidden",
+      "id": "errors_forbidden",
+      "module": "messages/errors.js",
+      "kind": "text",
+      "source": "You do not have access",
+      "sourceHash": "816f78fb2ce98018",
+      "description": null,
+      "args": [],
+      "variants": [],
+      "markup": [],
+      "translations": [
+        {
+          "locale": "de",
+          "status": "translated",
+          "from": null,
+          "reason": null
+        },
+        {
+          "locale": "de-AT",
+          "status": "inherited",
+          "from": "de",
+          "reason": null
+        },
+        {
+          "locale": "en",
+          "status": "translated",
+          "from": null,
+          "reason": null
+        }
+      ],
+      "usage": [
+        {
+          "file": "src/App.tsx",
+          "scope": "App"
+        }
+      ]
+    },
+    {
+      "key": "errors.not_found",
+      "id": "errors_not_found",
+      "module": "messages/errors.js",
+      "kind": "text",
+      "source": "We could not find that page",
+      "sourceHash": "93bea3c2569f874c",
+      "description": null,
+      "args": [],
+      "variants": [],
+      "markup": [],
+      "translations": [
+        {
+          "locale": "de",
+          "status": "translated",
+          "from": null,
+          "reason": null
+        },
+        {
+          "locale": "de-AT",
+          "status": "inherited",
+          "from": "de",
+          "reason": null
+        },
+        {
+          "locale": "en",
+          "status": "translated",
+          "from": null,
+          "reason": null
+        }
+      ],
+      "usage": [
+        {
+          "file": "src/App.tsx",
+          "scope": "App"
+        }
+      ]
+    },
+    {
+      "key": "errors.rate_limited",
+      "id": "errors_rate_limited",
+      "module": "messages/errors.js",
+      "kind": "text",
+      "source": "Too many requests. Try again in {seconds, number} seconds.",
+      "sourceHash": "87e789be5cbc3905",
+      "description": "Shown when the shopper has hit the request limit.",
+      "args": [
+        {
+          "name": "seconds",
+          "type": "number",
+          "options": null,
+          "note": "Whole seconds until the next attempt is allowed."
+        }
+      ],
+      "variants": [],
+      "markup": [],
+      "translations": [
+        {
+          "locale": "de",
+          "status": "translated",
+          "from": null,
+          "reason": null
+        },
+        {
+          "locale": "de-AT",
+          "status": "inherited",
+          "from": "de",
+          "reason": null
+        },
+        {
+          "locale": "en",
+          "status": "translated",
+          "from": null,
+          "reason": null
+        }
+      ],
+      "usage": [
+        {
+          "file": "src/App.tsx",
+          "scope": "App"
+        }
+      ]
+    },
+    {
+      "key": "nav.cart",
+      "id": "nav_cart",
+      "module": "messages/nav.js",
+      "kind": "text",
+      "source": "Cart",
+      "sourceHash": "6d2d59aed44f1efa",
+      "description": "Top navigation link that opens the cart page.",
+      "args": [],
+      "variants": [],
+      "markup": [],
+      "translations": [
+        {
+          "locale": "de",
+          "status": "translated",
+          "from": null,
+          "reason": null
+        },
+        {
+          "locale": "de-AT",
+          "status": "translated",
+          "from": null,
+          "reason": null
+        },
+        {
+          "locale": "en",
+          "status": "translated",
+          "from": null,
+          "reason": null
+        }
+      ],
+      "usage": [
+        {
+          "file": "src/App.tsx",
+          "scope": "App"
+        }
+      ]
+    },
+    {
+      "key": "nav.home",
+      "id": "nav_home",
+      "module": "messages/nav.js",
+      "kind": "text",
+      "source": "Home",
+      "sourceHash": "3a78695388b38b5c",
+      "description": null,
+      "args": [],
+      "variants": [],
+      "markup": [],
+      "translations": [
+        {
+          "locale": "de",
+          "status": "translated",
+          "from": null,
+          "reason": null
+        },
+        {
+          "locale": "de-AT",
+          "status": "inherited",
+          "from": "de",
+          "reason": null
+        },
+        {
+          "locale": "en",
+          "status": "translated",
+          "from": null,
+          "reason": null
+        }
+      ],
+      "usage": [
+        {
+          "file": "src/App.tsx",
+          "scope": "App"
+        }
+      ]
+    },
+    {
+      "key": "order.status",
+      "id": "order_status",
+      "module": "messages/order.js",
+      "kind": "text",
+      "source": "{state, select, packing {Being packed} shipped {On its way} delivered {Delivered} other {Processing}}",
+      "sourceHash": "0277ce5c835efb7e",
+      "description": "Chip in the order list. Past tense.",
+      "args": [
+        {
+          "name": "state",
+          "type": "select",
+          "options": [
+            "packing",
+            "shipped",
+            "delivered"
+          ],
+          "note": null
+        }
+      ],
+      "variants": [
+        {
+          "arg": "state",
+          "kind": "select",
+          "matches": [
+            "packing",
+            "shipped",
+            "delivered",
+            "other"
+          ]
+        }
+      ],
+      "markup": [],
+      "translations": [
+        {
+          "locale": "de",
+          "status": "translated",
+          "from": null,
+          "reason": null
+        },
+        {
+          "locale": "de-AT",
+          "status": "inherited",
+          "from": "de",
+          "reason": null
+        },
+        {
+          "locale": "en",
+          "status": "translated",
+          "from": null,
+          "reason": null
+        }
+      ],
+      "usage": [
+        {
+          "file": "src/App.tsx",
+          "scope": null
+        },
+        {
+          "file": "src/App.tsx",
+          "scope": "App"
+        }
+      ]
+    },
+    {
+      "key": "terms.accept",
+      "id": "terms_accept",
+      "module": "messages/terms.js",
+      "kind": "markup",
+      "source": "Read our <link>terms</link> before you continue.",
+      "sourceHash": "b2a2946cc6836837",
+      "description": "Sits under the checkout button. The link opens the terms page.",
+      "args": [
+        {
+          "name": "link",
+          "type": "markup",
+          "options": null,
+          "note": null
+        }
+      ],
+      "variants": [],
+      "markup": [
+        "link"
+      ],
+      "translations": [
+        {
+          "locale": "de",
+          "status": "translated",
+          "from": null,
+          "reason": null
+        },
+        {
+          "locale": "de-AT",
+          "status": "inherited",
+          "from": "de",
+          "reason": null
+        },
+        {
+          "locale": "en",
+          "status": "translated",
+          "from": null,
+          "reason": null
+        }
+      ],
+      "usage": [
+        {
+          "file": "src/App.tsx",
+          "scope": "App"
+        }
+      ]
+    }
+  ]
+}

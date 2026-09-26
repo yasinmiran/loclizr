@@ -4,9 +4,12 @@
   "version": "0.0.0",
   "type": "module",
   "scripts": {
+    "predev": "loclizr build --no-fail",
     "dev": "vite",
+    "prebuild": "loclizr build",
     "build": "vite build",
     "preview": "vite preview",
+    "pretypecheck": "loclizr build",
     "typecheck": "tsc -p tsconfig.json"
   },
   "dependencies": {
