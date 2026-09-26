@@ -2972,8 +2972,8 @@ export interface RawEntry {
   // `{ns}`. This is the key every diagnostic, the meta sidecar and the record
   // print.
   readonly key: string
-  // Always ICU MessageFormat. In a file read as i18next, M2 has already applied
-  // section 2.1; in a file read as ICU it is the catalog text verbatim. M4
+  // Always ICU MessageFormat. In a file read as i18next, M2 has already
+  // converted it; in a file read as ICU it is the catalog text verbatim. M4
   // lowers this directly and never calls toIcu.
   readonly value: string
   readonly span: Span
@@ -2984,8 +2984,8 @@ export interface RawCatalog {
   readonly ns: string | null
   readonly file: string
   // The format this one file was read as. Under catalogFormat 'auto' M2
-  // classified it per section 2; otherwise it is the configured value. M4
-  // passes it into LowerContext and nobody re-derives it.
+  // classified it from that one file's entries; otherwise it is the configured
+  // value. M4 passes it into LowerContext and nobody re-derives it.
   readonly format: 'icu' | 'i18next'
   readonly entries: readonly RawEntry[]
 }
@@ -3034,8 +3034,7 @@ export interface Config {
   readonly locales: readonly string[]
   readonly sourceLocale: string
   readonly catalogs: string
-  // 'auto' decides per file in M2, per section 2. 'icu' and 'i18next' force
-  // every file.
+  // 'auto' decides per file in M2. 'icu' and 'i18next' force every file.
   readonly catalogFormat: 'auto' | 'icu' | 'i18next'
   readonly i18nextMarkup: 'literal' | 'tags'
   readonly meta: string | false
@@ -3145,8 +3144,9 @@ export interface RecordTranslation {
   readonly reason: FallbackReason | null
 }
 
-// No line, column or snippet: see section 14. `UsageSite` keeps all five, and
-// reaches a caller through `BuildResult.program.usages`.
+// No line, column or snippet: a position churns the record on every unrelated
+// edit above it. `UsageSite` keeps all five and reaches a caller through
+// `BuildResult.program.usages`.
 export interface RecordUsage {
   readonly file: string
   readonly scope: string | null
@@ -3951,9 +3951,9 @@ import type { Locale, LocaleListener, SetLocaleOptions } from '../types'
 export declare function getLocale(): Locale
 export declare function setLocale(locale: Locale, options?: SetLocaleOptions): void
 export declare function subscribe(listener: LocaleListener): () => void
-// The first three steps of getLocale's order in section 11.1: active scope,
-// stored tag, lazy client detection. No matching, no locale list, no default;
-// the empty string when all three miss.
+// The first three steps of getLocale's resolution order: active scope, stored
+// tag, lazy client detection. No matching, no locale list, no default; the
+// empty string when all three miss.
 export declare function getRawLocale(): string
 export declare function registerDefaults(setup: {
   readonly locales: readonly string[]
