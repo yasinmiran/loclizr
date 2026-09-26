@@ -1813,8 +1813,11 @@ the second bullet below, and it could not express a per-message failure at all.
 - **The exit code is the contract.** `loclizr init` prints the CI snippet that
   checks it, and the build summary names how many messages fell back and to
   which locale.
-- A fatal rule turned down to `warn` stops being fatal. The three rules that
-  exit 2 are not re-levelable at all (section 3).
+- A fatal rule turned down to `warn` prints as a warning and still blocks
+  output: a rule scoped `always` says no correct artifact exists, and a label
+  cannot make one. A run that blocked output exits 1 even when every printed
+  diagnostic is a warning, so nothing ever exits 0 having written nothing. The
+  three rules that exit 2 are not re-levelable at all (section 3).
 
 ## 10. CLI
 
@@ -2333,7 +2336,8 @@ re-levels any of them to `off`, `warn` or `error`, except `LZ1001`, `LZ1007` and
 
 **Fatal** is the `Rule.fatal` scope from section 9: `never`, `always`,
 `ifSource` (only when the file is the source catalog) or `message` (drops that
-one message and blocks nothing). A rule turned down to `warn` stops being fatal.
+one message and blocks nothing). Re-levelling never changes the scope: a fatal
+rule at `warn` still blocks output and the run exits 1 (section 9).
 
 Each code has exactly one producing module, so two engineers can never both
 claim one. Ranges are thematic and a range may span two owners.
