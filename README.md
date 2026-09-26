@@ -70,24 +70,46 @@ component can call `useLocale()` itself and pass the result per call,
 
 ## What a failing build looks like
 
-Add `cart.items` to `en.json`, forget `de.json`, and the next build prints
-something like this and exits 1:
+Take the example app's catalogs (`en`, `de`, and a sparse `de-AT` overlay),
+delete `cart.total` from `de.json`, and misspell `{name}` as `{nmae}` in its
+`cart.greeting`. The next build prints this and exits 1:
 
 ```
-error  LZ3001  missing-translation  locales/de.json
+error  LZ3001  missing-translation  locales/de-AT.json  de-AT  cart.total
 
-  "cart.items" has no German translation. The "de" build of this message
-  falls back to the source text from locales/en.json.
+  The de-AT catalog has no value for this key, so this message renders en text.
 
-  fix  add the key to locales/de.json:
-         "cart.items": "{count, plural, one {...} other {...}}"
-  or   turn the rule down in loclizr.config.ts:
-         severity: { 'missing-translation': 'warn' }
+  fix  add "cart.total" to locales/de-AT.json
+
+error  LZ3001  missing-translation  locales/de.json  de  cart.total
+
+  The de catalog has no value for this key, so this message renders en text.
+
+  fix  add "cart.total" to locales/de.json
+
+error  LZ3004  arg-missing  locales/de.json:24:18  de  cart.greeting
+
+  The en text uses {name} and the de translation does not.
+
+  fix  add {name} to "cart.greeting" in locales/de.json
+
+error  LZ3005  arg-extra  locales/de.json:24:18  de  cart.greeting
+
+  The de translation uses {nmae}, which the en text does not have, so this locale renders en text instead.
+
+  fix  check the spelling of {nmae} in locales/de.json, or add it to the en text
+
+wrote src/loclizr (19 files) and locales/loclizr.context.json
+commit locales/loclizr.context.json; `loclizr check` compares it
+26 messages, 3 locales (source en), 4 errors, 0 warnings
+fell back to source text: de 2, de-AT 1
 ```
 
-The generated tree is still written, with the missing message filled from the
-fallback chain, so the app keeps typechecking and the one real error is not
-buried under "cannot find module". The exit code is what gates.
+The generated tree is still written, with the broken messages filled from the
+fallback chain, so the app keeps typechecking and the real errors are not
+buried under "cannot find module". The exit code is what gates. Every rule can
+be re-levelled to `off`, `warn` or `error` under `severity` in
+`loclizr.config.ts`.
 
 The same pass reports blank translations, arguments that differ between locales,
 markup tag mismatches, incomplete plural categories, and source strings shared
