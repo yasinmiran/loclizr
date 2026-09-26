@@ -20,8 +20,8 @@ m.cart_items({ count: '3' })       // type error: count is a number
 Nothing rewrites your application code. There is no bundler plugin and no AST pass over your
 source, so there is no transform ordering for a framework's next compiler release to break, and the
 same generated functions run in a Vite SPA, in a server render, in React Native and in plain Node.
-ICU MessageFormat is parsed during the build, which is why the browser ships no parser. The locale
-is read when a message function is called, so switching language at runtime needs no reload.
+Because ICU MessageFormat is parsed during the build, the browser ships no parser. The locale is
+read when a message function is called, so switching language at runtime needs no reload.
 
 <Aside type="caution">
 Nothing is published to npm yet. v0.1 is in development, and these pages describe the contract the
@@ -39,7 +39,7 @@ error exits 1. Missing and blank translations, ICU syntax errors, arguments that
 locales, plural categories a locale can never select, keys that differ only by a homoglyph.
 Fifty-six rules, each with a stable code, and all but three of them re-level to `off`, `warn` or
 `error` from one line of config. Other tools check catalogs too, usually as a step you remember
-to wire up; what is claimed here is the default, not the capability.
+to wire up. What is claimed here is that it is the default.
 
 **A context record**, written to `locales/loclizr.context.json` and meant to be committed. Per
 message it carries the canonical source text and a hash of it, the argument names and types, the

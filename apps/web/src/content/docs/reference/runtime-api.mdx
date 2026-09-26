@@ -204,8 +204,8 @@ export declare function localeFromHeaders(headers: {
 }, options: NegotiateOptions): string
 ```
 
-Every function takes its locale list explicitly in `NegotiateOptions`, so a server entry that never
-imports the generated tree still negotiates correctly. `m.locales` and `m.sourceLocale` from the
+Every negotiating function takes its locale list explicitly in `NegotiateOptions`, so a server
+entry that never imports the generated tree still negotiates correctly. `m.locales` and `m.sourceLocale` from the
 barrel are the usual source.
 
 ### `runWithLocale`

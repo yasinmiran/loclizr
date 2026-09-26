@@ -37,7 +37,7 @@ loclizr: <html lang="en"> disagrees with the resolved locale "de". Render lang f
 ## useSetLocale
 
 Returns the store's `setLocale`. It exists so a component can take the setter from the hook rather
-than importing the generated barrel just for that; the example's `Switcher` calls `m.setLocale`
+than importing the generated barrel only for that; the example's `Switcher` calls `m.setLocale`
 directly, and either is fine.
 
 ## Parts
@@ -86,8 +86,8 @@ One `useLocale` call, and every string under `App` is recomputed on a switch wit
 discipline anywhere below. The cost is a remount: local state under the key is discarded, so an
 open accordion closes and a half-typed form empties, and a virtualized list, which kept its scroll
 offset in state, jumps back to the top. For most apps a language switch is a page-level event and
-that is fine. State that has to survive goes
-above the key, which is why `cart` lives in `Shop` and is passed down.
+that is fine. State that has to survive goes above the key, which is why `cart` lives in `Shop`
+and is passed down.
 
 ## The state-preserving alternative
 
@@ -119,11 +119,11 @@ be compared on one page: switch the language with text in the box and the text i
 
 ## React Compiler
 
-The hazard is not in `useLocale`. It is that `m.app_name()` reads mutable external state and takes
-no arguments, so a memoizing compiler is entitled to cache its result for the lifetime of a
-component instance. Both patterns above already answer it. The keyed root is sound because the
-compiler's caches are per instance and a remount throws them away. The per-call form is sound
-because `{ locale }` is a value the compiler can see change.
+The hazard sits outside `useLocale`: `m.app_name()` reads mutable external state and takes no
+arguments, so a memoizing compiler is entitled to cache its result for the lifetime of a component
+instance. Both patterns above already answer it. The keyed root is sound because the compiler's
+caches are per instance and a remount throws them away. The per-call form is sound because
+`{ locale }` is a value the compiler can see change.
 
 The keyed root has two holes, both documentation rather than structure. It does not reach a second
 `createRoot`, such as a toast layer mounted separately. And it does not reach a string computed once

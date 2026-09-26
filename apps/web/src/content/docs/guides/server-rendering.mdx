@@ -7,8 +7,9 @@ import { Aside } from '@astrojs/starlight/components'
 
 There is no mutable global locale on the server. `loclizr/server` installs an
 `AsyncLocalStorage` scope per request, every message call inside it resolves to that request's
-locale, and concurrent requests cannot see each other. The entry exports five functions and every
-one of them takes the locale list explicitly:
+locale, and concurrent requests cannot see each other. The entry exports five functions; the four
+that negotiate take the locale list explicitly, and `runWithLocale` takes the locale you already
+chose:
 
 ```ts
 runWithLocale<T>(locale: string, fn: () => T): T
@@ -127,10 +128,10 @@ locale with one warning per process outside production:
 loclizr: getLocale() ran outside a request scope, so it returned the source locale. Wrap the render in runWithLocale().
 ```
 
-That is a warning and not an exception on purpose. Static prerender, background jobs, scripts and
-error boundaries all run with no request in hand, and turning them into a 500 where source text
-would have degraded gracefully is the wrong trade. Wrap them in `runWithLocale` when they should
-render a specific language.
+The choice to warn there, and never to throw, is deliberate. Static prerender, background jobs,
+scripts and error boundaries all run with no request in hand, and turning them into a 500 where
+source text would have degraded gracefully is the wrong trade. Wrap them in `runWithLocale` when
+they should render a specific language.
 
 ## Dates on the server
 

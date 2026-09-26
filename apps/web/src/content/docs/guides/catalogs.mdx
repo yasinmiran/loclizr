@@ -29,7 +29,7 @@ flattens to the same path and collides with the nested form as `LZ1011 duplicate
 
 A `null` leaf is a missing translation and feeds the fallback chain like an absent key would. An
 array leaf is `LZ1010 catalog-shape-invalid`: the app wants the array, and flattening it into
-`tips.0` and `tips.1` would hand it three messages instead.
+`tips.0` and `tips.1` would hand it one message per item instead.
 
 Which grammar a file is read in is decided per file. A file containing `{{` anywhere, or a key with
 a CLDR plural suffix, is read as i18next and converted in memory; everything else is ICU, which is

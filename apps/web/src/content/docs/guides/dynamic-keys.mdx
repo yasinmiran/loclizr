@@ -107,8 +107,9 @@ The emitted type is `NopeKey = never`, so every call through it is a type error 
 
 ## Tree-shaking
 
-`groups.js` names every member of every group, so importing `./loclizr/groups` retains every
-member of every group. That is the whole cost, and the barrel deliberately does not re-export
+A group export names every one of its members, so using a group retains every member of that
+group. Each export is a pure frozen object, so a group the app never touches is dropped like any
+other unused export. That is the whole cost, and the barrel deliberately does not re-export
 `groups.js`, so an app pays it only by importing the file. Messages you call by name through the
 barrel are still individually retained or dropped as usual.
 

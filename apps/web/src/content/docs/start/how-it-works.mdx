@@ -16,8 +16,8 @@ import { Aside } from '@astrojs/starlight/components'
 `loclizr build` globs `locales/{locale}.json`, flattens each file to dotted keys and classifies it
 on its own. A file whose values carry `{{var}}` or whose keys carry a CLDR plural suffix reads as
 i18next and is rewritten to ICU in memory; anything else reads as ICU, which is the native format.
-The example app's `de-AT.json` is the i18next case, sitting beside two ICU files, and nothing in
-the config says so. The catalogs are never written back.
+The example app's `de-AT.json` is the i18next case, sitting beside two ICU files with nothing in
+the config saying so, and no catalog is ever written back.
 
 The source locale's sidecar, `en.meta.json`, is read at the same time. It carries descriptions and
 placeholder notes, kept out of the catalog so a translation tool never ships them as copy.
@@ -41,11 +41,11 @@ exactly its ICU argument set and whose body is a `switch` over the declared loca
 locale under `default`. The generated `.gitignore` ignores the whole directory, and the header on
 every file is what lets the next build prune what it wrote and nothing else.
 
-**Diagnostics.** The rule set runs in the same pass, because it is reading the same tree. A fatal
+**Diagnostics.** The rule set runs in the same pass, because it is reading the same tree; a fatal
 error, invalid config or an identifier collision say, blocks emission. A non-fatal error still
 emits: twelve missing German strings write `messages/cart.js` with those twelve filled from the
-chain, print twelve `LZ3001` lines and exit 1. Emitting nothing would bury the real problem under
-missing-module errors from your typecheck.
+chain, print twelve `LZ3001` lines and exit 1, because emitting nothing would bury the real
+problem under missing-module errors from your typecheck.
 
 **The context record.** `locales/loclizr.context.json` carries, per message, the canonical source,
 a hash of it, the argument names and types, the plural or select shape, your description, per-locale

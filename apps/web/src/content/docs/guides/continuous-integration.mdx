@@ -32,7 +32,7 @@ The flag changes the exit code and nothing else. Every diagnostic is still produ
 counted; a run that reached the write step exits 0 instead of 1. Exit 2 is untouched, since a build
 that could not run has produced nothing to keep working with, and a run that wrote no output still
 exits 1, because the next command would fail on a missing module anyway. `check` does not accept
-the flag. It is the gate.
+the flag, since `check` is the gate.
 
 ## What check does
 

@@ -8,7 +8,7 @@ import { Aside } from '@astrojs/starlight/components'
 loclizr started from a research pass over the frontend i18n landscape: the five libraries most
 teams pick between, the long tail behind them, and the complaint corpus around all of them, then
 an adversarial pass whose job was to break the thesis that came out. The thesis survived that pass
-smaller than it went in. This page is the version that survived.
+smaller than it went in, and the smaller version is what this page argues.
 
 ## The runtime is solved
 
@@ -16,7 +16,7 @@ Three generations of libraries have competed on the same axis. Bundle size, type
 against plain functions, server components. Each generation fixed something real: Lingui removed
 the runtime parser, next-intl made request-scoped locale work in the App Router, Paraglide turned
 messages into typed ESM exports the bundler can shake. Typed message functions are table stakes
-now, and this project claims them as parity. They are never the headline.
+now, which is why this project claims them as parity and never as the headline.
 
 What none of those generations owned is the contract between the code and the translations. Two
 halves of it. Whether the catalogs are correct before the build ships them, and whether the person
@@ -32,7 +32,7 @@ and terminology QA for a decade.
 Every one of those is a command somebody wires into CI, and the corpus shows that step being
 skipped even by the people who build the tools: one extractor has returned 0 on failure since
 2023, with the issue open and ranked low by its own maintainers. So the claim here is narrow.
-Not that checking is possible, but that it is the default. There is no configuration of loclizr in
+Checking was already possible; here it is the default, and there is no configuration of loclizr in
 which your messages got generated and your catalogs went unchecked, because they are one pass
 reading one representation.
 
@@ -44,12 +44,12 @@ in practice means unused, because making it mandatory makes the quickstart worse
 that. And since mid 2026 a TMS can point an agent at your repository and have it write a sentence
 or two of context per string, per run.
 
-The property that differs is not capability, it is shape. The record loclizr writes is a pure
-function of the tree: same catalogs, same sources, same bytes. It costs nothing per run, it lands
-in the pull request beside the string that changed, and it travels to a human, a model or a
-vendor without anyone holding an account. An agent's context is re-derived each time, billed each
-time, and arrives in a database after review is over. Those are different artifacts. This one is
-the smaller claim, and it is the one the evidence supports.
+Capability is the same across all of those. Where they differ is shape. The record loclizr
+writes is a pure function of the tree: same catalogs, same sources, same bytes. It costs nothing
+per run, it lands in the pull request beside the string that changed, and it travels to a human, a
+model or a vendor without anyone holding an account. An agent's context is re-derived each time,
+billed each time, and arrives in a database after review is over. Different artifacts, and the
+record is the smaller claim of the two, which is also the one the evidence supports.
 
 ## Why nobody built it, and what that means for the pitch
 
@@ -66,8 +66,8 @@ red run, and the context record is the payload that ships underneath it, in the 
 or not anyone asked for it.
 
 <Aside type="note">
-Timing matters here too. A human translator reading forty lines of metadata per string is slower,
-not faster, which is why the optional fields stayed optional. A model reading them is not. That
+Timing matters here too. A human translator reading forty lines of metadata per string gets
+slower, which is why the optional fields stayed optional, and a model reading them does not. That
 consumer is new, and it is the reason this is worth building now rather than a decade ago.
 </Aside>
 
