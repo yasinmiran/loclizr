@@ -3,7 +3,15 @@ import { defineConfig } from 'astro/config'
 import starlightLlmsTxt from 'starlight-llms-txt'
 import starlightThemeBlack from 'starlight-theme-black'
 import { llmsIndex } from './llms-index'
+import baseLinks from './rehype-base-links.mjs'
 import { sidebar } from './sidebar'
+
+// GitHub Pages serves the site under the repository path. For the custom
+// domain: set site to 'https://loclizr.dev', set base to '/' and add
+// public/CNAME, and drop the /loclizr prefix from the hero links in
+// src/content/docs/index.mdx. Everything else follows these two.
+const site = 'https://yasinmiran.github.io'
+const base = '/loclizr'
 
 // The theme's Head override renders <Font> for --font-geist and
 // --font-geist-mono only, so a family registered under any other variable
@@ -38,8 +46,10 @@ function rebindThemeFonts(families) {
 }
 
 export default defineConfig({
-  site: 'https://loclizr.dev',
+  site,
+  base,
   integrations: [
+    baseLinks(),
     starlight({
       title: 'loclizr',
       plugins: [
@@ -59,7 +69,7 @@ export default defineConfig({
           projectName: 'loclizr',
           description:
             'A compiler for the contract between code and translations. `loclizr build` reads JSON catalogs, writes typed ESM message functions, runs catalog checks inside the build, and writes a context record per message that is committed with the string change. `loclizr check` is the CI gate.',
-          details: llmsIndex(),
+          details: llmsIndex({ site, base }),
           customSelectors: { all: ['.sl-anchor-link'] },
           exclude: ['404'],
         }),

@@ -15,11 +15,26 @@ export const getStaticPaths = (async () => {
 
 export const GET: APIRoute<Props> = ({ props }) => {
   const { title, description } = props.entry.data
-  const body = componentsToMarkdown(asidesToBlockquotes(stripComponentImports(props.entry.body ?? '')))
+  const body = absoluteLinks(componentsToMarkdown(asidesToBlockquotes(stripComponentImports(props.entry.body ?? ''))))
   const head = description ? `# ${title}\n\n${description}` : `# ${title}`
   return new Response(`${head}\n\n${body.trim()}\n`, {
     headers: { 'Content-Type': 'text/markdown; charset=utf-8' },
   })
+}
+
+// An agent reads the twin outside the site, so a link written from the site
+// root becomes absolute, with the deployed origin and base.
+const root = new URL(import.meta.env.BASE_URL, import.meta.env.SITE).href.replace(/\/+$/, '')
+
+function absoluteLinks(body: string): string {
+  let fenced = false
+  return body
+    .split('\n')
+    .map((line) => {
+      if (/^\s*(?:```|~~~)/.test(line)) fenced = !fenced
+      return fenced ? line : line.replace(/\]\(\/(?!\/)/g, `](${root}/`)
+    })
+    .join('\n')
 }
 
 const asideLabels: Record<string, string> = {
