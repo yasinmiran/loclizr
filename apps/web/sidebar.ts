@@ -1,0 +1,52 @@
+// One sidebar for the site config and for the llms.txt route, so the index an
+// agent reads lists the pages in the order a person sees them.
+export interface SidebarGroup {
+  label: string
+  items: { label: string; slug: string }[]
+}
+
+export const sidebar: SidebarGroup[] = [
+  {
+    label: 'Start here',
+    items: [
+      { label: 'Introduction', slug: 'start/introduction' },
+      { label: 'Quickstart', slug: 'start/quickstart' },
+      { label: 'Coding agents', slug: 'start/agents' },
+      { label: 'How it works', slug: 'start/how-it-works' },
+    ],
+  },
+  {
+    label: 'Guides',
+    items: [
+      { label: 'Catalogs and ICU messages', slug: 'guides/catalogs' },
+      { label: 'Importing i18next catalogs', slug: 'guides/i18next-import' },
+      { label: 'Language switching', slug: 'guides/language-switching' },
+      { label: 'React', slug: 'guides/react' },
+      { label: 'Server rendering', slug: 'guides/server-rendering' },
+      { label: 'Dynamic keys', slug: 'guides/dynamic-keys' },
+      { label: 'Continuous integration', slug: 'guides/continuous-integration' },
+    ],
+  },
+  {
+    label: 'Reference',
+    items: [
+      { label: 'CLI', slug: 'reference/cli' },
+      { label: 'Configuration', slug: 'reference/configuration' },
+      { label: 'Generated code', slug: 'reference/generated-code' },
+      { label: 'Runtime API', slug: 'reference/runtime-api' },
+      { label: 'Checks', slug: 'reference/checks' },
+      { label: 'Context record', slug: 'reference/context-record' },
+    ],
+  },
+  {
+    label: 'Project',
+    items: [
+      { label: 'Why loclizr', slug: 'project/why' },
+      { label: 'Comparison', slug: 'project/comparison' },
+      { label: 'Honest limits', slug: 'project/limits' },
+      { label: 'Roadmap', slug: 'project/roadmap' },
+      { label: 'Continuity', slug: 'project/continuity' },
+      { label: 'FAQ', slug: 'project/faq' },
+    ],
+  },
+]

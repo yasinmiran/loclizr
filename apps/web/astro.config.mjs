@@ -1,6 +1,9 @@
 import starlight from '@astrojs/starlight'
 import { defineConfig } from 'astro/config'
+import starlightLlmsTxt from 'starlight-llms-txt'
 import starlightThemeBlack from 'starlight-theme-black'
+import { llmsIndex } from './llms-index'
+import { sidebar } from './sidebar'
 
 export default defineConfig({
   site: 'https://loclizr.dev',
@@ -10,6 +13,15 @@ export default defineConfig({
       plugins: [
         starlightThemeBlack({
           navLinks: [{ label: 'Docs', link: '/start/introduction/' }],
+          docs: { showMarkdownActions: true },
+        }),
+        starlightLlmsTxt({
+          projectName: 'loclizr',
+          description:
+            'A compiler for the contract between code and translations. `loclizr build` reads JSON catalogs, writes typed ESM message functions, runs catalog checks inside the build, and writes a context record per message that is committed with the string change. `loclizr check` is the CI gate.',
+          details: llmsIndex(),
+          customSelectors: { all: ['.sl-anchor-link'] },
+          exclude: ['404'],
         }),
       ],
       description:
@@ -19,50 +31,7 @@ export default defineConfig({
       ],
       credits: false,
       customCss: ['./src/styles/custom.css'],
-      sidebar: [
-        {
-          label: 'Start here',
-          items: [
-            { label: 'Introduction', slug: 'start/introduction' },
-            { label: 'Quickstart', slug: 'start/quickstart' },
-            { label: 'How it works', slug: 'start/how-it-works' },
-          ],
-        },
-        {
-          label: 'Guides',
-          items: [
-            { label: 'Catalogs and ICU messages', slug: 'guides/catalogs' },
-            { label: 'Importing i18next catalogs', slug: 'guides/i18next-import' },
-            { label: 'Language switching', slug: 'guides/language-switching' },
-            { label: 'React', slug: 'guides/react' },
-            { label: 'Server rendering', slug: 'guides/server-rendering' },
-            { label: 'Dynamic keys', slug: 'guides/dynamic-keys' },
-            { label: 'Continuous integration', slug: 'guides/continuous-integration' },
-          ],
-        },
-        {
-          label: 'Reference',
-          items: [
-            { label: 'CLI', slug: 'reference/cli' },
-            { label: 'Configuration', slug: 'reference/configuration' },
-            { label: 'Generated code', slug: 'reference/generated-code' },
-            { label: 'Runtime API', slug: 'reference/runtime-api' },
-            { label: 'Checks', slug: 'reference/checks' },
-            { label: 'Context record', slug: 'reference/context-record' },
-          ],
-        },
-        {
-          label: 'Project',
-          items: [
-            { label: 'Why loclizr', slug: 'project/why' },
-            { label: 'Comparison', slug: 'project/comparison' },
-            { label: 'Honest limits', slug: 'project/limits' },
-            { label: 'Roadmap', slug: 'project/roadmap' },
-            { label: 'Continuity', slug: 'project/continuity' },
-            { label: 'FAQ', slug: 'project/faq' },
-          ],
-        },
-      ],
+      sidebar,
     }),
   ],
 })
