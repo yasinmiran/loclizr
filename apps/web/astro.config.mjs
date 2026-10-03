@@ -5,6 +5,38 @@ import starlightThemeBlack from 'starlight-theme-black'
 import { llmsIndex } from './llms-index'
 import { sidebar } from './sidebar'
 
+// The theme's Head override renders <Font> for --font-geist and
+// --font-geist-mono only, so a family registered under any other variable
+// never reaches the page. Rebind those two variables to the families we want.
+// The theme also registers them at the provider default of weight 400 alone,
+// which left every heading, link and table header in a synthesized bold; the
+// variable range fixes that in one file per style. The plugin must stay after
+// starlightThemeBlack: its integration has to run after the theme's adds fonts.
+const fonts = {
+  '--font-geist': { name: 'Inter', weights: ['400 700'] },
+  '--font-geist-mono': { name: 'JetBrains Mono', fallbacks: ['monospace'] },
+}
+
+function rebindThemeFonts(families) {
+  return {
+    name: 'rebind-theme-fonts',
+    hooks: {
+      'config:setup': ({ addIntegration }) => {
+        addIntegration({
+          name: 'rebind-theme-fonts',
+          hooks: {
+            'astro:config:setup': ({ config }) => {
+              for (const family of config.fonts ?? []) {
+                Object.assign(family, families[family.cssVariable])
+              }
+            },
+          },
+        })
+      },
+    },
+  }
+}
+
 export default defineConfig({
   site: 'https://loclizr.dev',
   integrations: [
@@ -22,6 +54,7 @@ export default defineConfig({
             },
           },
         }),
+        rebindThemeFonts(fonts),
         starlightLlmsTxt({
           projectName: 'loclizr',
           description:

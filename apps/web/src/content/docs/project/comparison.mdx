@@ -6,26 +6,58 @@ description: Six libraries beside loclizr, and when to choose them instead.
 import { Aside } from '@astrojs/starlight/components'
 
 Every library on this page works, has users, and does at least one thing loclizr does not. The
-table gives their strengths as much room as their gaps. Figures are left out on purpose: download
-counts in this category are inflated by CI traffic, and none of the claims below depend on one.
+table is the short version; the notes under it give their strengths as much room as their gaps.
+Figures are left out on purpose: download counts in this category are inflated by CI traffic, and
+none of the claims below depend on one.
 
 ## Side by side
 
-| | Model | Checks | Context | Build integration | Choose it when |
-| --- | --- | --- | --- | --- | --- |
-| **i18next / react-i18next** | Runtime catalog loader, hooks, its own message format with ICU as a plugin | Opt in via `i18next-cli`, which exits non-zero on missing keys | None built in; a TMS or `saveMissing` closes the loop | None required, which is its whole adoption story | You need copy to change without a deploy, you run across many frameworks, or you are already productive in it |
-| **next-intl** | Runtime by default with opt-in precompile, request-scoped config, routing and middleware in the box | Typed keys through one module augmentation and typed ICU arguments through generated declarations (v4); no cross-locale completeness gate | PO catalogs recommended for file references and descriptions | Next.js App Router, deeply | You are on the App Router today and want routing, negotiation and RSC solved by one package |
-| **Paraglide** | Compile to typed ESM message functions, one per message | No `check` command | Left to a separate editor and a VS Code extension | A Vite plugin that owns the build; per-locale output where it can own the whole app build | You want per-locale delivery and you are on a metaframework whose build it can own, SvelteKit first |
-| **Lingui** | Macros erased at build, source text as key, ICU generated for you, PO catalogs | `extract` and `compile`, opt in | PO `file:line` and placeholder names | A Babel or SWC plugin over your source | You want extraction from JSX and natural-language authoring, and your toolchain is stable enough to carry an AST transform |
-| **FormatJS / react-intl** | Runtime ICU with the most complete implementation, optional precompile | `eslint-plugin-formatjs` on the code side, twenty-plus rules | `description` per message, optional | An extractor CLI, plus a plugin if you want IDs injected | You round-trip catalogs through a TMS that speaks ICU, or you format content the build never saw |
-| **Intlayer** | Per-component content files, generated strict types, build-time errors on missing locales | `content test` as a PR gate, plus build-time errors | Context passed to its AI translator as configuration | Its own build artifact, five frameworks | You want library, TMS, CMS and translation in one product and per-component colocation |
-| **loclizr** | Compile JSON catalogs to typed ESM, one module per key segment | Fifty-six rules in the build itself, no flag to turn the set off | A deterministic per-message record, committed, gated by `check` | None, at the cost of a build step and generated files | Read on |
+<div class="comparison">
+
+| | Model | Checks | Context | Build integration |
+| --- | --- | --- | --- | --- |
+| **i18next** | Runtime loader | `i18next-cli`, opt in | None built in | None required |
+| **next-intl** | Runtime, optional precompile | Types, no completeness gate | PO catalogs | Next.js App Router |
+| **Paraglide** | Compiled ESM, per message | No `check` command | Separate editor | Vite plugin |
+| **Lingui** | Macros erased at build | `extract`, `compile`, opt in | PO `file:line` | Babel or SWC plugin |
+| **FormatJS** | Runtime ICU | ESLint, code side | Optional `description` | Extractor CLI |
+| **Intlayer** | Content files per component | `content test` gate | Fed to its translator | Own build artifact |
+| **loclizr** | Compiled ESM, per key segment | 56 rules, always on | Committed record per message | None, a build step |
+
+</div>
+
+**i18next / react-i18next** is a runtime catalog loader with hooks and its own message format, with
+ICU as a plugin. `i18next-cli` exits non-zero on missing keys, and a TMS or `saveMissing` closes the
+loop on context. Nothing in your build is required, which is its whole adoption story.
+
+**next-intl** is runtime by default with an opt-in precompile, request-scoped config, and routing and
+middleware in the box. Version 4 types keys through one module augmentation and ICU arguments through
+generated declarations, with no cross-locale completeness gate. PO catalogs are recommended for file
+references and descriptions.
+
+**Paraglide** compiles to typed ESM message functions, one per message, through a Vite plugin that
+owns the build. Where it can own the whole app build, output is per locale. It has no `check`
+command and leaves context to a separate editor and a VS Code extension.
+
+**Lingui** erases macros at build, uses the source text as the key, generates ICU for you and keeps
+PO catalogs with `file:line` references and placeholder names. `extract` and `compile` are opt in,
+and the macros run as a Babel or SWC plugin over your source.
+
+**FormatJS / react-intl** has the most complete runtime ICU implementation, with an optional
+precompile. `eslint-plugin-formatjs` adds twenty-plus rules on the code side, and each message can
+carry an optional `description`. An extractor CLI covers the build, plus a plugin if you want IDs
+injected.
+
+**Intlayer** puts content in per-component files, generates strict types and errors at build time on
+missing locales, with `content test` as a PR gate. It emits its own build artifact across five
+frameworks, and passes context to its AI translator as configuration.
 
 ## Where loclizr sits
 
 Typed functions are parity with Paraglide, Lingui and Intlayer. The generated shape differs, one
 module per top-level key rather than one file per message, and the code is plain ESM with no
-plugin, but the developer-facing win is the same one those three already deliver.
+plugin, at the cost of a build step and generated files. The developer-facing win is the same one
+those three already deliver.
 
 Checks are where the claim is about the default. `i18next-cli`, Intlayer's `content test` and
 `@lingual/i18n-check` are each a real gate, and each is a separate invocation. Here the gate is
@@ -45,14 +77,18 @@ plus the absence of a per-component authoring layer.
 
 - **Copy has to change in production without a deploy.** i18next, with a backend. loclizr treats
   catalogs as a build input and will not do this.
-- **You need one locale's strings per request.** Paraglide, where it can own the build. loclizr
-  inlines every declared locale into every message function.
-- **Next.js App Router with routing and RSC handled for you.** next-intl. loclizr's Next entry is a
-  v0.2 question and there is no example today.
+- **You are already productive in i18next, or run across many frameworks.** Stay with it.
+- **You need one locale's strings per request.** Paraglide, where it can own the build, SvelteKit
+  first. loclizr inlines every declared locale into every message function.
+- **Next.js App Router with routing, negotiation and RSC handled for you.** next-intl. loclizr's Next
+  entry is a v0.2 question and there is no example today.
 - **Strings are still literals in your JSX and you want them pulled out.** Lingui or Intlayer.
-  loclizr has no extractor and no codemod in v0.1.
+  Lingui also gives you natural-language authoring, if your toolchain is stable enough to carry an
+  AST transform. loclizr has no extractor and no codemod in v0.1.
+- **You round-trip catalogs through a TMS that speaks ICU.** FormatJS.
 - **Content unknown at build time.** FormatJS or i18next. A runtime `format()` is deferred past
   v0.1 here because it would ship a parser.
+- **Library, TMS, CMS and translation in one product, with per-component colocation.** Intlayer.
 - **A track record.** Any of them. This is a day-zero project, and
   [continuity](/project/continuity/) says what that means in practice.
 

@@ -61,3 +61,121 @@
   flex-wrap: wrap;
   gap: 0.5rem;
 }
+
+/* The theme hides the sidebar scrollbar, so a long sidebar overflowed a
+   laptop screen with nothing to say more sat below. A thin bar in the theme's grays
+   shows that the list scrolls and how far; the gutter is reserved so labels
+   keep their wrap on pages short enough not to scroll. */
+.sidebar-content {
+  scrollbar-width: thin;
+  scrollbar-color: var(--gray-5) transparent;
+  scrollbar-gutter: stable;
+  --scroll-fade-b-size: calc(var(--spacing) * 20);
+}
+
+/* The theme drives the edge fades by animating these two properties against
+   the scroll position. Unregistered, they flip halfway through the range;
+   registered, the bottom fade thins out as the end of the list arrives. */
+@property --scroll-fade-t {
+  syntax: '<length-percentage>';
+  inherits: false;
+  initial-value: 0px;
+}
+@property --scroll-fade-b {
+  syntax: '<length-percentage>';
+  inherits: false;
+  initial-value: 0px;
+}
+
+/* Without scroll-driven animations the theme shows no fade at all. Keep a
+   permanent one, and pad the list so its last link clears the fade once the
+   end is reached. */
+@supports not (animation-timeline: scroll()) {
+  .sidebar-content {
+    --scroll-fade-b: var(--scroll-fade-b-size);
+    padding-bottom: var(--scroll-fade-b-size);
+  }
+}
+
+/* The comparison stays a Markdown table so the page's Markdown twin keeps it.
+   The wrapper becomes the scroll container, which lets the library column
+   stay pinned while the rest scrolls at phone width; Starlight's own table
+   scroll would carry the pinned column away with it. */
+.sl-markdown-content .comparison {
+  overflow-x: auto;
+}
+.sl-markdown-content .comparison table {
+  display: table;
+  table-layout: fixed;
+  width: 100%;
+  min-width: 38rem;
+  border-collapse: separate;
+  border-spacing: 0;
+  overflow: visible;
+}
+.sl-markdown-content .comparison :is(th, td) {
+  padding: 0.75rem 0.875rem;
+  border-bottom: 1px solid var(--sl-color-hairline);
+  vertical-align: top;
+  font-size: 0.875rem;
+  line-height: 1.45;
+  text-wrap: pretty;
+}
+.sl-markdown-content .comparison :is(th, td):first-child {
+  position: sticky;
+  inset-inline-start: 0;
+  z-index: 1;
+  width: 6.5rem;
+  padding-inline-start: 0.75rem;
+  background: var(--background);
+}
+.sl-markdown-content .comparison :is(th, td):last-child {
+  padding-inline-end: 0.75rem;
+}
+.sl-markdown-content .comparison th {
+  border-bottom-color: var(--border);
+  color: var(--muted-foreground);
+  font-weight: 500;
+  font-size: 0.8125rem;
+  white-space: nowrap;
+}
+/* The theme sizes every element inside the content at 15px, which would
+   lift the bold library names and inline code above the cell text. */
+.sl-markdown-content .comparison :is(th, td) strong {
+  font-size: inherit;
+  font-weight: 600;
+  color: var(--foreground);
+}
+.sl-markdown-content .comparison :is(th, td) code {
+  font-size: 0.8125rem;
+  padding: 0.125rem 0.375rem;
+  white-space: nowrap;
+}
+
+/* loclizr is the last row by construction: the table reads as the field,
+   then where this project lands in it. One tinted band marks it, no extra
+   rules or weight. */
+.sl-markdown-content .comparison tbody tr:last-child > td {
+  background: var(--muted);
+  border-bottom-color: transparent;
+  color: var(--foreground);
+}
+.sl-markdown-content .comparison tbody tr:last-child > td:first-child {
+  border-start-start-radius: calc(var(--radius) - 2px);
+  border-end-start-radius: calc(var(--radius) - 2px);
+}
+.sl-markdown-content .comparison tbody tr:last-child > td:last-child {
+  border-start-end-radius: calc(var(--radius) - 2px);
+  border-end-end-radius: calc(var(--radius) - 2px);
+}
+.sl-markdown-content .comparison tbody tr:nth-last-child(2) > td {
+  border-bottom-color: transparent;
+}
+
+/* Once the table scrolls under the pinned column, a hairline marks the edge
+   the cells slide beneath. */
+@media (max-width: 50rem) {
+  .sl-markdown-content .comparison :is(th, td):first-child {
+    box-shadow: inset -1px 0 var(--sl-color-hairline);
+  }
+}
