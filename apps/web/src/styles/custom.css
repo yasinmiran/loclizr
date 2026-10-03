@@ -15,3 +15,49 @@
   height: auto;
   margin: 0 auto;
 }
+
+/* Pages outside the two-column docs layout (the landing, 404) get no pane
+   padding from the theme: content touched the viewport edges between 48rem
+   and the container width, and the hero sat flush under the nav. Mirror the
+   padding the theme gives the docs pane. */
+:root:not([data-has-sidebar][data-has-toc]) .main-pane {
+  padding-inline: var(--sl-content-pad-x);
+  padding-block: 1.5rem;
+}
+@media (min-width: 64rem) {
+  :root:not([data-has-sidebar][data-has-toc]) .main-pane {
+    padding-block: 3rem 2rem;
+  }
+}
+
+/* Room between the hero actions and the first section heading. */
+.hero {
+  padding-block-end: 1.5rem;
+}
+
+/* The landing container is 67.5rem wide so code and card grids can use it,
+   but prose at that width runs past 150 characters a line. Cap the text
+   blocks at the docs column width. */
+[data-has-hero] .sl-markdown-content > :is(p, ul, ol) {
+  max-width: 40rem;
+}
+
+/* The fixed TOC rail is sized to its container's border box while the
+   container carries 2rem of inline padding, so the rail ran 2rem past the
+   viewport and long entries were clipped at the right edge. Size the rail to
+   the container's content box and let the list fill the rail instead of
+   Starlight's sidebar-width formula. */
+.right-sidebar {
+  width: calc(var(--spacing) * 56);
+}
+.right-sidebar-panel .sl-container {
+  width: auto;
+}
+
+/* Prev and next links are nowrap buttons on one row; two long labels
+   overflowed the viewport at phone width. Let the next link drop to its own
+   row, where its auto margin keeps it flush right. */
+.pagination-links {
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
