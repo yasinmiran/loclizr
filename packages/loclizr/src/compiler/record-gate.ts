@@ -30,12 +30,11 @@ function withoutVolatileFields(record: unknown): unknown {
 
 function projectMessage(message: unknown): unknown {
   if (!isPlainObject(message)) return message
-  const projected: Record<string, unknown> = {}
-  for (const [field, value] of Object.entries(message)) {
-    if (PROJECTED_OUT.has(field)) continue
-    projected[field] = value
-  }
-  return projected
+  // Assignment would hand a `__proto__` field to the prototype setter and drop
+  // it from the comparison; fromEntries defines it as an own property.
+  return Object.fromEntries(
+    Object.entries(message).filter(([field]) => !PROJECTED_OUT.has(field)),
+  )
 }
 
 function isPlainObject(value: unknown): value is Record<string, unknown> {

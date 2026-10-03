@@ -50,6 +50,9 @@ export interface OutputResult {
 interface Run {
   // The root every path is measured against, resolved through the filesystem.
   readonly realRoot: string
+  // Taken before any write: `.gitignore` is not guaranteed to be emitted first,
+  // and writing any other file creates outDir.
+  readonly freshOutDir: boolean
   // outDir holds its own .gitignore, so nobody is committing the generated tree.
   readonly selfIgnored: boolean
   readonly written: string[]
@@ -74,6 +77,7 @@ export async function syncOutput(input: OutputInput): Promise<OutputResult> {
   }
   const run: Run = {
     realRoot,
+    freshOutDir: !(await exists(join(input.root, input.outDir))),
     selfIgnored: await exists(join(input.root, input.outDir, GITIGNORE)),
     written: [],
     diagnostics: [],
@@ -176,10 +180,11 @@ function occupiedBy(mode: 'build' | 'check'): string {
     : 'so the generated file it occupies was not written'
 }
 
-// The build writes this one into an empty slot and never touches it again, so
-// a team that commits the generated tree owns whatever it puts there.
+// The build writes this one only into an outDir it is creating, and never
+// touches it again, so a team that deletes it to commit the generated tree
+// keeps it deleted and owns whatever it puts there.
 async function syncGitignore(input: OutputInput, file: EmittedFile, run: Run): Promise<boolean> {
-  if (input.mode === 'check' || run.selfIgnored) return true
+  if (input.mode === 'check' || !run.freshOutDir) return true
   const path = posixJoin(input.outDir, file.path)
   const absolute = join(input.root, path)
   if (!(await write(absolute, path, file.contents, run))) return false
@@ -222,6 +227,10 @@ async function syncRecord(input: OutputInput, run: Run): Promise<void> {
   if (input.mode === 'check') {
     if (committed === null) run.diagnostics.push(recordMissing(record.path))
     else if (!recordsAgree(committed, record.bytes)) run.diagnostics.push(recordStale(record.path))
+    return
+  }
+  if (committed !== null && !isRecordText(committed)) {
+    run.diagnostics.push(notARecord(record.path))
     return
   }
   if (committed !== null && !recordsAgree(committed, record.bytes)) {
@@ -312,6 +321,28 @@ function isGenerated(contents: string): boolean {
   return contents.startsWith(GENERATED_HEADER)
 }
 
+const CONFLICT_MARKER = /^<{7}(?: |$)/m
+
+// The record path may point at a catalog, a tsconfig or a source file, and
+// writing over one of those destroys work. So only text recognisable as a
+// record is replaced: a schema 1 object, or one a merge left conflict markers
+// in, which is how a conflicted record heals under LZ5007.
+function isRecordText(contents: string): boolean {
+  if (CONFLICT_MARKER.test(contents)) return true
+  let parsed: unknown
+  try {
+    parsed = JSON.parse(contents.replace(/^\uFEFF/, ''))
+  } catch {
+    return false
+  }
+  return (
+    typeof parsed === 'object' &&
+    parsed !== null &&
+    !Array.isArray(parsed) &&
+    (parsed as Record<string, unknown>)['schema'] === 1
+  )
+}
+
 // A lone surrogate in a catalog value cannot be encoded, so writeFile lands
 // U+FFFD where emit produced half an emoji. Comparing the string emit produced
 // against the text that comes back off disk would then rewrite the file on
@@ -390,6 +421,14 @@ function recordRewritten(path: string): Diagnostic {
   return diag('record-rewritten', {
     message: `\`${path}\` was rewritten: the committed record's contract differs from the one these catalogs produce.`,
     hint: 'commit the rewritten record with the string change, so the context lands in the same pull request.',
+    file: path,
+  })
+}
+
+function notARecord(path: string): Diagnostic {
+  return diag('output-unwritable', {
+    message: `\`${path}\` is not a loclizr context record, so the record was not written over it.`,
+    hint: 'the build overwrites only a file it can tell is a record. Point `record` at a path of its own, or delete the file if it is an old record you meant to replace.',
     file: path,
   })
 }

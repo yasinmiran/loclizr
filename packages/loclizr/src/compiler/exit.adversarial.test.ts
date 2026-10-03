@@ -109,9 +109,9 @@ describe('severity against the fatality scopes', () => {
     expect(result.exitCode).toBe(1)
   })
 
-  // The only report of the collision is gone, so the build that writes nothing
-  // says nothing about why. Turning an `always` rule off is asking for that.
-  it('writes nothing for a fatal rule turned off and exits 1 with no diagnostic left to say why', async () => {
+  // 'off' cannot unblock the tree, so it cannot silence the one reason the run
+  // wrote nothing and exited 1 either.
+  it('writes nothing for a fatal rule turned off and still says why, as a warning', async () => {
     const result = await runPipeline(
       stages(
         {
@@ -127,8 +127,31 @@ describe('severity against the fatality scopes', () => {
       options(),
     )
 
-    expect(result.diagnostics).toEqual([])
+    expect(codes(result.diagnostics)).toEqual(['LZ4002'])
+    expect(result.diagnostics[0]?.severity).toBe('warn')
+    expect(result.summary.warnings).toBe(1)
     expect(result.written).toEqual([])
+    expect(result.exitCode).toBe(1)
+  })
+
+  it('says why a fatal catalog rule turned off halted the run before analyze', async () => {
+    const result = await runPipeline(
+      stages(
+        {
+          readCatalogs: () =>
+            Promise.resolve({
+              catalogs: [],
+              meta: null,
+              diagnostics: [diag('catalog-json-syntax', { message: 'locales/en.json' })],
+            }),
+        },
+        { severity: { 'catalog-json-syntax': 'off' } },
+      ),
+      options(),
+    )
+
+    expect(codes(result.diagnostics)).toEqual(['LZ1009'])
+    expect(result.diagnostics[0]?.severity).toBe('warn')
     expect(result.exitCode).toBe(1)
   })
 

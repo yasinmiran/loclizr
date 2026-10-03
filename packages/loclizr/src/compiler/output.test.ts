@@ -210,7 +210,7 @@ describe('syncOutput in build mode', () => {
     expect(await read('src/loclizr/keep.ts')).toBe('export const keep = 1\n')
   })
 
-  it('writes the .gitignore only when it is absent', async () => {
+  it('leaves an existing .gitignore as the team left it', async () => {
     const gitignore: EmittedFile = { path: '.gitignore', contents: '*\n!.gitignore\n' }
 
     const first = await syncOutput({
@@ -236,6 +236,34 @@ describe('syncOutput in build mode', () => {
     expect(await read('src/loclizr/.gitignore')).toBe(
       '# emptied by the team that commits outDir\n',
     )
+  })
+
+  it('writes the .gitignore into a fresh outDir wherever emit lists it', async () => {
+    const result = await syncOutput({
+      mode: 'build',
+      root,
+      outDir: OUT_DIR,
+      files: [file('messages.js', 'export {}'), { path: '.gitignore', contents: '*\n!.gitignore\n' }],
+      record: null,
+    })
+
+    expect(result.written).toContain('src/loclizr/.gitignore')
+    expect(await read('src/loclizr/.gitignore')).toBe('*\n!.gitignore\n')
+  })
+
+  it('leaves a deleted .gitignore deleted once outDir exists', async () => {
+    await seed('src/loclizr/messages.js', generated('export {}'))
+
+    const result = await syncOutput({
+      mode: 'build',
+      root,
+      outDir: OUT_DIR,
+      files: [{ path: '.gitignore', contents: '*\n!.gitignore\n' }, file('messages.js', 'export {}')],
+      record: null,
+    })
+
+    expect(result.written).toEqual([])
+    expect(await read('src/loclizr/.gitignore')).toBeNull()
   })
 
   it('never prunes the .gitignore and never reports it as foreign', async () => {
@@ -723,8 +751,48 @@ describe('the record gate', () => {
     expect(codes(result.diagnostics)).toEqual(['LZ5003'])
   })
 
-  it('treats an unparseable committed record as differing', async () => {
-    await seed(RECORD, '{ this is not json')
+  it('refuses to write the record over a JSON file that is not a record', async () => {
+    const catalog = `${JSON.stringify({ hello: 'Hallo' })}\n`
+    await seed(RECORD, catalog)
+
+    const result = await syncOutput({
+      mode: 'build',
+      root,
+      outDir: OUT_DIR,
+      files: [],
+      record: { path: RECORD, bytes: recordBytes() },
+    })
+
+    expect(codes(result.diagnostics)).toEqual(['LZ5001'])
+    expect(result.diagnostics[0]?.severity).toBe('error')
+    expect(result.written).toEqual([])
+    expect(await read(RECORD)).toBe(catalog)
+  })
+
+  it.each([
+    ['JSONC', '{\n  // comment\n  "compilerOptions": {}\n}\n'],
+    ['a catalog saved with a byte order mark', '\uFEFF{"hello":"Hallo"}\n'],
+    ['JSON with a trailing comma', '{"a":1,}\n'],
+    ['a source file', 'export const x = 1\n'],
+  ])('refuses to write the record over %s', async (_, foreign) => {
+    await seed(RECORD, foreign)
+
+    const result = await syncOutput({
+      mode: 'build',
+      root,
+      outDir: OUT_DIR,
+      files: [],
+      record: { path: RECORD, bytes: recordBytes() },
+    })
+
+    expect(codes(result.diagnostics)).toEqual(['LZ5001'])
+    expect(result.written).toEqual([])
+    expect(await read(RECORD)).toBe(foreign)
+  })
+
+  it('rewrites a committed record a merge left conflict markers in', async () => {
+    const conflicted = `<<<<<<< HEAD\n${recordBytes({ source: 'Start' })}=======\n${recordBytes()}>>>>>>> topic\n`
+    await seed(RECORD, conflicted)
 
     const build = await syncOutput({
       mode: 'build',
@@ -733,9 +801,15 @@ describe('the record gate', () => {
       files: [],
       record: { path: RECORD, bytes: recordBytes() },
     })
-    expect(codes(build.diagnostics)).toEqual(['LZ5007'])
 
+    expect(codes(build.diagnostics)).toEqual(['LZ5007'])
+    expect(build.written).toEqual([RECORD])
+    expect(await read(RECORD)).toBe(recordBytes())
+  })
+
+  it('reports an unparseable committed record as stale in check', async () => {
     await seed(RECORD, '{ this is not json')
+
     const checked = await syncOutput({
       mode: 'check',
       root,

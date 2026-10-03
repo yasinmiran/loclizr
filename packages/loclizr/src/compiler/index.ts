@@ -50,9 +50,15 @@ function pipelineOptions(
     cwd: options?.cwd ?? process.cwd(),
     configPath: options?.configPath,
     emit: options?.emit ?? true,
-    maxWarnings: options?.maxWarnings ?? Number.POSITIVE_INFINITY,
+    maxWarnings: noCapWhenNegative(options?.maxWarnings ?? Number.POSITIVE_INFINITY),
     failOnError: options?.failOnError ?? true,
   }
+}
+
+// Any negative value is the CLI's no-cap spelling, `--max-warnings=-1`, and a
+// consumer copying it here must not fail a clean run on `0 > -1`.
+function noCapWhenNegative(maxWarnings: number): number {
+  return maxWarnings < 0 ? Number.POSITIVE_INFINITY : maxWarnings
 }
 
 export type {

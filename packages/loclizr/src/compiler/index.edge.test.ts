@@ -106,6 +106,19 @@ describe('--max-warnings over real catalogs', () => {
   })
 })
 
+describe('a negative maxWarnings, the CLI no-cap value', () => {
+  it('leaves warnings uncapped in build and check alike', async () => {
+    const root = await project(EN, DE_WITH_EXTRA)
+
+    const built = await build({ cwd: root, emit: false, maxWarnings: -1 })
+    const checked = await check({ cwd: root, emit: false, maxWarnings: -1 })
+
+    expect(codes(built)).toContain('LZ3003')
+    expect(built.exitCode).toBe(0)
+    expect(checked.exitCode).toBe(0)
+  })
+})
+
 describe('check after build over keys no editor would type', () => {
   const awkward = {
     toString: 'To string',

@@ -166,4 +166,11 @@ describe('field names shaped like Object.prototype members', () => {
     expect(recordsAgree(committed, committed)).toBe(true)
     expect(recordsAgree(committed, '{"schema":1,"messages":[]}')).toBe(false)
   })
+
+  it('compares a message level __proto__ field the parser made an own property', () => {
+    const fresh = '{"schema":1,"messages":[{"key":"nav.home","source":"Home"}]}'
+    const committed = '{"schema":1,"messages":[{"__proto__":{"x":1},"key":"nav.home","source":"Home"}]}'
+
+    expect(recordsAgree(committed, fresh)).toBe(false)
+  })
 })
