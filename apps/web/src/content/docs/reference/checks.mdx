@@ -97,7 +97,7 @@ has to say why.
 | `LZ1018` | `locale-base-missing` | warn | never | A declared region tag whose base tag is not declared. | Add the base, such as `'de'`, or expect `Accept-Language: de` to fall back to the source. |
 | `LZ1019` | `icu-data-incomplete` | warn | never | A startup probe finds small ICU (`Intl.PluralRules('ru')` under four categories), which silently answers unknown locales with English data; or a declared locale has no plural data and `Intl` answered for the host locale instead. | Run a Node with full ICU, or set `NODE_ICU_DATA` to a full data file. Until then `LZ3007` and `LZ3013` are off for the run (or that locale): no claim beats a wrong one. |
 | `LZ1020` | `icu-in-i18next-file` | warn | never | A file read as i18next holds a single-brace run shaped like a typed ICU argument, which renders as literal text. | Convert the file to ICU, or set `severity: { 'icu-in-i18next-file': 'off' }` if literal text was meant. The hint names the `{{` or suffixed key that made `'auto'` pick i18next. |
-| `LZ1021` | `outdir-foreign-file` | warn | never | A file under `outDir` lacks the generated header, so it was neither overwritten nor pruned; or a headered orphan could not be deleted. | Move it outside `outDir`, or delete it if it is generated output whose header was stripped. |
+| `LZ1021` | `outdir-foreign-file` | warn | never | A file under `outDir` lacks the generated header, or is a symbolic link at a path the build emits, so it was neither overwritten nor pruned; or a headered orphan could not be deleted. | Move it outside `outDir`, or delete it if it is generated output whose header was stripped. |
 
 `LZ1006` fires for:
 

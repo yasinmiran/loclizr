@@ -1271,8 +1271,7 @@ outside this entirely, per the paragraph above: written only into an `outDir`
 the run creates, never compared, never pruned.
 
 Two more things the prune leaves alone. A symlink or any other non-regular
-entry under `outDir` is neither read, deleted nor reported: following one
-leaves `outDir`, and the header cannot prove we wrote whatever it points at. An
+entry under `outDir` is neither read nor deleted, and the prune does not report it: following one leaves `outDir`, and the header cannot prove we wrote whatever it points at. A symlink at a path emit wants to write is the exception to silence: it is skipped and reported as `LZ1021`, in both `build` and `check`, exactly like a headerless file there. A symlinked directory between `outDir` and an emitted path that resolves outside the project root is `LZ5001` in both modes, raised before that path is read. An
 orphan that carries the header and still cannot be deleted is reported as
 `LZ1021` with a message saying so, not as `LZ5001`: the tree this build wrote
 is complete and correct, and `LZ5001` is exit 2 and not re-levelable, which is
@@ -1365,8 +1364,7 @@ entry, which is the escape hatch section 3 already documents.
 in a code sample, a regex or a path, would terminate the comment early and
 produce a syntactically broken `.d.ts` that no rule catches, because `LZ4005`
 only compares the two emit passes to each other and both are equally broken. M6
-replaces every `*/` in doc-comment text with `*\/` and replaces CR and LF with a
-single space.
+replaces every `*/` in doc-comment text with `*\/` and replaces each line break TypeScript recognizes (CR, LF, a CRLF pair, U+2028 and U+2029) with a single space, so source text cannot start a comment line that reads as a `@ts-` directive or a JSDoc tag.
 
 Two keys whose confusable skeletons are equal but whose text differs are
 `LZ4003 confusable-key`. The skeleton is NFKC with U+200C, U+200D, U+2060 and
@@ -2736,8 +2734,7 @@ The scan is a scan, not a type checker. It adds no dependency beyond
 
 A hand-rolled single-pass tokenizer walks each matched file tracking line
 comments, block comments, all three string kinds with `${}` nesting depth,
-regular-expression literals resolved by a previous-token heuristic, and brace
-depth. Skipping those kills nearly every false positive without an AST.
+regular-expression literals resolved by a previous-token heuristic, and brace depth. A regular expression cannot escape a line break, so a backslash before one ends the attempt, and once 64 attempts on one line have failed to close, every further `/` on that line reads as division until the next line break, wherever that break falls, inside a comment, string or template included, so a line of unclosed classes costs its length rather than its square. Skipping those kills nearly every false positive without an AST.
 
 **In `.jsx`, `.tsx`, `.svelte`, `.vue` and `.astro`, string lexing is narrowed,
 not skipped.** JSX text is
@@ -2752,8 +2749,7 @@ costs one extra usage site, which is still a real source location a translator
 can read, and a false negative costs the payload. So in those extensions a
 quote opens a literal only in expression position, where the previous
 significant character is one of `= ( [ { , : ; ?`, an `=>`, or a keyword that
-ends in expression position such as `return`, **and** only when it closes
-before the next newline; template holes stay live. No regular expression is
+ends in expression position such as `return`, **and** only when it closes before the next newline; template holes stay live. Once 64 quotes on one line have failed to close, that line opens no more literals until the next line break, wherever it falls, so a line of unclosed holes costs its length rather than its square. No regular expression is
 lexed there, because `<p>a</p><p>b</p>` offers `/p><p>b</` as one. A `//`
 immediately preceded by `:` does not open a comment, or `href="https://x"` in
 JSX text would blank the rest of its line and every usage beside the link, and
@@ -2878,7 +2874,7 @@ claim one. Ranges are thematic and a range may span two owners.
 | LZ1018 | `locale-base-missing` | warn | never | M9 | a declared non-source locale carries a subtag, region or script, whose base tag is not also declared |
 | LZ1019 | `icu-data-incomplete` | warn | never | M10 | the build machine's `Intl` has truncated ICU data |
 | LZ1020 | `icu-in-i18next-file` | warn | never | M2 | a file read as i18next contains a single-brace run shaped like a typed ICU argument, which will render as literal text |
-| LZ1021 | `outdir-foreign-file` | warn | never | M10 | a file under `outDir` does not carry the generated header, so it was neither overwritten nor pruned; or a headered orphan the prune could not delete |
+| LZ1021 | `outdir-foreign-file` | warn | never | M10 | a file under `outDir` does not carry the generated header, so it was neither overwritten nor pruned; or a symlink sits at an emitted path, so it was neither read nor replaced; or a headered orphan the prune could not delete |
 
 `LZ1020` is the one mistake `catalogFormat: 'auto'` can make invisible, so it is
 the one it reports. A run is any `{`, not doubled, followed by an argument name,
@@ -3118,8 +3114,7 @@ Neither projection can hide an edited string, because an edited string changes
 
 Determinism rules: messages sorted by key by code point, locales sorted,
 arguments printed in `Message.args` order verbatim, usage sites deduplicated and
-sorted by file then scope, two-space indent, POSIX separators, LF endings, a
-trailing newline, no timestamps, no absolute paths, no tool version. A version
+sorted by file then scope, two-space indent, POSIX separators, LF endings, a trailing newline, U+202A-U+202E, U+2066-U+2069, U+2028 and U+2029 written as lowercase `\uXXXX` escapes so a reviewed diff cannot be reordered by a file name or source string, no timestamps, no absolute paths, no tool version. A version
 field would turn every release into a whole-file diff.
 
 **A usage entry carries `file` and `scope`, and deliberately not `line`,
@@ -4461,8 +4456,7 @@ decided. Sequence:
    supported pattern) cannot unlink each other's in-flight file and fail the
    rename with `LZ5001`. The cost is that a crashed build's leftover `.tmp` is
    never pruned and never reported; it sits inside the gitignored `outDir` and
-   is harmless. A path already occupied by a file that does **not** carry the
-   generated header is not written: the write is skipped and
+   is harmless. A path already occupied by a file that does **not** carry the generated header, or by a symlink, is not written: the write is skipped and
    `LZ1021 outdir-foreign-file` names it. The `.gitignore` M6 emitted is
    written **only when `outDir` did not exist before this step began** and is
    excluded from both the changed comparison and `LZ5002`. Then prune: delete
@@ -4470,13 +4464,12 @@ decided. Sequence:
    that this emit
    did not produce, excluding that `.gitignore`; a headerless file is left
    alone and reported as `LZ1021`, an orphan that will not delete is `LZ1021`
-   too, and a symlink is neither read, deleted nor reported (section 7.1). The
+   too, and the prune neither reads, deletes nor reports a symlink (section 7.1). The
    record is compared against what is on disk before it is written, and a
    difference under the section 13 projection is `LZ5007`; with no committed
    record there is nothing to rewrite and nothing is raised. `build` writes
    over a committed file only when it parses (a leading byte order mark is
-   allowed) to an object with `schema: 1`, or when it carries merge conflict
-   markers, which is how a conflicted record heals under `LZ5007`. Any other
+   allowed) to an object with `schema: 1`, or when it carries merge conflict markers and still has a line holding only the `"schema": 1` key, which is how a conflicted record heals under `LZ5007`; that match is textual, because conflicted text does not parse. Any other
    file at the record path, a catalog, a tsconfig, a source file, is not
    written over: the write is skipped and `LZ5001` names it. `emit: false`
    skips this whole step in both modes, so `check` with `emit: false` runs no

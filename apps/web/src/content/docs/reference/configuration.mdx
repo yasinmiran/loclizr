@@ -132,8 +132,7 @@ Flat-key JSON, per key a `description` and `placeholders` map. The path takes `{
 
 ## `outDir`
 
-- Inside the project root and not the root itself (`LZ1007 outdir-unsafe`), rechecked through
-  symlinks on write (`LZ5001 output-unwritable`). Pruning deletes header-carrying files it did not
+- Inside the project root and not the root itself (`LZ1007 outdir-unsafe`), rechecked through symlinks before each generated file is read or written, in `build` and `check` (`LZ5001 output-unwritable`). Pruning deletes header-carrying files it did not
   produce, so give it its own directory.
 - May not be, or sit above, a directory that holds catalogs (`locales` under the default), nor
   hold the resolved `meta` or `record` path (`LZ1001`): the tree's self-ignoring `.gitignore` would
@@ -154,8 +153,7 @@ The path takes `{sourceLocale}`. `false` writes no record and skips `LZ5003 reco
     fix  a file the pattern matches is either a catalog or the record file, never both. Name one it cannot match, such as 'locales/loclizr.context.json'.
   ```
 
-- `build` writes over an existing file there only when it parses to an object with `schema: 1`, or
-  carries merge conflict markers. Anything else is `LZ5001 output-unwritable`, and the file is kept.
+- `build` writes over an existing file there only when it parses to an object with `schema: 1`, or carries merge conflict markers and still has a `"schema": 1` line of its own. Anything else is `LZ5001 output-unwritable`, and the file is kept.
 
 ## `cookie`
 

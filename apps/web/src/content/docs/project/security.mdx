@@ -73,7 +73,7 @@ Catalog text lands in string literals, never expressions (`src/emit/shared.ts`):
 - `templateText` escapes backslash, backtick, every `$` (a trailing `$` beside an argument would
   form `${`), carriage return, newline and the two Unicode line separators.
 - Keys and option values go through `quoted`.
-- `.d.ts` doc comments escape `*/`, so a source string cannot close one early.
+- `.d.ts` doc comments escape `*/` and fold every line break, the two Unicode line separators included, to a space, so a source string can neither close one early nor start a line that TypeScript reads as a directive or JSDoc tag.
 
 ## Path containment
 

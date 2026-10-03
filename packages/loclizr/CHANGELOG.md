@@ -5,6 +5,20 @@ All notable changes to `loclizr` are recorded here. The format follows
 numbers follow [Semantic Versioning](https://semver.org/) with the 0.x caveat:
 a minor release may break an invariant, and this file says so when it does.
 
+## Unreleased
+
+### Fixes
+
+- `.d.ts` doc comments fold U+2028 and U+2029 (#57).
+- The temporary output file opens exclusively (#58).
+- A conflicted file is healed as a record only when it keeps a `"schema": 1`
+  line (#59).
+- A symlink at an emitted path is `LZ1021`, skipped, and never read through or
+  replaced (#60).
+- The scan stays linear on adversarial lines and deep bracket stacks
+  (#62 to #65).
+- The record escapes bidi controls and line separators (#66).
+
 ## 0.1.1 - 2026-10-03
 
 Fixes, plus a few changes in what a build accepts. A project that built clean
