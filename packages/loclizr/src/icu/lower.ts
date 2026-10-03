@@ -271,14 +271,14 @@ function lowerPlural(state: State, element: PluralElement): Node {
     kind: 'plural',
     name,
     ordinal: element.pluralType === 'ordinal',
-    offset: element.offset,
+    offset: element.offset || 0,
     exact: exactBranches,
     branches: keywordBranches,
   }
 }
 
 function exactValue(selector: string): number {
-  return Number.parseInt(selector.slice(1), 10)
+  return Number.parseInt(selector.slice(1), 10) || 0
 }
 
 interface Pending {

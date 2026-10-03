@@ -41,6 +41,10 @@ describe('fallbackChain with a regional source locale', () => {
     expect(fallbackChain('en-GB', regional)).toEqual(['en-GB', 'en', 'en-US'])
   })
 
+  it('gives the source locale a chain of itself alone', () => {
+    expect(fallbackChain('en-US', regional)).toEqual(['en-US'])
+  })
+
   it('never lists the source twice where it is also the truncation', () => {
     expect(fallbackChain('en-GB', config({ locales: ['en', 'en-GB'] }))).toEqual(['en-GB', 'en'])
   })
@@ -60,6 +64,11 @@ describe('fallbackChain with an explicit map', () => {
   it('drops a map step naming the locale itself and a repeated step', () => {
     const mapped = config({ locales: ['en', 'nb', 'no'], fallback: { nb: ['nb', 'no', 'no'] } })
     expect(fallbackChain('nb', mapped)).toEqual(['nb', 'no', 'en'])
+  })
+
+  it('ignores a map entry keyed by the source, whose chain ends where it starts', () => {
+    const mapped = config({ locales: ['en', 'de'], fallback: { en: ['de'] } })
+    expect(fallbackChain('en', mapped)).toEqual(['en'])
   })
 
   it('moves a source step out of the middle so the walk reaches later steps', () => {

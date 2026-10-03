@@ -126,6 +126,59 @@ describe('group names', () => {
     })
     expect(only(program)).toMatchObject({ name: 'nav.main', id: 'nav_main', typeBase: 'NavMain' })
   })
+
+  it('reserves a __proto__ member without claiming the groups module would not parse', () => {
+    const program = english({ config: errors, entries: { 'errors.__proto__': 'Nope' } })
+    const [reserved] = forRule(program, 'identifier-reserved')
+    expect(reserved?.code).toBe('LZ4002')
+    expect(reserved?.hint).not.toContain('parse')
+  })
+
+  it('reserves Object, which the groups module calls to freeze each group', () => {
+    const program = english({
+      config: config({ groups: { Object: 'errors' } }),
+      entries: { 'errors.x': 'X' },
+    })
+    expect(codes(forRule(program, 'identifier-reserved'))).toEqual(['LZ4002'])
+  })
+
+  it('reserves Object for a member id, which the groups module imports', () => {
+    const program = english({
+      config: config({ groups: { errors: 'errors', all: 'errors' }, identifiers: { 'errors.x': 'Object' } }),
+      entries: { 'errors.x': 'X' },
+    })
+    const reserved = forRule(program, 'identifier-reserved')
+    expect(codes(reserved)).toEqual(['LZ4002'])
+    expect(reserved[0]?.key).toBe('errors.x')
+  })
+
+  it('collides a group id with one of its own member ids, which the groups module imports', () => {
+    const program = english({
+      config: config({ groups: { all: 'nav' }, identifiers: { 'nav.x': 'all' } }),
+      entries: { 'nav.x': 'X' },
+    })
+    const collisions = forRule(program, 'identifier-collision')
+    expect(codes(collisions)).toEqual(['LZ4001'])
+    expect(collisions[0]?.key).toBe('nav.x')
+  })
+
+  it('collides a group id with a member id of another group', () => {
+    const program = english({
+      config: config({ groups: { all: 'nav', errors: 'err' }, identifiers: { 'err.x': 'all' } }),
+      entries: { 'nav.y': 'Y', 'err.x': 'X' },
+    })
+    const collisions = forRule(program, 'identifier-collision')
+    expect(codes(collisions)).toEqual(['LZ4001'])
+    expect(collisions[0]?.key).toBe('err.x')
+  })
+
+  it('lets a group id equal an ungrouped message id, which the groups module never imports', () => {
+    const program = english({
+      config: config({ groups: { errors: 'errors' } }),
+      entries: { 'errors.x': 'X', errors: 'Errors' },
+    })
+    expect(program.diagnostics).toEqual([])
+  })
 })
 
 describe('argument signatures across members', () => {

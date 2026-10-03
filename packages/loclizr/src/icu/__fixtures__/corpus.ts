@@ -30,6 +30,8 @@ export const CORPUS: readonly string[] = [
   '{c, plural, other {}}',
   '{c, plural, =-1 {x} other {y}}',
   '{c, plural, =0 {a} =007 {b} other {c}}',
+  '{c, plural, =-0 {a} other {b}}',
+  '{c, plural, offset:-0 other {#}}',
   '{a, plural, other {{b, plural, other {#}}}}',
   '{c, plural, other {{g, select, other {<b>#</b>}}}}',
   '{state, select, shipped {On its way} delivered {Delivered} other {Processing}}',

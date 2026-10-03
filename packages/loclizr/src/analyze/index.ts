@@ -93,7 +93,14 @@ const RESERVED_IDENTIFIERS: ReadonlySet<string> = new Set([
   'subscribe',
 ])
 
+const PROTOTYPE_NAMES: ReadonlySet<string> = new Set(['__proto__', 'constructor', 'prototype'])
+
 const RESERVED_NAMESPACES: ReadonlySet<string> = new Set(['_locale', '_formats', '_root'])
+
+// The groups module freezes each group through this bare global, so a group
+// exported or a member imported under the same name shadows it and the module
+// throws on load.
+const GROUPS_GLOBAL = 'Object'
 
 const PROTOTYPE_PROPERTY = '__proto__'
 
@@ -226,11 +233,15 @@ export function namespaceOf(key: string): string {
 export function pascalCase(mangled: string): string {
   return mangled
     .split('_')
-    .map((part) => (part === '' ? '' : part[0]?.toUpperCase() + part.slice(1)))
+    .map((part) => {
+      const first = part === '' ? '' : String.fromCodePoint(part.codePointAt(0) ?? 0)
+      return first.toUpperCase() + part.slice(first.length)
+    })
     .join('')
 }
 
 export function fallbackChain(locale: string, config: Config): readonly string[] {
+  if (locale === config.sourceLocale) return [locale]
   const middle =
     config.fallback === 'bcp47'
       ? declaredTruncations(locale, config)
@@ -251,7 +262,7 @@ export function confusableSkeleton(value: string): string {
 
 function rawIdentifier(key: string, overrides: Readonly<Record<string, string>>): string {
   const override = Object.hasOwn(overrides, key) ? overrides[key] : undefined
-  return override ?? identifierChars(key.normalize('NFC'))
+  return identifierChars(override ?? key.normalize('NFC'))
 }
 
 function identifierChars(value: string): string {
@@ -656,10 +667,25 @@ function checkReservedIdentifiers(
         }),
       )
     } else if (RESERVED_IDENTIFIERS.has(message.id)) {
+      const reason = PROTOTYPE_NAMES.has(message.id)
+        ? 'That name is a built-in property of JavaScript objects, so loclizr never exports a message under it.'
+        : 'The generated barrel already exports that name, and a star export loses to it silently.'
       diagnostics.push(
         diag('identifier-reserved', {
           message: `The key "${message.key}" produces the reserved identifier "${message.id}".`,
-          hint: `The generated barrel already exports that name, and a star export loses to it silently. Map the key in loclizr.config.ts: identifiers: { '${message.key}': '${message.id}Message' }`,
+          hint: `${reason} Map the key in loclizr.config.ts: identifiers: { '${message.key}': '${message.id}Message' }`,
+          key: message.key,
+          ...locationOf(message.key, sourceEntries),
+        }),
+      )
+    } else if (
+      message.id === GROUPS_GLOBAL &&
+      Object.values(config.groups).some((prefix) => message.key.startsWith(`${prefix}.`))
+    ) {
+      diagnostics.push(
+        diag('identifier-reserved', {
+          message: `The key "${message.key}" produces the identifier "${message.id}", which the generated groups module imports and also calls to freeze each group.`,
+          hint: `Map the key in loclizr.config.ts: identifiers: { '${message.key}': '${message.id}Message' }`,
           key: message.key,
           ...locationOf(message.key, sourceEntries),
         }),
@@ -732,6 +758,14 @@ function buildGroups(
     const members = collectMembers(prefix, messages)
     const id = mangle(name, config.identifiers)
     groups.push({ name, id, typeBase: pascalCase(id), prefix, members })
+    if (id === GROUPS_GLOBAL) {
+      diagnostics.push(
+        diag('identifier-reserved', {
+          message: `The group "${name}" produces the identifier "${id}", which the generated groups module calls to freeze each group.`,
+          hint: 'Rename the group in loclizr.config.ts.',
+        }),
+      )
+    }
     if (members.length === 0) {
       diagnostics.push(
         diag('group-empty', {
@@ -747,6 +781,7 @@ function buildGroups(
   }
   groups.sort((a, b) => compareCodepoint(a.id, b.id))
   diagnostics.push(...checkGroupCollisions(groups))
+  diagnostics.push(...checkGroupMemberIds(groups, sourceEntries))
   return { groups, diagnostics }
 }
 
@@ -842,6 +877,35 @@ function checkGroupCollisions(groups: readonly Group[]): readonly Diagnostic[] {
   return diagnostics
 }
 
+// The groups module imports every member id of every group into the scope that
+// declares the groups, so a group id equal to any of them is declared twice and
+// the module does not parse.
+function checkGroupMemberIds(
+  groups: readonly Group[],
+  sourceEntries: ReadonlyMap<string, CatalogEntry> | undefined,
+): readonly Diagnostic[] {
+  const firstKeyById = new Map<string, string>()
+  for (const group of groups) {
+    for (const member of group.members) {
+      if (!firstKeyById.has(member.id)) firstKeyById.set(member.id, member.key)
+    }
+  }
+  const diagnostics: Diagnostic[] = []
+  for (const group of groups) {
+    const key = firstKeyById.get(group.id)
+    if (key === undefined) continue
+    diagnostics.push(
+      diag('identifier-collision', {
+        message: `The group "${group.name}" and the key "${key}" both produce the identifier "${group.id}" in the generated groups module.`,
+        hint: `Rename the group, or map the key in loclizr.config.ts: identifiers: { '${key}': '${group.id}Message' }`,
+        key,
+        ...locationOf(key, sourceEntries),
+      }),
+    )
+  }
+  return diagnostics
+}
+
 // The member property is mangled from the key suffix alone, so an `identifiers`
 // entry cannot reach it and renaming the key is the only fix.
 function checkMemberProperties(
@@ -863,7 +927,7 @@ function checkMemberProperties(
       diagnostics.push(
         diag('identifier-reserved', {
           message: `The key "${first.key}" becomes the member "${property}" of the group "${name}", which the group literal already defines as null.`,
-          hint: 'Rename the key. Two __proto__ properties in one object literal are a syntax error, so the generated groups module would not parse.',
+          hint: 'Rename the key. The group literal uses __proto__ to give each group a null prototype, so no member can take that name.',
           key: first.key,
           ...locationOf(first.key, sourceEntries),
         }),

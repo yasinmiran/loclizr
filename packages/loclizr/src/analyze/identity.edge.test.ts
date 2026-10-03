@@ -90,6 +90,10 @@ describe('mangle and the overrides record', () => {
   it('applies an entry to its own key and never to a neighbour', () => {
     expect(mangle('a.b', { 'a.c': 'other' })).toBe('a_b')
   })
+
+  it('runs an entry through the identifier character set, so it always emits a legal name', () => {
+    expect(mangle('nav.home', { 'nav.home': 'nav-home' })).toBe('nav_home')
+  })
 })
 
 describe('namespaceOf at the edges', () => {
@@ -126,6 +130,10 @@ describe('pascalCase at the edges', () => {
   it('upper-cases a Cyrillic part', () => {
     expect(pascalCase('ошибки_сети')).toBe('ОшибкиСети')
   })
+
+  it('upper-cases an astral first letter by code point, not by surrogate', () => {
+    expect(pascalCase('\u{10428}x_\u{10428}y')).toBe('\u{10400}x\u{10400}y')
+  })
 })
 
 describe('confusableSkeleton at the edges', () => {
@@ -155,6 +163,16 @@ describe('identity rules on prototype-named keys', () => {
 
   it('reports a root key named constructor reserved', () => {
     expect(codes(english({ constructor: 'Ctor' }).diagnostics)).toEqual(['LZ4002'])
+  })
+
+  it('gives a prototype name its own reason, since the barrel exports none of them', () => {
+    const [reserved] = forRule(english({ constructor: 'Ctor' }), 'identifier-reserved')
+    expect(reserved?.hint).not.toContain('barrel')
+  })
+
+  it('gives a barrel export name the barrel as its reason', () => {
+    const [reserved] = forRule(english({ locales: 'Languages' }), 'identifier-reserved')
+    expect(reserved?.hint).toContain('barrel')
   })
 
   it('leaves toString and hasOwnProperty alone, which no barrel export shadows', () => {
