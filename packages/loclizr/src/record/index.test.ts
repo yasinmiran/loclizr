@@ -548,6 +548,24 @@ describe('serializeRecord', () => {
 
     expect(JSON.parse(serializeRecord(record))).toEqual(record)
   })
+
+  it('escapes bidi controls and line separators so a diff viewer cannot reorder them', () => {
+    const hostile = '\u202a\u202b\u202c\u202d\u202e\u2066\u2067\u2068\u2069\u2028\u2029'
+    const record = buildRecord(
+      program({
+        messages: [message({ key: 'a', id: 'a', namespace: 'n', source: `x${hostile}y` })],
+        usages: [{ id: 'a', sites: [site('src/Cart\u202ets.ts', 'Cart', 1, 1)] }],
+      }),
+    )
+
+    const text = serializeRecord(record)
+    expect(text).not.toMatch(/[\u202a-\u202e\u2066-\u2069\u2028\u2029]/)
+    expect(text).toContain(
+      '"source": "x\\u202a\\u202b\\u202c\\u202d\\u202e\\u2066\\u2067\\u2068\\u2069\\u2028\\u2029y"',
+    )
+    expect(text).toContain('"file": "src/Cart\\u202ets.ts"')
+    expect(JSON.parse(text)).toEqual(record)
+  })
 })
 
 describe('checkDescriptions', () => {

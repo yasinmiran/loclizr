@@ -606,8 +606,8 @@ describe('serializeRecord edge bytes', () => {
     expect(text).toContain('"note": "note\\r\\nhere"')
   })
 
-  it('writes RTL marks, combining marks, emoji, U+2028 and a BOM raw inside strings', () => {
-    const source = `﻿‏שלום é ${SMILE} a b`
+  it('writes RTL marks, combining marks, emoji and a BOM raw inside strings', () => {
+    const source = `﻿‏שלום é ${SMILE} ab`
     const text = serializeRecord(
       buildRecord(program({ messages: [message({ key: 'a', id: 'a', namespace: 'n', source })] })),
     )

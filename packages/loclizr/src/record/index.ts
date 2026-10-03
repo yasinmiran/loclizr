@@ -47,8 +47,18 @@ export function buildRecord(program: Program): ContextRecord {
   }
 }
 
+// JSON.stringify leaves these raw, and in a reviewed diff a bidi control from a
+// file name or source string reorders the text a reviewer reads (Trojan Source).
+// They can only occur inside string literals, so escaping them keeps the JSON
+// equal to the record.
+const DISPLAY_HOSTILE = /[\u202a-\u202e\u2066-\u2069\u2028\u2029]/g
+
 export function serializeRecord(record: ContextRecord): string {
-  return `${JSON.stringify(record, null, 2)}\n`
+  const json = JSON.stringify(record, null, 2).replace(
+    DISPLAY_HOSTILE,
+    (char) => `\\u${char.charCodeAt(0).toString(16)}`,
+  )
+  return `${json}\n`
 }
 
 export function checkDescriptions(program: Program): readonly Diagnostic[] {
