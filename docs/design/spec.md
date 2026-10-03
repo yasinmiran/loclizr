@@ -1165,9 +1165,12 @@ written inside it, so the app's root ignore file is never touched. The research
 records generated code in `src/` as one of Paraglide's loudest complaints, and
 the artifact that belongs in the pull request is the context record, not
 several hundred lines of machine-written JavaScript. `loclizr init` prints the
-`prepare`, `predev`, `prebuild` and `pretypecheck` scripts that keep a fresh
-clone working, with `prepare` and `predev` on `loclizr build --no-fail` and the
-two gate hooks on plain `loclizr build` (section 10). A
+`predev`, `prebuild` and `pretypecheck` scripts that build the tree before the
+command that needs it, with `predev` on `loclizr build --no-fail` and the two
+gate hooks on plain `loclizr build` (section 10). There is no `prepare` hook: it
+would run on `npm ci` and rewrite the record in the CI workspace before
+`loclizr check` compares it, so a fresh clone has no generated tree until the
+first of the three hooks runs, and editor diagnostics until then are the price. A
 team that would rather commit the tree deletes that one `.gitignore`;
 `LZ5002 output-stale` then starts checking those files, because the rule fires
 only when the files exist on disk.
@@ -2160,16 +2163,21 @@ generated tree entirely.
 
 The flag is not an escape from the gate, because the gate is elsewhere:
 `prebuild` and `pretypecheck` run plain `loclizr build`, CI runs
-`loclizr check`, and neither takes the flag. `predev` and `prepare` are the two
-hooks whose job is to make a working tree exist, so those two run
+`loclizr check`, and neither takes the flag. `predev` is the one hook whose job
+is to make a working tree exist for a dev server, so it alone runs
 `loclizr build --no-fail`. That is the split `init` prints:
 
 ```json
-"prepare": "loclizr build --no-fail",
 "predev": "loclizr build --no-fail",
 "prebuild": "loclizr build",
 "pretypecheck": "loclizr build"
 ```
+
+`init` prints no `prepare` hook. `prepare` runs on `npm ci`, so a CI job that
+installed and then ran `loclizr check` would compare a record its own install
+had just rewritten, and the gate would pass on a stale record. The CI snippet
+`init` prints says to run `check` before any step that runs `build` for the
+same reason.
 
 There is no `--watch`. Section 1 says why, and the README documents both
 `nodemon -w locales -x 'loclizr build --no-fail'` and the inline Vite plugin
@@ -2933,8 +2941,8 @@ comparison. They are deliberately different questions and the spec keeps them
 apart.
 
 `LZ5007` is the same comparison in `build`, and it exists because the documented
-wiring is `prepare` / `predev` / `prebuild` / `pretypecheck` running `build`
-rather than `check`. A pipeline whose only invocation is `pnpm build` would
+wiring is `predev` / `prebuild` / `pretypecheck` running `build` rather than
+`check`. A pipeline whose only invocation is `pnpm build` would
 rewrite the record in the CI workspace and pass, so a pull request that changed
 copy without regenerating would land with a stale record and the context would
 never arrive with the string change, which is precisely the punchline the thesis
@@ -4405,8 +4413,10 @@ does not exist.
 
 The `init` templates write an **ICU** seed catalog and never emit a
 `catalogFormat` line, per section 10, and the `package.json` scripts it prints
-are the four in that section: `prepare` and `predev` on
-`loclizr build --no-fail`, `prebuild` and `pretypecheck` on `loclizr build`.
+are the three in that section: `predev` on `loclizr build --no-fail`,
+`prebuild` and `pretypecheck` on `loclizr build`, and no `prepare`. The install
+note names a regular dependency (`npm i loclizr`), because the generated
+functions import the locale store from `loclizr` at run time.
 
 ### M12, runtime and bindings
 

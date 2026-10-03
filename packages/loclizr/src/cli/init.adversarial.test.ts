@@ -314,9 +314,9 @@ describe('init is a deterministic function of what it found', () => {
 })
 
 describe('the printed wiring', () => {
-  it('lists the four scripts in the order the spec prints them', async () => {
+  it('lists the three scripts in the order the spec prints them', async () => {
     const { output } = await runInit({ cwd: root })
-    const order = ['prepare', 'predev', 'prebuild', 'pretypecheck'].map((name) =>
+    const order = ['predev', 'prebuild', 'pretypecheck'].map((name) =>
       output.indexOf(`"${name}":`),
     )
 

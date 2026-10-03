@@ -177,7 +177,7 @@ describe('run, init', () => {
   it('names the install line the config it wrote depends on', async () => {
     await run(['init', '--cwd', root])
 
-    expect(out.join('')).toContain('npm i -D loclizr')
+    expect(out.join('')).toContain('npm i loclizr')
   })
 
   it('reports a failed init on stderr, where a redirected stdout cannot hide it', async () => {

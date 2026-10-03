@@ -72,19 +72,24 @@ export function configTemplate(options: ConfigTemplateOptions): string {
 
 // The config this writes opens with `import { defineConfig } from 'loclizr'`,
 // so `npx loclizr init` followed by `npx loclizr build` dies on a missing
-// module unless the package is a dependency of the project itself.
-export const INSTALL_NOTE: string = `Install loclizr, which loclizr.config.ts imports:
+// module unless the package is a dependency of the project itself. A regular
+// dependency, not a dev one: the generated functions import the locale store
+// from `loclizr` at run time, and a Node server has to find it after install.
+export const INSTALL_NOTE: string = `Install loclizr, which loclizr.config.ts and the generated code import:
 
-  npm i -D loclizr`
+  npm i loclizr`
 
+// No `prepare` hook: it runs on `npm ci`, so a CI install would rewrite the
+// context record before `loclizr check` compares it and the gate would pass
+// on a stale record. The three `pre*` hooks cover every command a developer
+// runs; a fresh clone has no generated tree until the first of them.
 export const PACKAGE_SCRIPTS: string = `Add these scripts to package.json:
 
-  "prepare": "loclizr build --no-fail",
   "predev": "loclizr build --no-fail",
   "prebuild": "loclizr build",
   "pretypecheck": "loclizr build"`
 
-export const CI_SNIPPET: string = `Add this step to CI:
+export const CI_SNIPPET: string = `Add this step to CI, before any step that runs loclizr build:
 
   # loclizr check compares the committed context record against this tree.
   # loclizr build would rewrite that record in the CI workspace and pass.

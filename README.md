@@ -120,12 +120,13 @@ of `build` and on from the first run.
 
 Because one untranslated key should not stop a dev server from starting,
 `loclizr build --no-fail` prints the identical diagnostics and exits 0 as long
-as output was written. That flag belongs in `predev` and `prepare`. `prebuild`
-runs plain `loclizr build`, and CI runs `loclizr check`, which does everything
-`build` does without writing and takes no such flag.
+as output was written. That flag belongs in `predev`. `prebuild` and
+`pretypecheck` run plain `loclizr build`, and CI runs `loclizr check` before
+anything that runs `build`; `check` does everything `build` does without
+writing and takes no such flag. There is no `prepare` hook on purpose: it would
+run on `npm ci` and rewrite the record before CI could compare it.
 
 ```json
-"prepare": "loclizr build --no-fail",
 "predev": "loclizr build --no-fail",
 "prebuild": "loclizr build",
 "pretypecheck": "loclizr build"

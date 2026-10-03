@@ -337,13 +337,26 @@ describe('runInit, never overwrites', () => {
 })
 
 describe('runInit, printed wiring', () => {
-  it('prints the four package.json scripts with --no-fail on the two tree makers', async () => {
+  it('prints the three package.json scripts with --no-fail on the dev tree maker', async () => {
     const { output } = await runInit({ cwd: root })
 
-    expect(output).toContain('"prepare": "loclizr build --no-fail"')
     expect(output).toContain('"predev": "loclizr build --no-fail"')
     expect(output).toContain('"prebuild": "loclizr build"')
     expect(output).toContain('"pretypecheck": "loclizr build"')
+  })
+
+  it('prints no prepare hook, which would rewrite the record during a CI install', async () => {
+    const { output } = await runInit({ cwd: root })
+
+    expect(output).not.toContain('"prepare"')
+    expect(output).toContain('before any step that runs loclizr build')
+  })
+
+  it('tells the reader to install loclizr as a regular dependency', async () => {
+    const { output } = await runInit({ cwd: root })
+
+    expect(output).toContain('npm i loclizr')
+    expect(output).not.toContain('npm i -D loclizr')
   })
 
   it('keeps --no-fail off the two gate hooks', async () => {
