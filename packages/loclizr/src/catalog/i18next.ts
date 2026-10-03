@@ -43,6 +43,8 @@ const TAG_NAME_CHARS =
   '[-.0-9A-Z_a-z\\u00B7\\u00C0-\\u00D6\\u00D8-\\u00F6\\u00F8-\\u037D\\u037F-\\u1FFF\\u200C\\u200D\\u203F\\u2040\\u2070-\\u218F\\u2C00-\\u2FEF\\u3001-\\uD7FF\\uF900-\\uFDCF\\uFDF0-\\uFFFD\\u{10000}-\\u{EFFFF}]*'
 const OPENING_TAG = new RegExp(`^<([A-Za-z]${TAG_NAME_CHARS})\\p{Pattern_White_Space}*(/?)>`, 'u')
 const CLOSING_TAG = new RegExp(`^</([A-Za-z]${TAG_NAME_CHARS})\\p{Pattern_White_Space}*>`, 'u')
+const LOWERABLE_TAG_HINT =
+  'a tag lowers when its name starts with an ASCII letter, it carries no attributes and it is closed, <link>...</link> or <br/>: name a numbered tag and move attributes to the call site.'
 
 interface SuffixMatch {
   readonly base: string
@@ -130,7 +132,7 @@ export function toIcu(value: string, context: ToIcuContext): ToIcuResult {
   const pieces = piecesOf(value, context, diagnostics)
   // One tag the parser rejects would drop the whole message, so the value
   // falls back to the literal mode as a whole and keeps its return type.
-  const rejected = context.markup === 'tags' ? rejectedTag(pieces) : null
+  const rejected = rejectedTag(pieces)
   const markup = rejected === null ? context.markup : 'literal'
   let icu = ''
   let escapedTag = false
@@ -142,19 +144,24 @@ export function toIcu(value: string, context: ToIcuContext): ToIcuResult {
     if (markup === 'literal' && TAG_SHAPED.test(piece.text)) escapedTag = true
     icu += escapeIcuLiteral(piece.text, { markup })
   }
-  if (rejected !== null) {
+  if (context.markup === 'tags' && rejected !== null) {
     diagnostics.push(
       diag('i18next-markup-literal', {
         message: `The tag ${rejected} cannot lower to a markup argument, so every tag in this value was escaped to literal text, which is what i18next's t() rendered.`,
-        hint: 'a tag lowers when its name starts with a letter, it carries no attributes and it is closed, <link>...</link> or <br/>: name a numbered tag and move attributes to the call site.',
+        hint: LOWERABLE_TAG_HINT,
         ...where(context),
       }),
     )
   } else if (escapedTag) {
     diagnostics.push(
       diag('i18next-markup-literal', {
-        message: 'Tag-shaped text in this value was escaped to literal text, which is what i18next itself rendered.',
-        hint: "set i18nextMarkup: 'tags' to lower these tags to markup arguments instead.",
+        message:
+          rejected === null
+            ? 'Tag-shaped text in this value was escaped to literal text, which is what i18next itself rendered.'
+            : `Tag-shaped text in this value was escaped to literal text, which is what i18next itself rendered. The tag ${rejected} cannot lower to a markup argument.`,
+        // Under 'tags' this value would escape again with the same warning, so
+        // the mode is offered only once every tag in it would lower.
+        hint: rejected === null ? "set i18nextMarkup: 'tags' to lower these tags to markup arguments instead." : LOWERABLE_TAG_HINT,
         ...where(context),
       }),
     )
@@ -478,10 +485,13 @@ function placeholderPiece(raw: string, context: ToIcuContext, diagnostics: Diagn
     return { text: `{{${raw}}}`, argument: false }
   }
   if (comma >= 0) {
+    // i18next lowercases a formatter name before it looks one up.
+    const date = /^datetime\b/i.test(inner.slice(comma + 1).trim())
+    const [bucket, type] = date ? ['dateTime', 'date'] : ['number', 'number']
     diagnostics.push(
       diag('i18next-format-unsupported', {
         message: `The placeholder {{${inner}}} carries an i18next formatter, which has no ICU equivalent. It renders as the raw value.`,
-        hint: `name the style in formats.number or formats.dateTime, convert this file to ICU, and write {${name}, number, yourStyle}.`,
+        hint: `name the style in formats.${bucket}, convert this file to ICU, and write {${name}, ${type}, yourStyle}.`,
         ...where(context),
       }),
     )

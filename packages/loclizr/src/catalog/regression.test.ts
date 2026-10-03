@@ -1,7 +1,7 @@
 import { mkdir, mkdtemp, rm, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { dirname, join } from 'node:path'
-import { parse } from '@formatjs/icu-messageformat-parser'
+import { parse, TYPE } from '@formatjs/icu-messageformat-parser'
 import { afterEach, describe, expect, it } from 'vitest'
 import type { Config } from '../types'
 import { toPosix } from '../util'
@@ -173,5 +173,75 @@ describe('a null leaf in the source catalog', () => {
     expect(result.diagnostics.map((one) => [one.code, one.locale, one.key, one.span?.line])).toEqual([
       ['LZ1010', 'en', 'cart.greeting', 1],
     ])
+  })
+})
+
+describe('LZ1016 hints, followed literally, end in a value that lowers', () => {
+  function hintOf(result: CatalogReadResult): string {
+    return result.diagnostics.find((one) => one.code === 'LZ1016')?.hint ?? ''
+  }
+
+  it.each([
+    ['an attribute', 'Read <a href=\\"/t\\">terms</a>, {{name}}'],
+    ['a numbered tag beside a named one', 'Click <b>here</b> or <0>there</0>, {{name}}'],
+    ['an unclosed tag', 'Line<br>break, {{name}}'],
+  ])('describes a lowerable tag, not the mode, for a value with %s', async (_, value) => {
+    const literal = hintOf(await read({ 'locales/en.json': `{"a": "${value}"}` }))
+    expect(literal).not.toContain('i18nextMarkup')
+    expect(literal).toContain('starts with an ASCII letter')
+    expect(literal).toContain('no attributes')
+    expect(literal).toContain('closed')
+  })
+
+  it('asks for an ASCII letter, which is all the parser takes as a tag name start', async () => {
+    const value = '<ñ>x</ñ> and <i>y</i>, {{name}}'
+    for (const markup of ['literal', 'tags'] as const) {
+      const result = await read({ 'locales/en.json': `{"a": "${value}"}` }, { i18nextMarkup: markup })
+      expect(hintOf(result)).toContain('starts with an ASCII letter')
+    }
+  })
+
+  it.each([
+    ['a <b and <i>c</i>, {{name}}', '<b and <i>'],
+    ['x </b> <i>y</i>, {{name}}', '</b>'],
+  ])('names the construct that cannot lower in %s', async (value, culprit) => {
+    const result = await read({ 'locales/en.json': `{"a": "${value}"}` })
+    const lz1016 = result.diagnostics.filter((one) => one.code === 'LZ1016')
+    expect(lz1016).toHaveLength(1)
+    expect(lz1016[0]?.message).toContain(`The tag ${culprit} cannot lower to a markup argument`)
+  })
+
+  it('offers the mode once the tags lower, and the mode then lowers them silently', async () => {
+    const catalog = { 'locales/en.json': '{"a": "Read <link>terms</link>, {{name}}"}' }
+    expect(hintOf(await read(catalog))).toContain("set i18nextMarkup: 'tags'")
+    const tags = await read(catalog, { i18nextMarkup: 'tags' })
+    expect(tags.diagnostics).toEqual([])
+    const value = tags.catalogs[0]?.entries[0]?.value ?? ''
+    expect(parse(value).some((element) => element.type === TYPE.tag)).toBe(true)
+  })
+})
+
+describe('LZ1013 hints spell the ICU argument the formatter needs', () => {
+  async function formatterHint(value: string): Promise<string> {
+    const result = await read({ 'locales/en.json': `{"a": "${value}"}` })
+    return result.diagnostics.find((one) => one.code === 'LZ1013')?.hint ?? ''
+  }
+
+  it.each(['{{when, datetime}}', '{{when, DateTime(dateStyle: short)}}'])(
+    'writes a date argument for %s',
+    async (placeholder) => {
+      const hint = await formatterHint(`At ${placeholder}`)
+      expect(hint).toContain('formats.dateTime')
+      expect(hint).not.toContain('number')
+      const written = /write (\{.*\})\.$/.exec(hint)?.[1] ?? ''
+      expect(written).toBe('{when, date, yourStyle}')
+      expect(parse(written)[0]?.type).toBe(TYPE.date)
+    },
+  )
+
+  it('keeps a number argument for a number formatter', async () => {
+    const hint = await formatterHint('Total {{amount, currency}}')
+    expect(hint).toContain('formats.number')
+    expect(hint).toContain('{amount, number, yourStyle}')
   })
 })
