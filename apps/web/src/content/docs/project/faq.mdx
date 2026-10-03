@@ -64,7 +64,8 @@ a reminder; [Translation workflow](/guides/translation-workflow/) has the cost.
 ## Can I turn a check off?
 
 Any rule except three: `severity: { 'unused-message': 'off' }` in `loclizr.config.ts` sets a rule,
-by name or code, to `off`, `warn` or `error`.
+by the name printed beside its code, to `off`, `warn` or `error`. A code such as `LZ5004` is
+rejected as `LZ1001`.
 
 `config-invalid`, `outdir-unsafe` and `output-unwritable` cannot be re-levelled; lowering one would
 let the tool quietly do what it must never do. Warnings fail a run only with `--max-warnings`.

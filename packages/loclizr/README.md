@@ -5,7 +5,7 @@ translation files. `loclizr build` reads JSON catalogs, fails the build when a
 translation is missing or its arguments disagree with the source, and writes a
 context record for translators next to the catalogs.
 
-**Pre-release.** v0.1 is in development and the API can change.
+**0.x.** A minor version may break an invariant, and the changelog says when it does.
 
 ## Install
 
