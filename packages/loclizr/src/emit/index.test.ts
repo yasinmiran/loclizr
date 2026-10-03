@@ -93,10 +93,18 @@ describe('the worked example', () => {
     }
   })
 
+  test('opts every .js out of checkJs on line 2 and leaves every .d.ts checked', () => {
+    for (const file of [...files, ...emit(acceptanceProgram()).files]) {
+      if (file.path.endsWith('.js')) expect(file.contents.startsWith(`${HEADER}\n// @ts-nocheck\n`)).toBe(true)
+      else expect(file.contents).not.toContain('@ts-nocheck')
+    }
+  })
+
   test('names every hoisted format by the hash of its canonical options', () => {
     expect(contentsOf(files, 'messages/_formats.js')).toBe(
       lines(
         HEADER,
+        '// @ts-nocheck',
         'export const $f44136fa355b3678a = /*#__PURE__*/ Object.freeze({})',
         "export const $f56d532f63ea89042 = /*#__PURE__*/ Object.freeze({ currency: 'USD', style: 'currency' })",
         "export const $f67d978756bf2d048 = /*#__PURE__*/ Object.freeze({ dateStyle: 'medium' })",
@@ -323,6 +331,7 @@ describe('plurals', () => {
     expect(contentsOf(files, 'messages/cart.js')).toBe(
       lines(
         HEADER,
+        '// @ts-nocheck',
         "import { $number1, $plural1 } from 'loclizr'",
         "import { $f44136fa355b3678a } from './_formats.js'",
         "import { $l } from './_locale.js'",
@@ -775,6 +784,7 @@ describe('the tree', () => {
     expect(contentsOf(files, 'messages.js')).toBe(
       lines(
         HEADER,
+        '// @ts-nocheck',
         "export { getLocale, setLocale, subscribe } from 'loclizr'",
         "export { locales, sourceLocale } from './messages/_locale.js'",
         "export * from './messages/alpha.js'",
@@ -940,6 +950,7 @@ describe('groups', () => {
     expect(contentsOf(files, 'groups.js')).toBe(
       lines(
         HEADER,
+        '// @ts-nocheck',
         "import { errors_forbidden, errors_not_found, errors_rate_limited } from './messages/errors.js'",
         '',
         'export const errors = /*#__PURE__*/ Object.freeze({',

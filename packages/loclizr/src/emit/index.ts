@@ -18,6 +18,7 @@ import { localDeclarations, messageContext, pluralSelectors, renderArm } from '.
 import { argsShape, declaration, returnType } from './declare'
 import {
   HEADER,
+  NOCHECK,
   bindsHandlerType,
   byCodepoint,
   handlerNames,
@@ -168,7 +169,7 @@ function namespaceFor(namespaces: Map<string, Namespace>, module: string): Names
 }
 
 function namespaceModule(namespace: Namespace): string {
-  const lines: string[] = [HEADER]
+  const lines: string[] = [HEADER, NOCHECK]
   if (namespace.runtime.size > 0) {
     lines.push(`import { ${byCodepoint([...namespace.runtime]).join(', ')} } from 'loclizr'`)
   }
@@ -188,6 +189,7 @@ function localeModule(program: Program): string {
   const locales = byCodepoint(program.locales).map(quoted).join(', ')
   return textOf([
     HEADER,
+    NOCHECK,
     "import { $configure1 } from 'loclizr'",
     '',
     `export const locales = /*#__PURE__*/ Object.freeze([${locales}])`,
@@ -210,7 +212,7 @@ function formatsModule(formats: ReadonlyMap<string, IntlOptions>): string {
   const lines = byCodepoint([...formats.keys()]).map(
     (name) => `export const ${name} = /*#__PURE__*/ Object.freeze(${objectLiteral(formats.get(name) ?? {})})`,
   )
-  return textOf([HEADER, ...lines])
+  return textOf([HEADER, NOCHECK, ...lines])
 }
 
 function formatsTypes(formats: ReadonlyMap<string, IntlOptions>): string {
@@ -242,20 +244,32 @@ function groupsModule(groups: readonly Group[], byKey: ReadonlyMap<string, Messa
   const lines = byCodepoint([...imports.keys()]).map(
     (module) => `import { ${byCodepoint([...(imports.get(module) ?? [])]).join(', ')} } from './${module}'`,
   )
-  return textOf([HEADER, ...lines, '', blocks.join('\n\n')])
+  return textOf([HEADER, NOCHECK, ...lines, '', blocks.join('\n\n')])
 }
 
 function groupsTypes(groups: readonly Group[], byKey: ReadonlyMap<string, Message>): string {
   const tiers = groups.map((group) => ({ group, members: resolvedMembers(group, byKey) }))
   const emptyArgs = tiers.some((tier) => tier.members.some((entry) => entry.message.args.length === 0))
   const imported = emptyArgs ? ['EmptyArgs', 'MessageOptions'] : ['MessageOptions']
-  const blocks = tiers.map((tier) => groupTier(tier.group, tier.members))
-  return textOf([HEADER, `import type { ${imported.join(', ')} } from 'loclizr'`, '', blocks.join('\n\n')])
+  const locals = new Set(groups.flatMap((group) => ['Key', 'Args', 'Return'].map((suffix) => group.typeBase + suffix)))
+  const emptyArgsName = unshadowed('EmptyArgs', locals)
+  const bindings = imported.map((name) =>
+    name === 'EmptyArgs' && emptyArgsName !== name ? `${name} as ${emptyArgsName}` : name,
+  )
+  const blocks = tiers.map((tier) => groupTier(tier.group, tier.members, emptyArgsName))
+  return textOf([HEADER, `import type { ${bindings.join(', ')} } from 'loclizr'`, '', blocks.join('\n\n')])
+}
+
+// A group's type base is user-derived, so `Empty` prints `EmptyArgs` and would
+// collide with the imported type; the import then binds under a `$` name no
+// local type takes. `MessageOptions` needs no such care: no local name ends in it.
+function unshadowed(name: string, locals: ReadonlySet<string>): string {
+  return locals.has(name) ? unshadowed(`$${name}`, locals) : name
 }
 
 // A markup member returns parts rather than a string and its handler names a
 // type parameter, so a tier holding one carries both through the lookup maps.
-function groupTier(group: Group, members: readonly ResolvedMember[]): string {
+function groupTier(group: Group, members: readonly ResolvedMember[], emptyArgs: string): string {
   const parts = members.some((entry) => bindsHandlerType(entry.message))
   const keys =
     members.length === 0 ? 'never' : members.map((entry) => quoted(entry.member.member)).join(' | ')
@@ -267,7 +281,7 @@ function groupTier(group: Group, members: readonly ResolvedMember[]): string {
   return [
     `export type ${group.typeBase}Key = ${keys}`,
     `export interface ${group.typeBase}Args${parts ? '<T>' : ''} {`,
-    ...members.map((entry) => field(entry, argsShape(entry.message.args))),
+    ...members.map((entry) => field(entry, argsShape(entry.message.args, emptyArgs))),
     '}',
     ...(parts
       ? [
@@ -305,6 +319,7 @@ function recordKey(member: string): string {
 function barrelModule(namespaces: readonly Namespace[]): string {
   return textOf([
     HEADER,
+    NOCHECK,
     "export { getLocale, setLocale, subscribe } from 'loclizr'",
     "export { locales, sourceLocale } from './messages/_locale.js'",
     ...namespaces.map((namespace) => `export * from './${namespace.module}'`),

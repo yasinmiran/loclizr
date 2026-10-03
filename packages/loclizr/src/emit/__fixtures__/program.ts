@@ -71,7 +71,7 @@ export function markup(name: string, children: readonly Node[]): Node {
 }
 
 export function body(locale: string, nodes: readonly Node[], args: readonly Arg[] = []): Body {
-  return { locale, nodes, args, markupTags: markupTagsOf(nodes) }
+  return { locale, nodes, args, markupTags: markupTagsOf(nodes), format: 'icu' }
 }
 
 export function translated(locale: string): LocaleOrigin {

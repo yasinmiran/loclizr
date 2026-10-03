@@ -97,3 +97,54 @@ describe('the typed lookup tier', () => {
     expect(contentsOf(files, 'groups.d.ts')).toContain('  constructor: EmptyArgs')
   })
 })
+
+describe('a group whose type names meet the imported ones', () => {
+  const none = (key: string, id: string): Message =>
+    message({
+      key,
+      source: 'Nothing here',
+      identifier: id,
+      bodies: [body('en', [text('Nothing here')])],
+      origins: [translated('en')],
+    })
+  const tier = (name: string, typeBase: string): Group => ({
+    name,
+    id: name,
+    typeBase,
+    prefix: name,
+    members: [{ key: `${name}.none`, id: `${name}_none`, member: 'none' }],
+  })
+  const declarationsOf = (groups: readonly Group[]): string =>
+    contentsOf(
+      emit(
+        program({
+          messages: groups.map((group) => none(`${group.prefix}.none`, `${group.id}_none`)),
+          groups,
+          config: config({ locales: ['en'], groups: Object.fromEntries(groups.map((group) => [group.name, group.prefix])) }),
+        }),
+      ).files,
+      'groups.d.ts',
+    )
+  const imports = (source: string): ReadonlyMap<string, string> => {
+    const clause = /^import type \{ (.*) \} from 'loclizr'$/mu.exec(source)?.[1] ?? ''
+    return new Map(
+      clause.split(', ').map((entry) => {
+        const [imported = '', local = imported] = entry.split(' as ')
+        return [imported, local]
+      }),
+    )
+  }
+  const declaredTypes = (source: string): readonly string[] =>
+    [...source.matchAll(/^export (?:type|interface) ([^\s<=]+)/gmu)].map((match) => match[1] ?? '')
+
+  for (const groups of [[tier('empty', 'Empty')], [tier('empty', 'Empty'), tier('$Empty', '$Empty')]]) {
+    test(`binds no imported name a local type declares, for ${groups.map((group) => group.typeBase).join(' and ')}`, () => {
+      const source = declarationsOf(groups)
+      const bound = imports(source)
+      const locals = new Set(declaredTypes(source))
+      for (const local of bound.values()) expect(locals.has(local)).toBe(false)
+      expect(source).toContain(`  none: ${bound.get('EmptyArgs')}\n`)
+      expect(source).toContain(`opts?: ${bound.get('MessageOptions')}) => string`)
+    })
+  }
+})

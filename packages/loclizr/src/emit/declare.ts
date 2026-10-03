@@ -6,8 +6,8 @@ export function argsParameter(args: readonly Arg[]): string {
   return args.length === 0 ? 'args?: EmptyArgs' : `args: ${argsShape(args)}`
 }
 
-export function argsShape(args: readonly Arg[]): string {
-  if (args.length === 0) return 'EmptyArgs'
+export function argsShape(args: readonly Arg[], emptyArgs = 'EmptyArgs'): string {
+  if (args.length === 0) return emptyArgs
   const fields = args.map((arg) => `${isArgName(arg.name) ? arg.name : quoted(arg.name)}: ${typeOf(arg.type)}`)
   return `{ ${fields.join('; ')} }`
 }
