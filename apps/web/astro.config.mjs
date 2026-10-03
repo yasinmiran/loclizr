@@ -1,11 +1,17 @@
 import starlight from '@astrojs/starlight'
 import { defineConfig } from 'astro/config'
+import starlightThemeBlack from 'starlight-theme-black'
 
 export default defineConfig({
   site: 'https://loclizr.dev',
   integrations: [
     starlight({
       title: 'loclizr',
+      plugins: [
+        starlightThemeBlack({
+          navLinks: [{ label: 'Docs', link: '/start/introduction/' }],
+        }),
+      ],
       description:
         'A compiler for the contract between code and translations. Typed ESM message functions from JSON catalogs, catalog checks inside the build, and a context record per message.',
       social: [
