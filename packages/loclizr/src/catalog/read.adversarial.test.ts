@@ -210,7 +210,8 @@ describe('readCatalogs keeps what the fallback chain has to tell apart', () => {
       ['empty', ''],
       ['blank', '   '],
     ])
-    expect(result.diagnostics).toEqual([])
+    // Only a null leaf in the source has no fallback to reach.
+    expect(result.diagnostics.map((one) => [one.code, one.key])).toEqual([['LZ1010', 'untranslated']])
   })
 })
 

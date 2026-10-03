@@ -168,7 +168,8 @@ export function foldPluralSuffixes(
   file: string,
 ): FoldResult {
   const diagnostics: Diagnostic[] = []
-  const groups = pluralGroups(entries.map((entry) => entry.key), locale)
+  const known = hasPluralData(locale)
+  const groups = pluralGroups(entries.map((entry) => entry.key), known ? locale : null)
   const startsGroup = new Map(groups.map((group) => [group.first, group]))
   const consumed = foldedIndices(groups)
   const foldedKeys = new Set(groups.map((group) => group.key))
@@ -177,7 +178,7 @@ export function foldPluralSuffixes(
   for (const [index, entry] of entries.entries()) {
     const group = startsGroup.get(index)
     if (group !== undefined) {
-      folded.push({ key: group.key, value: branchesOf(group, entries, locale), span: entry.span })
+      folded.push({ key: group.key, value: branchesOf(group, entries, known ? locale : null), span: entry.span })
       continue
     }
     if (consumed.has(index)) continue
@@ -275,6 +276,9 @@ function contextsOf(
     // `_plural` and the CLDR categories are the two plural shapes above.
     if (suffix === '' || suffix === 'plural' || suffix === 'ordinal') continue
     if (CLDR_CATEGORIES.includes(suffix)) continue
+    // `user_settings.title` beside `user` is a nested key under an underscored
+    // segment, and a dotted selector would not parse in the rewrite.
+    if (suffix.includes('.')) continue
     if (!byKey.has(base)) continue
     const found = bases.get(base)
     if (found === undefined) bases.set(base, [entry])
@@ -342,6 +346,26 @@ function isGroup(bucket: Bucket, locale: string | null): boolean {
   return locale !== null && requiredCategories(locale, bucket.ordinal).length === 1
 }
 
+// Intl answers a tag it has no plural data for, `xx` or `shared`, with the build
+// machine's own locale. Folding on that answer would make the emitted key and
+// branches depend on LANG, so such a locale folds as if no locale were in hand.
+// Plural data is keyed by language, so `de-AT` resolving to `de` is a hit.
+function hasPluralData(locale: string): boolean {
+  try {
+    const canonical = Intl.getCanonicalLocales(locale)[0] ?? locale
+    const resolved = new Intl.PluralRules(canonical).resolvedOptions().locale
+    return languageOf(resolved) === languageOf(canonical)
+  } catch {
+    // A tag Intl cannot canonicalize is M9's fatal LZ1002, so a build never
+    // folds one; the throw it would raise belongs to requiredCategories.
+    return true
+  }
+}
+
+function languageOf(tag: string): string {
+  return (tag.split('-')[0] ?? tag).toLowerCase()
+}
+
 function foldedIndices(groups: readonly PluralGroup[]): ReadonlySet<number> {
   const indices = new Set<number>()
   for (const group of groups) {
@@ -350,7 +374,7 @@ function foldedIndices(groups: readonly PluralGroup[]): ReadonlySet<number> {
   return indices
 }
 
-function branchesOf(group: PluralGroup, entries: readonly RawEntry[], locale: string): string {
+function branchesOf(group: PluralGroup, entries: readonly RawEntry[], locale: string | null): string {
   const bodyOf = new Map(
     group.members.map((member) => [member.category, quotePounds(entries[member.index]?.value ?? '')]),
   )
@@ -358,7 +382,7 @@ function branchesOf(group: PluralGroup, entries: readonly RawEntry[], locale: st
   // while `=0` in Latvian would drop 10, 20 and 11 through 19 into `other`. The
   // group's own kind decides it, because Latvian ordinal has no `zero` either
   // and a keyword branch nothing can select is dead whichever kind it is on.
-  const keywordZero = requiredCategories(locale, group.ordinal).includes('zero')
+  const keywordZero = locale !== null && requiredCategories(locale, group.ordinal).includes('zero')
   const zero = bodyOf.get('zero')
   const branches: string[] = []
   if (zero !== undefined && !keywordZero) branches.push(`=0 {${zero}}`)

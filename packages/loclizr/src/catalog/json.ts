@@ -53,10 +53,29 @@ const ESCAPES: Readonly<Record<string, string>> = {
 
 const NUMBER = /-?(?:0|[1-9][0-9]*)(?:\.[0-9]+)?(?:[eE][+-]?[0-9]+)?/y
 
+const BYTE_ORDER_MARK = '\ufeff'
+
+// Object.keys lists integer-like keys first, so a parsed object's file order is
+// kept beside it for the walk that decides which route of a collision wins.
+const fileOrder = new WeakMap<object, readonly string[]>()
+
+export function keysInFileOrder(node: Record<string, unknown>): readonly string[] {
+  return fileOrder.get(node) ?? Object.keys(node)
+}
+
 export function parseJsonWithSpans(text: string, file: string): ParsedJson {
   const cursor: Cursor = { text, lineStarts: lineStartsOf(text), index: 0 }
   const paths: Paths = { spans: new Map(), duplicates: [], reported: new Set(), leaves: new Set() }
   try {
+    // JSON.parse rejects a byte order mark too, and printed raw the character is
+    // invisible, so the message names it.
+    if (text.startsWith(BYTE_ORDER_MARK)) {
+      throw new JsonSyntaxError(
+        'The file starts with a byte order mark (U+FEFF), which JSON.parse rejects.',
+        0,
+        'save the file as UTF-8 without a byte order mark.',
+      )
+    }
     skipSpace(cursor)
     const value = parseValue(cursor, '', paths, 0)
     skipSpace(cursor)
@@ -122,6 +141,8 @@ function parseObject(
 ): Record<string, unknown> {
   const result = Object.create(null) as Record<string, unknown>
   const written = new Set<string>()
+  const order: string[] = []
+  fileOrder.set(result, order)
   cursor.index += 1
   skipSpace(cursor)
   if (cursor.text[cursor.index] === '}') {
@@ -134,7 +155,8 @@ function parseObject(
       throw new JsonSyntaxError(`Unexpected ${describeAt(cursor)} where a quoted key was expected.`, cursor.index)
     }
     const key = parseString(cursor)
-    const child = path === null ? null : path === '' ? key : `${path}.${key}`
+    // Depth 1 is the root object; an empty key below it is still a segment.
+    const child = path === null ? null : depth === 1 ? key : `${path}.${key}`
     if (child !== null) {
       // One object writing a key twice loses the first value whole, whatever
       // shape either of them has.
@@ -149,6 +171,9 @@ function parseObject(
     skipSpace(cursor)
     const valueStart = cursor.index
     const value = parseValue(cursor, child, paths, depth)
+    // A rewritten key walks from its last spelling, where its value and span are.
+    if (Object.hasOwn(result, key)) order.splice(order.indexOf(key), 1)
+    order.push(key)
     result[key] = value
     if (child !== null) paths.spans.set(child, valueSpan(cursor, valueStart, value))
     // Two routes to one path, a dotted key beside a nested one, collide only
@@ -269,7 +294,8 @@ function describeAt(cursor: Cursor): string {
 function lineStartsOf(text: string): readonly number[] {
   const starts = [0]
   for (let index = 0; index < text.length; index += 1) {
-    if (text[index] === '\n') starts.push(index + 1)
+    const char = text[index]
+    if (char === '\n' || (char === '\r' && text[index + 1] !== '\n')) starts.push(index + 1)
   }
   return starts
 }

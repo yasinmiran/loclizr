@@ -13,7 +13,7 @@ import type {
   Span,
 } from '../types'
 import { compareCodepoint, toPosix } from '../util'
-import { flatten } from './flatten'
+import { flattenWithNulls } from './flatten'
 import { classifyFormat, findTypedArgument, foldPluralSuffixes, toIcu } from './i18next'
 import { parseJsonWithSpans } from './json'
 import { hasNamespace, namespaceOfFile, substituteLocale, toGlob } from './pattern'
@@ -41,6 +41,10 @@ interface ReadOutcome {
 }
 
 const ROOT_SPAN: Span = { line: 1, column: 1, offset: 0, length: 0 }
+
+// LZ1020 fires on every file read as i18next, so no catalogFormat keeps the
+// literal text and silences it; only the severity override does.
+const LITERAL_RUN_OVERRIDE = "severity: { 'icu-in-i18next-file': 'off' }"
 
 export async function readCatalogs(config: Config): Promise<CatalogReadResult> {
   const diagnostics: Diagnostic[] = []
@@ -111,7 +115,7 @@ async function readOne(
     return null
   }
 
-  const flat = flatten({
+  const flat = flattenWithNulls({
     value: parsed.value,
     file: found.file,
     locale,
@@ -119,6 +123,25 @@ async function readOne(
     spans: parsed.spans,
   })
   diagnostics.push(...flat.diagnostics)
+  if (isSource) {
+    // The source is the end of every fallback chain, so a null there is a message
+    // with no text, unless another route to the same key holds one.
+    const keys = new Set(flat.entries.map((entry) => entry.key))
+    for (const path of new Set(flat.nulls)) {
+      const key = found.ns === null ? path : `${found.ns}.${path}`
+      if (keys.has(key)) continue
+      diagnostics.push(
+        diag('catalog-shape-invalid', {
+          message: `"${key}" is null in the source catalog, so the message has no text and is left out.`,
+          hint: 'write the source text, or delete the key from every catalog.',
+          file: found.file,
+          locale,
+          key,
+          span: parsed.spans.get(path),
+        }),
+      )
+    }
+  }
   for (const path of parsed.duplicates) {
     const key = found.ns === null ? path : `${found.ns}.${path}`
     diagnostics.push(
@@ -367,9 +390,9 @@ function metaPath(pattern: string, sourceLocale: string): string {
 
 function whyI18next(because: string | null): string {
   if (because === null) {
-    return "catalogFormat is 'i18next', so every file is read that way. Set it to 'auto' or write this file as ICU."
+    return `catalogFormat is 'i18next', so every file is read that way. Write this file as ICU and set catalogFormat to 'auto', or set ${LITERAL_RUN_OVERRIDE} if the literal text is what you meant.`
   }
-  return `this file classified as i18next on ${JSON.stringify(because)}. Convert the file to ICU, or pin catalogFormat if the literal text is what you meant.`
+  return `this file classified as i18next on ${JSON.stringify(because)}. Convert the file to ICU, or set ${LITERAL_RUN_OVERRIDE} if the literal text is what you meant.`
 }
 
 function isObject(value: unknown): value is Record<string, unknown> {

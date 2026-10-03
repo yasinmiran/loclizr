@@ -1,5 +1,6 @@
 import { diag } from '../diagnostics'
 import type { Diagnostic, RawEntry, Span } from '../types'
+import { keysInFileOrder } from './json'
 
 export interface FlattenInput {
   readonly value: unknown
@@ -14,6 +15,11 @@ export interface FlattenResult {
   readonly diagnostics: readonly Diagnostic[]
 }
 
+// Unprefixed paths of the null leaves, for readCatalogs to report in the source.
+export interface FlattenWithNullsResult extends FlattenResult {
+  readonly nulls: readonly string[]
+}
+
 const ROOT_SPAN: Span = { line: 1, column: 1, offset: 0, length: 0 }
 
 interface Walk {
@@ -21,10 +27,16 @@ interface Walk {
   readonly entries: RawEntry[]
   readonly diagnostics: Diagnostic[]
   readonly positionOf: Map<string, number>
+  readonly nulls: string[]
 }
 
 export function flatten(input: FlattenInput): FlattenResult {
-  const walk: Walk = { input, entries: [], diagnostics: [], positionOf: new Map() }
+  const { entries, diagnostics } = flattenWithNulls(input)
+  return { entries, diagnostics }
+}
+
+export function flattenWithNulls(input: FlattenInput): FlattenWithNullsResult {
+  const walk: Walk = { input, entries: [], diagnostics: [], positionOf: new Map(), nulls: [] }
   if (!isObject(input.value)) {
     walk.diagnostics.push(
       diag('catalog-shape-invalid', {
@@ -35,23 +47,27 @@ export function flatten(input: FlattenInput): FlattenResult {
         span: ROOT_SPAN,
       }),
     )
-    return { entries: walk.entries, diagnostics: walk.diagnostics }
+    return walk
   }
-  descend(walk, input.value, '')
-  return { entries: walk.entries, diagnostics: walk.diagnostics }
+  descend(walk, input.value, null)
+  return walk
 }
 
-function descend(walk: Walk, node: Record<string, unknown>, prefix: string): void {
-  for (const name of Object.keys(node)) {
-    const path = prefix === '' ? name : `${prefix}.${name}`
+function descend(walk: Walk, node: Record<string, unknown>, prefix: string | null): void {
+  for (const name of keysInFileOrder(node)) {
+    const path = prefix === null ? name : `${prefix}.${name}`
     const value = node[name]
     if (typeof value === 'string') {
       add(walk, path, value)
       continue
     }
     // A null leaf is an untranslated unit, which several TMS exports write. It
-    // contributes no entry and reaches LZ3001 through the fallback chain.
-    if (value === null) continue
+    // contributes no entry and, in a target catalog, reaches LZ3001 through the
+    // fallback chain; readCatalogs reports one in the source.
+    if (value === null) {
+      walk.nulls.push(path)
+      continue
+    }
     if (isObject(value)) {
       descend(walk, value, path)
       continue
