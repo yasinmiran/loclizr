@@ -15,7 +15,7 @@ export const getStaticPaths = (async () => {
 
 export const GET: APIRoute<Props> = ({ props }) => {
   const { title, description } = props.entry.data
-  const body = asidesToBlockquotes(stripComponentImports(props.entry.body ?? ''))
+  const body = componentsToMarkdown(asidesToBlockquotes(stripComponentImports(props.entry.body ?? '')))
   const head = description ? `# ${title}\n\n${description}` : `# ${title}`
   return new Response(`${head}\n\n${body.trim()}\n`, {
     headers: { 'Content-Type': 'text/markdown; charset=utf-8' },
@@ -55,4 +55,43 @@ function asidesToBlockquotes(body: string): string {
       return `> **${title}**\n>\n${quoted}`
     },
   )
+}
+
+// Wrappers whose content is already Markdown: the tags go and the content stays.
+const wrapperTag = /^\s*<\/?(?:Steps|FileTree|Tabs|CardGrid)>\s*$/
+const tabOpen = /^\s*<TabItem\b[^>]*\blabel="([^"]*)"[^>]*>\s*$/
+const tabClose = /^\s*<\/TabItem>\s*$/
+
+function componentsToMarkdown(body: string): string {
+  const flattened = body
+    .replace(/^[ \t]*<Card\b([^>]*)>\n([\s\S]*?)\n\s*<\/Card>/gm, (_match, attrs: string, inner: string) => {
+      const title = /title="([^"]*)"/.exec(attrs)?.[1] ?? ''
+      // Card bodies are indented inside the grid, which Markdown would read as a code block.
+      const text = inner
+        .split('\n')
+        .map((line) => line.trim())
+        .join(' ')
+      return `**${title}**\n\n${text}\n`
+    })
+    .replace(/^[ \t]*<LinkCard\b([^>]*?)\s*\/>/gm, (_match, attrs: string) => {
+      const field = (name: string): string => new RegExp(`\\b${name}="([^"]*)"`).exec(attrs)?.[1] ?? ''
+      const description = field('description')
+      return `- [${field('title')}](${field('href')})${description ? `: ${description}` : ''}`
+    })
+  // A code sample may show these tags literally, so fenced lines pass through untouched.
+  let fenced = false
+  const lines: string[] = []
+  for (const line of flattened.split('\n')) {
+    if (/^\s*(?:```|~~~)/.test(line)) fenced = !fenced
+    if (!fenced) {
+      if (wrapperTag.test(line) || tabClose.test(line)) continue
+      const tab = tabOpen.exec(line)
+      if (tab) {
+        lines.push(`**${tab[1]}**`)
+        continue
+      }
+    }
+    lines.push(line)
+  }
+  return lines.join('\n')
 }
