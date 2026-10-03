@@ -12,26 +12,31 @@ out, so you can judge for yourself whether it blocks you. Nothing here is a prom
 
 ## What v0.1 ships
 
-A command line compiler with three commands: `init`, `build` and `check`. JSON catalogs in, in ICU
-form or in i18next form converted at read time, and plain typed ESM message functions out, one
-module per top-level key. The full rule set runs inside every build, with stable codes and
-per-rule severity. A context record per message is written beside the catalogs and compared by
-`check`. Typed lookup groups for keys chosen at run time. A locale store with cookie persistence,
-React bindings, and server request scoping through `AsyncLocalStorage` for Web Fetch handlers,
-with a header primitive for Express and Fastify. One example app, React on Vite, is the reference
-implementation and the only one that is tested.
+- A command line compiler with three commands: `init`, `build` and `check`.
+- JSON catalogs in, in ICU form or in i18next form converted at read time, and plain typed ESM
+  message functions out, one module per top-level key.
+- The full rule set runs inside every build, with stable codes and per-rule severity.
+- A context record per message is written beside the catalogs and compared by `check`.
+- Typed lookup groups for keys chosen at run time.
+- A locale store with cookie persistence, React bindings, and server request scoping through
+  `AsyncLocalStorage` for Web Fetch handlers, with a header primitive for Express and Fastify.
+- One example app, React on Vite, is the reference implementation and the only one that is
+  tested.
 
 ## Deferred, and why
 
 **`format()` for content unknown at build time.** A runtime formatter needs a runtime ICU parser,
 and the generated code's first invariant is that the browser never ships one. When it comes it
-would be a separate entry, so the invariant keeps holding for everyone who does not import it. Until
-then, content that does not exist at build time is not a message. [Dynamic
+would be a separate entry, so the invariant keeps holding for everyone who does not import it.
+
+Until then, content that does not exist at build time is not a message. [Dynamic
 keys](/guides/dynamic-keys/) covers the run-time-chosen case that is in scope.
 
 **`--watch`.** A watcher is a second code path through the compiler, with platform-dependent
 recursive `fs.watch` behaviour and its own severity semantics to defend, and nothing else in v0.1
-depends on it. The edit loop today is `loclizr build --no-fail` in `predev`, plus either
+depends on it.
+
+The edit loop today is `loclizr build --no-fail` in `predev`, plus either
 `nodemon -w locales -x 'loclizr build --no-fail'` or the small Vite plugin the example app keeps
 inside its own `vite.config.ts`, which reruns `build` when a catalog changes. A watcher would be
 reconsidered only if the build's measured cost on a large catalog made those two loops too slow
@@ -56,9 +61,10 @@ pass, which is the exact tax this project exists to avoid. Any retrofit path wou
 opt-in command, run once, never part of the build.
 
 **Next.js App Router server rendering.** Middleware runs in a different runtime and cannot wrap a
-render, and the right entry point from a root layout is an open question. There is no test and no
-example, so there is no claim. The message layer itself runs anywhere, and the Pages Router can
-already reach `runWithLocale` through `localeFromHeaders`.
+render, and the right entry point from a root layout is an open question.
+
+There is no test and no example, so there is no claim. The message layer itself runs anywhere,
+and the Pages Router can already reach `runWithLocale` through `localeFromHeaders`.
 
 **URL-prefix locale routing.** The hydration agreement holds because the locale comes from a cookie
 or from `Accept-Language` and never from the path. Supporting `/de/cart` means a second locale

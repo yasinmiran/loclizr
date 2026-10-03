@@ -5,44 +5,37 @@ description: useLocale, Parts, and the two patterns that survive React Compiler.
 
 import { Aside } from '@astrojs/starlight/components'
 
-`loclizr/react` exports three things. React is an optional peer dependency (18 or newer), and
-nothing else in the package touches it, so an app that never imports this entry ships no React
-binding.
-
 ```ts
 useLocale(): Locale
 useSetLocale(): (locale: Locale, options?: SetLocaleOptions) => void
 Parts(props: { of: readonly (string | ReactNode)[] }): ReactElement
 ```
 
-`Locale` is your declared union once the generated barrel has augmented it, so `useLocale()` in the
-example app returns `'de' | 'de-AT' | 'en'`.
+React is an optional peer dependency (18 or newer); nothing else in the package touches it, so an
+app that never imports `loclizr/react` ships no React binding. `Locale` is your declared union once the barrel
+has augmented it: `'de' | 'de-AT' | 'en'` in the example app.
 
 ## useLocale
 
-`useSyncExternalStore` over the store, with module-level function references, so nothing
-resubscribes on render and there is no tearing. It is the only subscription in the library. A
-message call is not one, and that fact drives every pattern below.
-
-Outside production the hook also runs one effect: it compares `document.documentElement.lang` with
-the resolved locale, assigns it when they differ, and warns once. There are two messages, one for a
-missing attribute and one for a wrong one, and both point at the same fix, described under
-[Server rendering](/guides/server-rendering/).
+`useSyncExternalStore` over the store with module-level function references: nothing resubscribes
+on render, no tearing. The only subscription in the library; a message call is not one, which
+drives every pattern below.
 
 ```text
 loclizr: <html> carries no lang attribute, so a client with no cookie has nothing to read. Render lang from the Content-Language header withLocale sets.
 loclizr: <html lang="en"> disagrees with the resolved locale "de". Render lang from the Content-Language header withLocale sets.
 ```
 
+Outside production one effect compares `document.documentElement.lang` with the resolved locale,
+assigns it when they differ, and warns once. Missing attribute or wrong one, the fix is under
+[Server rendering](/guides/server-rendering/).
+
 ## useSetLocale
 
-Returns the store's `setLocale`. It exists so a component can take the setter from the hook rather
-than importing the generated barrel only for that; the example's `Switcher` calls `m.setLocale`
-directly, and either is fine.
+The store's `setLocale` from a hook, so a component need not import the generated barrel for the
+setter alone. The example's `Switcher` calls `m.setLocale` directly; either is fine.
 
 ## Parts
-
-A message with markup tags returns an array, not a string. `Parts` renders one:
 
 ```tsx title="src/App.tsx"
 <p className="terms" id="terms">
@@ -58,16 +51,15 @@ A message with markup tags returns an array, not a string. `Parts` renders one:
 </p>
 ```
 
-The whole component is `createElement(Fragment, null, ...props.of)`. Spreading the array as
-positional children means React asks for no keys. No `'use client'` directive is emitted anywhere
-in v0.1, so `Parts` can be called from a server component too; an app that needs the directive puts
-it on its own file.
+A markup message returns an array, not a string; `Parts` renders it. The whole component is
+`createElement(Fragment, null, ...props.of)`, and positional children need no keys.
+
+<Aside type="note">
+v0.1 emits no `'use client'` directive, so `Parts` works from a server component too; an app that
+needs the directive puts it on its own file.
+</Aside>
 
 ## The key-on-root pattern
-
-Because a message call does not subscribe, a component that only calls `m.*()` re-renders when its
-parent renders it and at no other time. The default answer is to key the tree on the locale at the
-root:
 
 ```tsx title="src/main.tsx"
 function Shop() {
@@ -82,17 +74,20 @@ function Shop() {
 }
 ```
 
-One `useLocale` call, and every string under `App` is recomputed on a switch with no per-component
-discipline anywhere below. The cost is a remount: local state under the key is discarded, so an
-open accordion closes and a half-typed form empties, and a virtualized list, which kept its scroll
-offset in state, jumps back to the top. For most apps a language switch is a page-level event and
-that is fine. State that has to survive goes above the key, which is why `cart` lives in `Shop`
-and is passed down.
+A component that only calls `m.*()` re-renders when its parent does and at no other time. Key the
+root on the locale and one `useLocale` call recomputes every string under `App` on a switch, with
+no per-component discipline below.
+
+The cost is a remount, which discards local state under the key:
+
+- an open accordion closes
+- a half-typed form empties
+- a virtualized list that kept its scroll offset in state jumps back to the top
+
+For most apps a language switch is a page-level event, which is fine. State that must survive goes
+above the key: `cart` lives in `Shop` and is passed down.
 
 ## The state-preserving alternative
-
-A component that cannot afford the remount subscribes on its own and passes the locale into each
-call:
 
 ```tsx title="src/CourierNote.tsx"
 export function CourierNote() {
@@ -108,24 +103,26 @@ export function CourierNote() {
 }
 ```
 
-It re-renders in place and keeps `note`. It also has to keep the discipline: a message call inside
-it that forgets `{ locale }` still reads the store and still renders the right language, but with
-no visible dependency, which is where the next section comes in.
+A component that cannot afford the remount subscribes on its own and passes the locale into each
+call; it re-renders in place and keeps `note`. A call that forgets `{ locale }` still reads the
+store and still renders the right language, with no visible dependency.
 
 <Aside type="note">
-The example app renders `CourierNote` outside the keyed `App` on purpose, so the two patterns can
-be compared on one page: switch the language with text in the box and the text is still there.
+`CourierNote` is rendered outside the keyed `App` on purpose, so both patterns sit on one page:
+switch the language with text in the box and the text is still there.
 </Aside>
 
 ## React Compiler
 
 The hazard sits outside `useLocale`: `m.app_name()` reads mutable external state and takes no
-arguments, so a memoizing compiler is entitled to cache its result for the lifetime of a component
-instance. Both patterns above already answer it. The keyed root is sound because the compiler's
-caches are per instance and a remount throws them away. The per-call form is sound because
-`{ locale }` is a value the compiler can see change.
+arguments, so a memoizing compiler is entitled to cache its result for a component instance's
+lifetime. Both patterns already answer it:
 
-The keyed root has two holes, both documentation rather than structure. It does not reach a second
-`createRoot`, such as a toast layer mounted separately. And it does not reach a string computed once
-at module scope. The per-call override is the escape for both, and that, more than convenience, is
-why it exists.
+| Pattern | Why it is sound |
+| --- | --- |
+| Keyed root | Caches are per instance, and a remount throws them away. |
+| Per-call `{ locale }` | A value the compiler can see change. |
+
+Two holes in the keyed root, documentation rather than structure: a second `createRoot`, such as a
+separately mounted toast layer, and a string computed once at module scope. The per-call override
+is the escape for both, and that, more than convenience, is why it exists.

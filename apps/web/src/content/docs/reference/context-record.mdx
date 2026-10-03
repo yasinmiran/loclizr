@@ -1,15 +1,15 @@
 ---
 title: Context record
-description: The schema of locales/loclizr.context.json field by field, from a real file, with what makes it deterministic, what the staleness gate compares, and what it does not carry.
+description: The schema of locales/loclizr.context.json, and what the gate compares.
 ---
 
 import { Aside } from '@astrojs/starlight/components'
 
 `loclizr build` writes `locales/loclizr.context.json` beside the catalogs, and it is meant to be
-committed. Per message it carries the canonical source text and a hash of it, the argument names
-and types, the plural or select shape, the description and placeholder notes if you wrote them,
-per-locale translation status, and the files and enclosing declarations where the message is
-used. Whoever translates next reads it, whether that is a person, a model or a TMS.
+committed. Whoever translates next reads it, whether a person, a model or a TMS. Per message it
+carries the canonical source text and its hash, the argument names and types, the plural or select
+shape, the description and placeholder notes if you wrote them, per-locale translation status, and
+the files and enclosing declarations where the message is used.
 
 It is a pure function of the current tree: the catalogs, the meta sidecar, the scanned sources and
 the config. It never reads its own previous value, so a fresh regenerate and an incremental one
@@ -209,20 +209,20 @@ description and a placeholder note, a select with a type-position usage, and a m
 
 ## Schema
 
-Top level:
+### Top level
 
 | Field | Type | Meaning |
 | --- | --- | --- |
-| `schema` | `1` | The record format version. The only version there is. |
+| `schema` | `1` | The record format version, the only one there is. |
 | `sourceLocale` | `string` | The locale whose catalog defined the message set. |
 | `locales` | `string[]` | Every declared locale, sorted by code point. |
-| `messages` | array | One entry per message in the source catalog, sorted by key by code point. |
+| `messages` | array | One entry per source-catalog message, sorted by key by code point. |
 
-Per message:
+### Per message
 
 | Field | Type | Meaning |
 | --- | --- | --- |
-| `key` | `string` | The flat catalog key, after namespace prefixing and plural folding. The same string every diagnostic prints. |
+| `key` | `string` | The flat catalog key, after namespace prefixing and plural folding; the same string every diagnostic prints. |
 | `id` | `string` | The generated identifier, `m.cart_items`. |
 | `module` | `string` | The generated module that exports it, relative to `outDir`. |
 | `kind` | `"text"` or `"markup"` | Whether the function returns a string or an array of parts. |
@@ -230,21 +230,21 @@ Per message:
 | `sourceHash` | `string` | SHA-256 of `source`, first sixteen hex characters. |
 | `description` | `string` or `null` | From the meta sidecar. |
 | `args` | array | The argument set, in first-appearance order in the source text. |
-| `variants` | array | Every plural, selectordinal and select in the source, with the branches it has. |
+| `variants` | array | Every plural, selectordinal and select in the source, with its branches. |
 | `markup` | `string[]` | The tag names, sorted. |
 | `translations` | array | One entry per declared locale, sorted. |
 | `usage` | array | Where the scan found the message referenced, deduplicated and sorted by file then scope. |
 
-Each entry of `args`:
+### `args`
 
 | Field | Type | Meaning |
 | --- | --- | --- |
 | `name` | `string` | The argument name. |
-| `type` | `"text"`, `"number"`, `"date"`, `"select"` or `"markup"` | `text` is a bare `{name}`, typed `string \| number` at the call site. `date` covers both date and time. `markup` is a tag handler. |
-| `options` | `string[]` or `null` | For `select`, the source's named branches without `other`, which is the union the call site is typed as. |
+| `type` | `"text"`, `"number"`, `"date"`, `"select"` or `"markup"` | `text` is a bare `{name}`, typed `string \| number` at the call site. `date` covers date and time. `markup` is a tag handler. |
+| `options` | `string[]` or `null` | For `select`, the source's named branches without `other`: the union the call site is typed as. |
 | `note` | `string` or `null` | The placeholder note from the meta sidecar. |
 
-Each entry of `variants`:
+### `variants`
 
 | Field | Type | Meaning |
 | --- | --- | --- |
@@ -252,43 +252,41 @@ Each entry of `variants`:
 | `kind` | `"plural"`, `"selectordinal"` or `"select"` | The construct. |
 | `matches` | `string[]` | Exact branches first as `=N` ascending, then keyword branches in CLDR order `zero, one, two, few, many, other`. For a select, the branches in source order, `other` included. |
 
-Each entry of `translations`:
+### `translations`
 
 | Field | Type | Meaning |
 | --- | --- | --- |
 | `locale` | `string` | The declared locale. |
-| `status` | `"translated"`, `"inherited"` or `"fallback"` | `translated`: this locale's own catalog had a value it could render. `inherited`: resolved through a declared ancestor, `de-AT` through `de`, which is not a missing translation. `fallback`: fell all the way through to the source locale, which is. |
+| `status` | `"translated"`, `"inherited"` or `"fallback"` | `translated`: this locale's own catalog had a renderable value. `inherited`: resolved through a declared ancestor, `de-AT` through `de`, not a missing translation. `fallback`: fell all the way through to the source locale, which is. |
 | `from` | `string` or `null` | The locale the value came from, for `inherited` and `fallback`. |
 | `reason` | `"missing"`, `"blank"`, `"invalid"` or `null` | For `fallback`: no value, an empty value, or a value that failed to parse. |
 
-Each entry of `usage`:
+### `usage`
 
 | Field | Type | Meaning |
 | --- | --- | --- |
 | `file` | `string` | POSIX, relative to the project root. |
-| `scope` | `string` or `null` | The name of the enclosing declaration: the deepest function, method, class or variable declaration around the reference. `null` at module scope. |
+| `scope` | `string` or `null` | The enclosing declaration: the deepest function, method, class or variable declaration around the reference. `null` at module scope. |
 
-The `order.status` entry above has two usage sites in one file. The `App` one is the call inside
-the component; the `null` one is line 7 of `App.tsx`,
-`export type Delivery = Parameters<typeof m.order_status>[0]['state']`, a type-position reference
-at module scope. The scan is a tokenizer rather than a type checker, so it counts that as a use,
-which is the right answer for a translator asking where the string goes.
+<Aside type="note">
+`order.status` above has two usage sites in one file. `App` is the call inside the component; the
+`null` one is line 7 of `App.tsx`, `export type Delivery = Parameters<typeof m.order_status>[0]['state']`,
+a type-position reference at module scope. The scan is a tokenizer, not a type checker, so it
+counts that as a use, which is the right answer for a translator asking where the string goes.
+</Aside>
 
 ## What is deterministic, and why
 
-Messages sorted by key, locales sorted, arguments in the order they first appear in the source
-text, usage sites deduplicated and sorted by file then scope, two-space indent, POSIX separators,
-LF endings, a trailing newline. No timestamps, no absolute paths, no tool version: a version field
-would turn every release into a whole-file diff.
-
-No line numbers either. A usage entry carries `file` and `scope` and deliberately not `line`,
-`column` or the source snippet, because adding one import at the top of `src/Cart.tsx` shifts
-every line below it, and a position-carrying record would then churn on a pull request that
-touched no string. Two pull requests editing the same component would both rewrite the same
-`usage` entries and merge-conflict inside a generated JSON file. Precise positions stay where they
-cost nothing: the JSON reporter's diagnostics, and `BuildResult.program.usages` from
-`loclizr/compiler`, where every site keeps its line, column and snippet for any tool that wants
-them.
+- Messages sorted by key, locales sorted, arguments in first-appearance order, usage sites
+  deduplicated and sorted by file then scope.
+- Two-space indent, POSIX separators, LF endings, a trailing newline.
+- No timestamps, no absolute paths, no tool version.
+- No line numbers. A usage entry carries `file` and `scope`, not `line`, `column` or the source
+  snippet, because one new import at the top of `src/Cart.tsx` shifts every line below it: the
+  record would churn on a pull request that touched no string, and two pull requests editing the
+  same component would merge-conflict inside a generated JSON file. Precise positions stay in the
+  JSON reporter's diagnostics and in `BuildResult.program.usages` from `loclizr/compiler`, where
+  every site keeps its line, column and snippet.
 
 Two hashes are worth knowing. `a826cf6a40d3293e` is the hash of the `cart.items` source string
 exactly as printed above, and `3a78695388b38b5c` is the hash of `Home`, the `nav.home` entry in
@@ -299,8 +297,8 @@ the same file. An implementation producing different ones is printing a differen
 Two rules read the record. `LZ5003 record-stale` runs in `check` and compares the committed file
 against the record this tree would produce; `LZ5007 record-rewritten` runs in `build` and reports
 that the record it just wrote differed from the committed one. Both compare a projection: every
-message's `usage` array and `translations` array are removed from both sides first, and what is
-left is compared after a stable re-serialization.
+message's `usage` and `translations` arrays are removed from both sides, and what is left is
+compared after a stable re-serialization.
 
 | | In the file | In the comparison |
 | --- | --- | --- |
@@ -311,25 +309,25 @@ left is compared after a stable re-serialization.
 | `translations` | yes | no |
 | `usage` | yes | no |
 
-The two arrays come out because neither tracks a change to source copy, and both move on their
-own. `usage` moves when a component is renamed, a file is moved, or the tokenizer gets better, and
-nothing the scan produces may fail a build by default. `translations` moves when a translator
-commits or a TMS sync lands a batch; a pull request that adds twelve German strings and touches no
-source copy should not be told to regenerate a file it has no reason to think about.
+### Why those two come out
 
-Neither projection weakens the gate. Editing copy changes `source` and `sourceHash`, adding or
-removing a message changes the list, changing an argument changes `args`, and every one of those
-is in the residue. What the file on disk holds is the whole record, because `build` writes it
-whenever any byte differs, `usage` and `translations` included; the write decision is a byte
-comparison and the rule decision is the projected comparison, two different questions kept
-apart on purpose. A committed record that does not exist, or that fails to parse, counts as
-differing.
+- The two arrays come out because neither tracks a change to source copy, and both move on their
+  own: `usage` when a component is renamed, a file is moved or the tokenizer gets better, and
+  nothing the scan produces may fail a build by default; `translations` when a translator commits
+  or a TMS sync lands, and a pull request that adds twelve German strings and touches no source
+  copy should not be told to regenerate.
+- The projection does not weaken the gate. Editing copy changes `source` and `sourceHash`, adding
+  or removing a message changes the list, changing an argument changes `args`, and all of those
+  are in the residue.
+- The file on disk holds the whole record: `build` writes it whenever any byte differs, `usage`
+  and `translations` included. The write decision is a byte comparison, the rule decision the
+  projected comparison.
+- A committed record that does not exist, or that fails to parse, counts as differing.
 
-Because the record carries `sourceHash` and no translation text or translation hashes, the
-gettext fuzzy signal is a two-file diff. A pull request that edits copy changes `sourceHash` in
-the record and does not touch `de.json`. A pull request that translates changes `de.json` and
-does not touch the record, unless coverage changed. Polishing a German sentence is not a contract
-change and appears nowhere here.
+The record carries `sourceHash` and no translation text or translation hashes, so the gettext
+fuzzy signal is a two-file diff. A pull request that edits copy changes `sourceHash` in the record
+and does not touch `de.json`; one that translates changes `de.json` and not the record, unless
+coverage changed. Polishing a German sentence is not a contract change and appears nowhere here.
 
 <Aside type="caution">
 `check` compares; `build` rewrites. A CI job that runs `loclizr build` rewrites the record in its
@@ -338,16 +336,22 @@ own workspace and passes, so put `loclizr check` there instead.
 
 ## What it does not carry
 
-Of the five things a translator would want at every string, the record has two. It has the render
-site, as a file and the enclosing declaration, and it has the argument types, including the option
-set of a select and whether a number is a plural selector. It does not have the element role (that
-this string is a button label rather than a heading), the surrounding copy on the same screen, or
-a glossary. The description field is where a human puts the first two today, and
-`LZ3012 ambiguous-source` is the rule that asks for it when two keys share a source text.
+Of the five things a translator would want at every string, the record has two:
 
-The usage field is a heuristic, not a resolution. Imports bind by specifier suffix
-(`./loclizr/messages`, `@/loclizr/messages` and `#app/loclizr/groups` all bind, with no alias map
-read), computed access on a bound group counts against every member, a renamed re-export is not
-followed, and a computed access on a plain namespace object is not resolved. A false positive costs
-one extra usage site, which is still a real file a translator can open; a false negative loses the
-payload, so the scan errs toward the first.
+| Has | Does not have |
+| --- | --- |
+| the render site, as a file and the enclosing declaration | the element role: that this string is a button label rather than a heading |
+| the argument types, including a select's option set and whether a number is a plural selector | the surrounding copy on the same screen |
+| | a glossary |
+
+The description field is where a human puts the first two today, and `LZ3012 ambiguous-source` is
+the rule that asks for it when two keys share a source text.
+
+The usage field is a heuristic, not a resolution:
+
+- Imports bind by specifier suffix: `./loclizr/messages`, `@/loclizr/messages` and
+  `#app/loclizr/groups` all bind, with no alias map read.
+- A computed access on a bound group counts against every member; one on a plain namespace object
+  is not resolved. A renamed re-export is not followed.
+- A false positive costs one extra usage site, still a real file a translator can open; a false
+  negative loses the payload, so the scan errs toward the first.

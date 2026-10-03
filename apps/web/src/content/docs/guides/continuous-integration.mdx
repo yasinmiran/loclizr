@@ -1,12 +1,11 @@
 ---
 title: Continuous integration
-description: Wiring loclizr check into a pipeline, and what each exit code means.
+description: Put loclizr check in the pipeline; build stays in the scripts.
 ---
 
 import { Aside } from '@astrojs/starlight/components'
 
-`loclizr init` prints four scripts and one CI step, and the split between them is the whole
-design:
+`loclizr init` prints four scripts and one CI step. The split between them is the whole design.
 
 ```json title="package.json"
 "prepare": "loclizr build --no-fail",
@@ -21,26 +20,33 @@ design:
 - run: npx loclizr check
 ```
 
-`prepare` and `predev` exist to make a working tree exist, so they must not stop `vite dev` from
-starting over one untranslated key. `prebuild` and `pretypecheck` run plain `build` and fail on an
-error. CI runs `check`, which is the only invocation that compares the committed record instead of
-rewriting it.
+| Hook | Runs | Why |
+| --- | --- | --- |
+| `prepare`, `predev` | `build --no-fail` | A working tree has to exist; one untranslated key must not stop `vite dev`. |
+| `prebuild`, `pretypecheck` | `build` | Fails on an error. |
+| CI | `check` | Compares the committed record instead of rewriting it. |
 
 ## build --no-fail
 
-The flag changes the exit code and nothing else. Every diagnostic is still produced, printed, and
-counted; a run that reached the write step exits 0 instead of 1. Exit 2 is untouched, since a build
-that could not run has produced nothing to keep working with, and a run that wrote no output still
-exits 1, because the next command would fail on a missing module anyway. `check` does not accept
-the flag, since `check` is the gate.
+The flag changes the exit code and nothing else. Every diagnostic is still produced, printed and
+counted.
+
+- Reached the write step: exits 0 instead of 1.
+- Wrote no output: still exits 1, since the next command would fail on a missing module anyway.
+- Exit 2 is untouched: a build that could not run produced nothing to keep working with.
+- `check` does not accept the flag. `check` is the gate.
 
 ## What check does
 
-Everything `build` does, with no writes, plus two rules. `LZ5002 output-stale` fires when a
-generated file on disk differs from what this run would write, and `LZ5003 record-stale` when the
-committed `locales/loclizr.context.json` differs from the one this tree produces. On a fresh clone
-with the generated tree gitignored, as it is by default, there are no generated files on disk, so
-`LZ5002` has nothing to compare and `check` needs no prior `build`:
+Everything `build` does, with no writes, plus two rules.
+
+| Rule | Fires when |
+| --- | --- |
+| `LZ5002 output-stale` | A generated file on disk differs from what this run would write. |
+| `LZ5003 record-stale` | The committed `locales/loclizr.context.json` differs from the one this tree produces. |
+
+A fresh clone with the generated tree gitignored, the default, gives `LZ5002` nothing to compare,
+so `check` needs no prior `build`:
 
 ```text
 26 messages, 3 locales (source en), 0 errors, 1 warning
@@ -49,8 +55,8 @@ with the generated tree gitignored, as it is by default, there are no generated 
 ## The committed record
 
 The record is a pure function of the catalogs, the meta sidecar, the scanned sources and the
-config. It never reads its own previous value. Editing a source string changes that message's
-`source` and `sourceHash`, and `check` then fails until `build` has run and the rewritten record is
+config; it never reads its own previous value. Editing a source string changes that message's
+`source` and `sourceHash`, and `check` fails until `build` has run and the rewritten record is
 committed with the string change:
 
 ```text
@@ -61,8 +67,8 @@ error  LZ5003  record-stale  locales/loclizr.context.json
   fix  run `loclizr build` and commit the record with the string change.
 ```
 
-The same comparison runs inside `build`, at `warn`, so a `prebuild` hook that quietly rewrote the
-record still says so:
+`build` runs the same comparison at `warn`, so a `prebuild` hook that quietly rewrote the record
+still says so:
 
 ```text
 warn  LZ5007  record-rewritten  locales/loclizr.context.json
@@ -72,41 +78,39 @@ warn  LZ5007  record-rewritten  locales/loclizr.context.json
   fix  commit the rewritten record with the string change, so the context lands in the same pull request.
 ```
 
-What counts as the contract: keys, ids, modules, kinds, source text and hash, descriptions,
-argument names and types, plural and select shapes, markup tags. Adding or removing a key, renaming
-a placeholder, changing a description, all of it fails `check`.
+### What the gate compares
 
-What does not. Two fields are projected out of the comparison on both sides before it runs, and
-both were tried against the example catalogs:
+The contract: keys, ids, modules, kinds, source text and hash, descriptions, argument names and
+types, plural and select shapes, markup tags. Add or remove a key, rename a placeholder, change a
+description, and `check` fails.
 
-- **Translator pull requests.** Editing `de.json` changed a German string and, in a second run,
-  deleted a key. Neither raised `LZ5003`. The deletion raised `LZ3001 missing-translation` for the
-  two locales that now fall back, which is the right error for it. The record carries per-locale
-  status in a `translations` array, and that array is left out of the gate, because a batch of
-  translations landing is not a change to the contract.
-- **Usage churn.** A component that called `m.nav_home()` was renamed and its file moved to
-  another directory. `check` exited 0. The record's `usage` entries carry the file and the enclosing
-  scope, and they are left out of the gate for the same reason; the next `build` rewrote them.
+Two fields are projected out of both sides first, each tried against the example catalogs.
+
+- **Translator pull requests.** A German string edited in `de.json`, then a key deleted from it:
+  neither raised `LZ5003`. The deletion raised `LZ3001 missing-translation` for the two locales
+  that now fall back, the right error for it. Per-locale status is the record's `translations`
+  array, outside the gate, because a batch of translations landing is not a change to the
+  contract.
+- **Usage churn.** A component calling `m.nav_home()` renamed and its file moved to another
+  directory: `check` exited 0. The `usage` entries, file plus enclosing scope, sit outside the
+  gate too; the next `build` rewrote them.
 
 `build` still writes the whole file whenever any byte differs, so the committed record keeps its
-coverage and render sites for whoever reads it. The write decision is a byte comparison and the
-rule decision is the projected one.
+coverage and render sites for whoever reads it, while the rule only ever compares the projection.
 
 <Aside type="note">
-A team that commits the generated tree by deleting the self-ignoring `.gitignore` inside `outDir`
-opts `LZ5002` in: those files now exist on disk in CI, and a translator's edit to `de.json` changes
-`messages/nav.js`, so that pull request fails `check` until someone reruns `build`. With the tree
-ignored, it passes.
+Committing the generated tree, by deleting the self-ignoring `.gitignore` inside `outDir`, opts
+`LZ5002` in: a translator's edit to `de.json` now changes `messages/nav.js` on disk in CI, and
+that pull request fails `check` until someone reruns `build`. With the tree ignored, it passes.
 </Aside>
 
 ## Warnings, and machine output
 
-`--max-warnings` has no cap by default, so warnings alone never fail a run. `--max-warnings 0`
-turns the example's one warning into exit 1 on `check`; the same flag on `build --no-fail` still
-exits 0. `--quiet` prints errors only, plus a summary line when warnings were dropped.
-
-`--reporter json` prints one object, diagnostics sorted by severity, code, file, locale, key and
-offset, with the summary at the end:
+| Flag | Effect |
+| --- | --- |
+| `--max-warnings` | No cap by default, so warnings alone never fail a run. `--max-warnings 0` turns the example's one warning into exit 1 on `check`; `build --no-fail` still exits 0. |
+| `--quiet` | Errors only, plus a summary line when warnings were dropped. |
+| `--reporter json` | One object: diagnostics sorted by severity, code, file, locale, key and offset, summary last. |
 
 ```json
 {
@@ -134,8 +138,8 @@ offset, with the summary at the end:
 }
 ```
 
-`file` is always POSIX and relative to the project root, on every machine, which is what keeps
-that sort order stable between a laptop and a runner.
+`file` is always POSIX and relative to the project root, on every machine, so the sort order
+matches between a laptop and a runner.
 
 ## Exit codes
 

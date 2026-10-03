@@ -7,10 +7,11 @@ import { Aside } from '@astrojs/starlight/components'
 
 The libraries most teams pick between are good. i18next, next-intl, Paraglide, Lingui, FormatJS,
 Intlayer: each one works, each has users, and the [comparison](/project/comparison/) says when to
-choose it. loclizr wants two things none of them is built for. Catalog checks that are on by
-default inside the build that generates the messages, and a per-message context record that is a
-deterministic build output. This page is the argument for those two, and for the order they come
-in.
+choose it.
+
+loclizr wants two things none of them is built for. Catalog checks that are on by default inside
+the build that generates the messages, and a per-message context record that is a deterministic
+build output. This page is the argument for those two, and for the order they come in.
 
 ## The runtime is solved
 
@@ -26,10 +27,12 @@ translating a string knows what it is for.
 
 ## Checks exist, as sidecars
 
-It would be easy to say nothing checks catalogs, and it would be false. `i18next-cli` exits
-non-zero on missing keys. Intlayer gates pull requests on missing content. `@lingual/i18n-check`
-validates ICU across locales and ships a GitHub Action for it. TMS vendors have run placeholder
-and terminology QA for a decade.
+It would be easy to say nothing checks catalogs, and it would be false.
+
+- `i18next-cli` exits non-zero on missing keys.
+- Intlayer gates pull requests on missing content.
+- `@lingual/i18n-check` validates ICU across locales and ships a GitHub Action for it.
+- TMS vendors have run placeholder and terminology QA for a decade.
 
 Every one of those is a command somebody wires into CI, and that step gets skipped, even by the
 people who build the tools: one extractor has returned 0 on failure since 2023, with the issue
@@ -39,18 +42,23 @@ went unchecked, because they are one pass reading one representation.
 
 ## Context exists, as discipline
 
-The same honesty applies to the other half. gettext has `msgctxt`. FormatJS has `description`.
-Lingui's PO catalogs carry `file:line` and placeholder names. Every one of them is optional, which
-in practice means unused, because making it mandatory makes the quickstart worse and nobody ships
-that. And since mid 2026 a TMS can point an agent at your repository and have it write a sentence
-or two of context per string, per run.
+The same honesty applies to the other half.
+
+- gettext has `msgctxt`.
+- FormatJS has `description`.
+- Lingui's PO catalogs carry `file:line` and placeholder names.
+
+Every one of them is optional, which in practice means unused, because making it mandatory makes
+the quickstart worse and nobody ships that. And since mid 2026 a TMS can point an agent at your
+repository and have it write a sentence or two of context per string, per run.
 
 Capability is the same across all of those. Where they differ is shape. The record loclizr
-writes is a pure function of the tree: same catalogs, same sources, same bytes. It costs nothing
-per run, it lands in the pull request beside the string that changed, and it travels to a human, a
-model or a vendor without anyone holding an account. An agent's context is re-derived each time,
-billed each time, and arrives in a database after review is over. Different artifacts, and the
-record is the smaller claim of the two.
+writes is a pure function of the tree: same catalogs, same sources, same bytes.
+
+It costs nothing per run, it lands in the pull request beside the string that changed, and it
+travels to a human, a model or a vendor without anyone holding an account. An agent's context is
+re-derived each time, billed each time, and arrives in a database after review is over. Different
+artifacts, and the record is the smaller claim of the two.
 
 How much richer context improves machine translation is a number this site does not quote. The
 only published figure comes from one vendor writing about its own product, and nobody has
@@ -64,9 +72,11 @@ are the ones who run `npm install`.
 
 That is why no library owned it: the payoff accrues to someone downstream of the developer
 choosing the library. It also says, plainly, that a landing page leading with context would lose
-the room. So the order here is deliberate. The build gate is what a developer feels on the first
-red run, and the context record is the payload that ships underneath it, in the same pass, whether
-or not anyone asked for it.
+the room.
+
+So the order here is deliberate. The build gate is what a developer feels on the first red run,
+and the context record is the payload that ships underneath it, in the same pass, whether or not
+anyone asked for it.
 
 <Aside type="note">
 Timing matters here too. A human translator reading forty lines of metadata per string gets
@@ -76,10 +86,13 @@ consumer is new, and it is the reason this is worth building now rather than a d
 
 ## What this is not
 
-Not "i18n is broken". It is not, and the line belongs to other people. Not a replacement for
-i18next: the one real displacement in this category happened when a framework seat opened and the
-incumbent in it stalled, and there is no such seat here. Not per-locale delivery, which needs to
-own the metaframework's build and which the project makes no claim about. And not stable, in the
-sense a day-zero project cannot promise. The [limits page](/project/limits/) has each of those
-with its reasoning, and [continuity](/project/continuity/) has the maintainer situation written
-down, because no library in this category has died of its design.
+- Not "i18n is broken". It is not, and the line belongs to other people.
+- Not a replacement for i18next: the one real displacement in this category happened when a
+  framework seat opened and the incumbent in it stalled, and there is no such seat here.
+- Not per-locale delivery, which needs to own the metaframework's build and which the project
+  makes no claim about.
+- Not stable, in the sense a day-zero project cannot promise.
+
+The [limits page](/project/limits/) has each of those with its reasoning, and
+[continuity](/project/continuity/) has the maintainer situation written down, because no library
+in this category has died of its design.

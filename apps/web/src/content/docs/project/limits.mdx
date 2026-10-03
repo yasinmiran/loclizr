@@ -1,6 +1,6 @@
 ---
 title: Honest limits
-description: What v0.1 does not do, with the reason for each, written down before you install anything.
+description: What v0.1 does not do, with the reason for each.
 ---
 
 Each of these is a decision with a cost, not an item on a backlog, and each is stated here so it
@@ -9,10 +9,12 @@ is read before the install rather than discovered when the bundle report comes b
 ## Every locale is inlined into every message function
 
 `cart_items` carries a `de` arm, a `de-AT` arm and an `en` arm, and so does every other message
-you call. Your bundle grows with locale count. Shipping only the request's locale needs to own the
-metaframework's build step, which is why the one library that does it can only do it where it
-controls the whole app build. loclizr does not own your build, so it makes no per-locale delivery
-claim at all. Tree-shaking by message still works, because unused exports drop like any other.
+you call. Your bundle grows with locale count.
+
+Shipping only the request's locale needs to own the metaframework's build step, which is why the
+one library that does it can only do it where it controls the whole app build. loclizr does not
+own your build, so it makes no per-locale delivery claim at all. Tree-shaking by message still
+works, because unused exports drop like any other.
 
 ## Translations are a build input
 
@@ -25,9 +27,10 @@ being good at exactly that.
 
 Every message function was compiled from a string the build saw. There is no `format()` for text
 that arrives at runtime, from a CMS or a feature flag, because a runtime formatter needs a runtime
-parser and the whole design rests on never shipping one. When it lands it will be a separate
-entry, so the invariant keeps holding for everyone who does not import it. That is deferred past
-v0.1, not promised for it.
+parser and the whole design rests on never shipping one.
+
+When it lands it will be a separate entry, so the invariant keeps holding for everyone who does
+not import it. That is deferred past v0.1, not promised for it.
 
 ## One framework demo
 
@@ -40,19 +43,22 @@ where they mean it.
 ## Next.js is not a first-class SSR target
 
 No test, no example, no promise, for either router. Middleware runs in a different runtime and
-cannot wrap a render, and the App Router entry is a v0.2 question. `loclizr/react` emits no
-`'use client'` directive; an app that needs one puts it on its own component file. next-intl is
-built for that stack and this page is not going to pretend otherwise.
+cannot wrap a render, and the App Router entry is a v0.2 question.
+
+`loclizr/react` emits no `'use client'` directive; an app that needs one puts it on its own
+component file. next-intl is built for that stack and this page is not going to pretend
+otherwise.
 
 ## Generated files live in your tree
 
 `src/loclizr/` is real files, gitignored by default through a `.gitignore` written inside it. That
 is what having no bundler plugin costs: a build step before anything imports the tree, and the
-`prepare`, `predev`, `prebuild` and `pretypecheck` scripts to keep a fresh clone working. There is
-no `--watch`. The loop is `loclizr build --no-fail` in `predev`, and, for edits that should land
-in the running app, the small Vite plugin the example ships in its own `vite.config.ts`. A team
-that would rather commit the tree deletes the one `.gitignore` and `check` starts comparing those
-files too.
+`prepare`, `predev`, `prebuild` and `pretypecheck` scripts to keep a fresh clone working.
+
+There is no `--watch`. The loop is `loclizr build --no-fail` in `predev`, and, for edits that
+should land in the running app, the small Vite plugin the example ships in its own
+`vite.config.ts`. A team that would rather commit the tree deletes the one `.gitignore` and
+`check` starts comparing those files too.
 
 ## The locale never comes from the URL
 
@@ -78,9 +84,10 @@ added import at the top of a file would otherwise churn every entry below it.
 ## The record carries two of the five fields the idea started with
 
 Render site and argument types ship. Element role does not: the scan cannot read a JSX tree, so
-the record never says whether a string is a button label or a page title. Surrounding copy and
-glossary hits do not ship either. Glossary is the cheap deterministic one and the first candidate
-after v0.1.
+the record never says whether a string is a button label or a page title.
+
+Surrounding copy and glossary hits do not ship either. Glossary is the cheap deterministic one and
+the first candidate after v0.1.
 
 ## Intl is required
 

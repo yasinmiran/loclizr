@@ -1,6 +1,6 @@
 ---
 title: Comparison
-description: i18next, next-intl, Paraglide, Lingui, FormatJS and Intlayer beside loclizr, described fairly, with the cases where you should choose them instead.
+description: Six libraries beside loclizr, and when to choose them instead.
 ---
 
 import { Aside } from '@astrojs/starlight/components'
@@ -34,11 +34,12 @@ stale record as well as on the catalogs.
 
 Context is where the claim is about the artifact. Intlayer hands context to its own translator as
 configuration. PO catalogs carry file references when the extractor writes them. Crowdin's agent
-reads your repository and writes context per run. loclizr's record is a build output, a pure
-function of the tree with no per-run cost, diffed in the same pull request as the string edit, and
-readable by any translator or tool. Intlayer is the nearest existing design to this one, and the
-difference between them is exactly that sentence plus the absence of a per-component authoring
-layer.
+reads your repository and writes context per run.
+
+loclizr's record is a build output, a pure function of the tree with no per-run cost, diffed in
+the same pull request as the string edit, and readable by any translator or tool. Intlayer is the
+nearest existing design to this one, and the difference between them is exactly that sentence
+plus the absence of a per-component authoring layer.
 
 ## When to choose them
 

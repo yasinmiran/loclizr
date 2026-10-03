@@ -1,6 +1,6 @@
 ---
 title: How it works
-description: One pass over your catalogs, one lowered representation, three consumers reading it. What the runtime does at call time, and what having no bundler plugin costs.
+description: One pass over the catalogs, one lowered tree, three consumers.
 ---
 
 import { Aside } from '@astrojs/starlight/components'
@@ -14,81 +14,106 @@ import { Aside } from '@astrojs/starlight/components'
 ## Catalog in
 
 `loclizr build` globs `locales/{locale}.json`, flattens each file to dotted keys and classifies it
-on its own. A file whose values carry `{{var}}` or whose keys carry a CLDR plural suffix reads as
-i18next and is rewritten to ICU in memory; anything else reads as ICU, which is the native format.
-The example app's `de-AT.json` is the i18next case, sitting beside two ICU files with nothing in
-the config saying so, and no catalog is ever written back.
+on its own. No catalog is ever written back.
 
-The source locale's sidecar, `en.meta.json`, is read at the same time. It carries descriptions and
-placeholder notes, kept out of the catalog so a translation tool never ships them as copy.
+| File | Read as |
+| --- | --- |
+| Values carry `{{var}}`, or keys carry a CLDR plural suffix | i18next, rewritten to ICU in memory |
+| Anything else | ICU, the native format |
+
+The example app's `de-AT.json` is the i18next case, beside two ICU files, with nothing in the
+config saying so.
+
+The source locale's sidecar, `en.meta.json`, is read in the same pass. Descriptions and
+placeholder notes live there, out of the catalog, so a translation tool never ships them as copy.
 
 ## One representation
 
 Every value is parsed with `@formatjs/icu-messageformat-parser` exactly once and lowered to a
 small tree: text nodes, arguments with inferred types, plural and select branches, markup tags.
-Each locale keeps its own lowered body. Then the fallback chain runs, `de-AT` through `de` to
+Each locale keeps its own lowered body. The fallback chain then runs, `de-AT` through `de` to
 `en`, and stamps one origin per locale per message: translated, inherited, or fell back to source.
 
-Everything after this point reads that tree rather than the JSON. A rule can compare argument
-sets across locales without re-parsing, and a diagnostic can never disagree with the code that
-was emitted, because both came from the same structure.
+Everything downstream reads that tree, never the JSON. A rule compares argument sets across
+locales without re-parsing, and a diagnostic cannot disagree with the emitted code, since both
+came from one structure.
 
 ## Three outputs
 
-**Typed functions.** One module per top-level key segment under `src/loclizr/messages/`, plain
-ESM with a hand-printed `.d.ts` beside it. Each message is a function whose first parameter is
-exactly its ICU argument set and whose body is a `switch` over the declared locales, the source
-locale under `default`. The generated `.gitignore` ignores the whole directory, and the header on
-every file is what lets the next build prune what it wrote and nothing else.
+### Typed functions
 
-**Diagnostics.** The rule set runs in the same pass, because it is reading the same tree; a fatal
-error, invalid config or an identifier collision say, blocks emission. A non-fatal error still
-emits: twelve missing German strings write `messages/cart.js` with those twelve filled from the
-chain, print twelve `LZ3001` lines and exit 1, because emitting nothing would bury the real
-problem under missing-module errors from your typecheck.
+One module per top-level key segment under `src/loclizr/messages/`, plain ESM with a hand-printed
+`.d.ts` beside it. Each message is a function: first parameter exactly its ICU argument set, body
+a `switch` over the declared locales with the source locale under `default`. The generated
+`.gitignore` ignores the whole directory, and the header on every file lets the next build prune
+what it wrote and nothing else.
 
-**The context record.** `locales/loclizr.context.json` carries, per message, the canonical source,
-a hash of it, the argument names and types, the plural or select shape, your description, per-locale
-status, and where the message is called from as a file and an enclosing scope. It is a pure
-function of the tree: no timestamps, no tool version, no line numbers, and it never reads its own
+### Diagnostics
+
+The rule set runs in the same pass over the same tree. A fatal error, invalid config or an
+identifier collision say, blocks emission. A non-fatal error still emits: twelve missing German
+strings write `messages/cart.js` with those twelve filled from the chain, print twelve `LZ3001`
+lines and exit 1, since emitting nothing would bury the real problem under missing-module errors
+from your typecheck.
+
+### The context record
+
+`locales/loclizr.context.json` carries, per message, the canonical source and a hash of it,
+argument names and types, the plural or select shape, your description, per-locale status, and
+the file and enclosing scope the message is called from.
+
+It is a pure function of the tree: no timestamps, no tool version, no line numbers, never its own
 previous value. `check` compares the committed copy against what it would write, with `usage` and
-`translations` projected out, so a moved component or a translator's batch cannot fail the gate but
-an edited string does.
+`translations` projected out, so a moved component or a translator's batch cannot fail the gate
+but an edited string does.
 
 ## Runtime
 
 The generated code imports four helpers from `loclizr`: a locale resolver and thin wrappers over
-`Intl.PluralRules`, `Intl.NumberFormat` and `Intl.DateTimeFormat`, with formatters cached by
-options identity. Nothing else. No ICU parser reaches the browser, because parsing finished at
-build time and what shipped is a function with a `switch` in it.
+`Intl.PluralRules`, `Intl.NumberFormat` and `Intl.DateTimeFormat`, formatters cached by options
+identity. Nothing else. No ICU parser reaches the browser; parsing finished at build time, and what
+shipped is a function with a `switch` in it.
 
-The locale is resolved when a message function is called. `getLocale()` reads the server request
-scope if one is active, else the tag `setLocale` stored, else the cookie or `<html lang>` on the
-client, else the source locale. Passing `{ locale }` as the second argument overrides all of that
-for one call. On the server, `runWithLocale` scopes the value through `AsyncLocalStorage`, so there
-is no mutable process-wide locale for two requests to fight over.
+### Resolving the locale
+
+`getLocale()` reads, in order:
+
+1. the server request scope, if one is active
+2. the tag `setLocale` stored
+3. on the client, the cookie, then `<html lang>`
+4. the source locale
+
+Passing `{ locale }` as the second argument overrides all of that for one call. On the server,
+`runWithLocale` scopes the value through `AsyncLocalStorage`, so no mutable process-wide locale
+exists for two requests to fight over.
 
 <Aside type="note">
 A message call reads the store and returns a string; it does not subscribe. That is why the
 example keys its root on `useLocale()`, and why the per-call `{ locale }` form exists for a
-component that has to keep its state across a switch.
+component that must keep its state across a switch.
 </Aside>
 
 ## Why no bundler plugin, and what it costs
 
 Nothing here transforms your source. The app imports `./loclizr/messages` like any other module,
 so there is no AST pass to order against a framework compiler, and the same output runs in a Vite
-SPA, in a server render, in React Native and in plain Node.
+SPA, a server render, React Native and plain Node.
 
-The price is a build step and generated files in the tree. `src/loclizr/` has to exist before
-anything imports it, which is what the `prepare`, `predev`, `prebuild` and `pretypecheck` scripts
-are for. It is gitignored by default, so a fresh clone runs `build` before it runs anything else.
-There is no `--watch`; the loop is `loclizr build --no-fail` in `predev`, which exits 0 once output
-was written whatever it found, so one untranslated key never stops `vite dev`.
+The price is a build step and generated files in the tree.
+
+- `src/loclizr/` has to exist before anything imports it; the `prepare`, `predev`, `prebuild` and
+  `pretypecheck` scripts are for that.
+- It is gitignored by default, so a fresh clone runs `build` before anything else.
+- No `--watch`. The loop is `loclizr build --no-fail` in `predev`, which exits 0 once output was
+  written whatever it found, so one untranslated key never stops `vite dev`.
+
+### The example's Vite plugin
 
 For a catalog edit to land in the running app, the example ships a small plugin inside its own
 `vite.config.ts`: `configureServer` adds `locales/` to the dev server's watcher and calls `build`
 from `loclizr/compiler` when a file under it changes. The compiler rewrites `src/loclizr/**`,
-which is already in Vite's module graph, and HMR does the rest. It reruns the compiler and touches
-no app source, so the narrow promise holds: no plugin is required, and nothing rewrites your code,
-and the twenty lines that make the loop tight are yours rather than a package you depend on.
+already in Vite's module graph, and HMR does the rest.
+
+It reruns the compiler and touches no app source, so the narrow promise holds: no plugin is
+required, nothing rewrites your code, and the twenty lines that make the loop tight are yours
+rather than a package you depend on.

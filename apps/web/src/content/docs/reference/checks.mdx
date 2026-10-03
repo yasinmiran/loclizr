@@ -1,32 +1,37 @@
 ---
 title: Catalog checks
-description: All fifty-six rules loclizr build runs, by code, with the default severity, what makes each one fire and the fix it prints.
+description: Fifty-six rules by code, with default severity, trigger and printed fix.
 ---
 
 import { Aside } from '@astrojs/starlight/components'
 
-Every `loclizr build` runs the whole rule set. There is no separate lint command to wire up and no
-flag that turns the set off wholesale. Fifty-six rules, each with a code that never changes and a
-name that doubles as its key in `severity`: thirty-five default to `error`, eighteen to `warn`,
-three to `off`.
+Every `loclizr build` runs the whole rule set: no separate lint command to wire up, no flag that
+turns the set off wholesale. Fifty-six rules, each with a code that never changes and a name that
+doubles as its key in `severity`. Thirty-five default to `error`, eighteen to `warn`, three to
+`off`.
 
 ## What runs, and when
 
 Checks read the same lowered representation the emitter reads, so a rule can never disagree with
-the code that was generated. Most run per message. The cross-locale rules in the `LZ3xxx` range
-run once the whole catalog set is resolved, because that is the first moment `de.json` and
-`en.json` can be compared, and the two `LZ5xxx` gates run last, against what is on disk.
+the code that was generated.
+
+- Most rules run per message.
+- The cross-locale `LZ3xxx` rules run once the whole catalog set is resolved, the first moment
+  `de.json` and `en.json` can be compared.
+- The two `LZ5xxx` gates run last, against what is on disk.
+
+### Fatal scope
 
 Each rule carries a fatal scope, which decides whether a tree is written at all:
 
 | Scope | Effect |
 | --- | --- |
-| never | Reported. Output is written regardless. Twelve missing German translations write `messages.js` anyway, fill those twelve from the fallback chain, print twelve `LZ3001` diagnostics and exit 1. |
-| always | Blocks emission entirely. No correct artifact is producible: an identifier collision would write a module declaring one function twice. |
-| if source | Blocks only when the file is the source catalog. An unreadable `de.json` is an error that still emits; the same problem in `en.json` is fatal. |
+| never | Reported; output is written regardless. Twelve missing German translations still write `messages.js`, fill those twelve from the fallback chain, print twelve `LZ3001` diagnostics and exit 1. |
+| always | Blocks emission. No correct artifact is producible: an identifier collision would write a module declaring one function twice. |
+| if source | Blocks only for the source catalog. An unreadable `de.json` is an error that still emits; the same problem in `en.json` is fatal. |
 | message | Drops that one message from the program and blocks nothing. A source body that fails to parse never reaches the emitter. |
 
-A target locale whose value fails to lower is not dropped: it resolves through the fallback chain
+A target locale whose value fails to lower is not dropped. It resolves through the fallback chain
 like a blank value would, and raises nothing beyond the syntax error already reported against its
 own file.
 
@@ -42,14 +47,16 @@ export default defineConfig({
 })
 ```
 
-`severity` is applied once, at the end, to the whole set: a rule at `off` is dropped, and every
-other diagnostic is rewritten to the configured level. No analysis module reads it to decide
-whether or at what level to raise anything, which is why a re-levelled rule cannot change what the
-compiler emitted. Three rules are not on the dial. `LZ1001 config-invalid`,
-`LZ1007 outdir-unsafe` and `LZ5001 output-unwritable` name failures where turning the rule down
-would let the tool do something it should never do quietly, such as write outside the project root
-and exit 0, and a `severity` entry naming one of them is itself `LZ1001`. Those three are also
-the only rules that exit 2.
+`severity` is applied once, at the end, to the whole set: a rule at `off` is dropped, every other
+diagnostic is rewritten to the configured level. No analysis module reads it to decide whether or
+at what level to raise anything, which is why a re-levelled rule cannot change what the compiler
+emitted.
+
+Three rules are not on the dial: `LZ1001 config-invalid`, `LZ1007 outdir-unsafe` and
+`LZ5001 output-unwritable`. Each names a failure where turning the rule down would let the tool do
+something it should never do quietly, such as write outside the project root and exit 0. A
+`severity` entry naming one of them is itself `LZ1001`. Those three are also the only rules that
+exit 2.
 
 <Aside type="caution">
 Re-levelling moves the printed severity, not the fatal scope. `identifier-collision: 'warn'` with
@@ -66,10 +73,9 @@ could not produce output never exits 0. The JSON reporter shows this as
 | 1 | At least one error, or warnings over `--max-warnings`. |
 | 2 | `LZ1001`, `LZ1007` or `LZ5001`, or a usage error before any rule ran. |
 
-`--max-warnings` defaults to no cap, so warnings alone never produce exit 1, and that default is
-what decides whether a freshly imported i18next catalog exits 0 or 1 on its first build. The
-[CLI](/reference/cli/#exit-codes) page has the full list of what exits 2 and how `--no-fail` moves
-exit 1.
+`--max-warnings` defaults to no cap, so warnings alone never produce exit 1, and that default
+decides whether a freshly imported i18next catalog exits 0 or 1 on its first build. The
+[CLI](/reference/cli/#exit-codes) page lists what exits 2 and how `--no-fail` moves exit 1.
 
 ## LZ1xxx: configuration and catalogs
 
@@ -99,15 +105,18 @@ Twenty-one rules about the config file, the catalog files and the machine runnin
 | `LZ1020` | `icu-in-i18next-file` | warn | never | A file read as i18next holds a single-brace run shaped like a typed ICU argument, which renders as literal text. | `this file classified as i18next on "{{name}}". Convert the file to ICU, or pin catalogFormat if the literal text is what you meant.` |
 | `LZ1021` | `outdir-foreign-file` | warn | never | A file under `outDir` does not carry the generated header, so it was neither overwritten nor pruned; or a headered orphan could not be deleted. | `the build deletes and overwrites only what it can prove it wrote. Move the file outside outDir, or delete it if it is a generated file whose header was stripped.` |
 
-`LZ1019` is a single startup probe: `Intl.PluralRules('ru')` reporting fewer than four categories
-means a Node built with small ICU, which resolves unknown locales to English data without
-throwing. When it fires, `LZ3007` and `LZ3013` are forced off for that run, so a truncated ICU
-makes no category claims rather than wrong ones. The same rule fires per locale for a declared tag
-`Intl` has no plural data for, and switches those two rules off for that locale only.
+### `LZ1019` is a startup probe
 
-`LZ1020` is the one mistake `catalogFormat: 'auto'` can make invisible, so it is the one it
-reports. The hint names the `{{` or the suffixed key that classified the file, which is why the
-run was read as literal text.
+`Intl.PluralRules('ru')` reporting fewer than four categories means a Node built with small ICU,
+which resolves unknown locales to English data without throwing. `LZ3007` and `LZ3013` are then
+forced off for that run, so a truncated ICU makes no category claims rather than wrong ones. The
+same rule fires per locale for a declared tag `Intl` has no plural data for, switching those two
+rules off for that locale only.
+
+### `LZ1020` is the one mistake auto detection reports
+
+It is the one mistake `catalogFormat: 'auto'` can make invisible. The hint names the `{{` or the
+suffixed key that classified the file, which is why the run was read as literal text.
 
 ## LZ2xxx: message syntax
 
@@ -125,9 +134,9 @@ Nine rules about one value on its own.
 | `LZ2008` | `pound-literal` | warn | never | A literal `#` in text inside a plural body, where it renders as the character rather than the count. | `Move the # out of the nested select, or write {count, number}.` |
 | `LZ2009` | `arg-type-conflict-local` | error | message | One name used at two irreconcilable types inside one value, `{x, number} of {x, date}`. | `Use one type for the argument, or split it into two arguments.` |
 
-In a file read as i18next, `LZ2001`'s span names the catalog entry rather than the character,
-because the value was rewritten before parsing and no offset arithmetic would land on the right
-column; the hint says so and carries the parser's own error.
+In a file read as i18next, `LZ2001`'s span names the catalog entry rather than the character: the
+value was rewritten before parsing and no offset arithmetic would land on the right column. The
+hint says so and carries the parser's own error.
 
 ## LZ3xxx: the cross-locale contract
 
@@ -149,11 +158,12 @@ Thirteen rules that compare a translation against the source locale.
 | `LZ3012` | `ambiguous-source` | warn | never | Two or more keys share byte-identical source text and any one of them has no description. One diagnostic per source text, listing every colliding key with its position and description. | The meta entries to paste and the `severity` line that moves the rule the other way. |
 | `LZ3013` | `plural-category-unreachable` | warn | never | A keyword branch the locale's plural rules can never select. | `de never selects zero; use the exact branch =0` or `de never selects few; delete the branch, or use an exact branch such as =2` |
 
-`LZ3012` is the rule an imported catalog hits first. "Open" can be a verb or an adjective, and a
-translator handed the bare string cannot tell; the rule fires when any key in the colliding set is
-undescribed, since two keys sharing "Open" where one is described leaves the other just as
-ambiguous. Here the example app's `en.json` gained an undescribed `footer.cart` beside the two
-described `Cart` keys it already had:
+### `LZ3012` is the rule an imported catalog hits first
+
+"Open" can be a verb or an adjective, and a translator handed the bare string cannot tell. The
+rule fires when any key in the colliding set is undescribed, since two keys sharing "Open" where
+one is described leaves the other just as ambiguous. Here the example app's `en.json` gained an
+undescribed `footer.cart` beside the two described `Cart` keys it already had:
 
 ```txt
 error  LZ3012  ambiguous-source  locales/en.json:5:14
@@ -171,12 +181,11 @@ error  LZ3012  ambiguous-source  locales/en.json:5:14
          severity: { 'ambiguous-source': 'warn' }
 ```
 
-Its default is `warn`, because at `error` it fires on every app-sized catalog as a matter of
-course ("Save", "Cancel", "Name", "Yes") and a freshly imported i18next catalog has no
-descriptions at all. `loclizr init` writes the `error` line for a greenfield project, where the
-gate is free from the first commit, and writes it commented out for a retrofit. Where the rule is
-left at its default, the second half of the hint reads `make this a hard gate` and names
-`'error'`.
+Its default is `warn`: at `error` it fires on every app-sized catalog as a matter of course
+("Save", "Cancel", "Name", "Yes"), and a freshly imported i18next catalog has no descriptions at
+all. `loclizr init` writes the `error` line for a greenfield project, where the gate is free from
+the first commit, and writes it commented out for a retrofit. At the default, the second half of
+the hint reads `make this a hard gate` and names `'error'`.
 
 ## LZ4xxx: identifiers and emit
 
@@ -205,19 +214,25 @@ Seven rules about what is on disk and what the usage scan found.
 | `LZ5006` | `missing-description` | off | never | A message with arguments or markup and no description. | `add a description in locales/en.meta.json:` followed by the entry to paste, or `set meta in loclizr.config.ts to switch the description sidecar on.` |
 | `LZ5007` | `record-rewritten` | warn | never | `build` only. The record was rewritten because the committed one's contract differed, under the same projection as `LZ5003`. | `commit the rewritten record with the string change, so the context lands in the same pull request.` |
 
+### The staleness gate
+
 `LZ5003` is what makes "context lands in the same pull request as the string change" a gate rather
-than an aspiration, and `LZ5007` is the same comparison on `build`, for the pipeline whose only
-invocation is `pnpm build`. Both compare a projection: every message's `usage` and `translations`
-arrays are dropped from both sides first, because a renamed component and a translator landing a
-batch both move those without any source copy changing. What is left, keys, ids, modules, kinds,
-`source`, `sourceHash`, descriptions, args, variants and markup, is the contract, and an edited
-string always changes `source` and `sourceHash`. `build` still writes the whole record whenever
-any byte differs. The [context record](/reference/context-record/#the-staleness-gate) page has the
-two comparisons side by side.
+than an aspiration. `LZ5007` is the same comparison on `build`, for the pipeline whose only
+invocation is `pnpm build`.
+
+- Both compare a projection: every message's `usage` and `translations` arrays are dropped from
+  both sides first, since a renamed component and a translator landing a batch both move those
+  without any source copy changing.
+- What is left is the contract: keys, ids, modules, kinds, `source`, `sourceHash`, descriptions,
+  args, variants and markup. An edited string always changes `source` and `sourceHash`.
+- `build` still writes the whole record whenever any byte differs.
+
+The [context record](/reference/context-record/#the-staleness-gate) page has the two comparisons
+side by side.
 
 <Aside type="note">
 Put `loclizr check` in CI, not `loclizr build`. `build` writes the record; `check` compares the
 committed one and raises `LZ5003` when they differ. A pipeline whose only invocation is
-`pnpm build` would rewrite the record in the CI workspace and pass, which is exactly the case that
-lets a copy change land without its context.
+`pnpm build` rewrites the record in the CI workspace and passes, exactly the case that lets a copy
+change land without its context.
 </Aside>

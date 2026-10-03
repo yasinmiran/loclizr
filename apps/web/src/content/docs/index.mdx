@@ -1,13 +1,13 @@
 ---
 title: Typed message functions and catalog checks from JSON
-description: A compiler for the contract between code and translations. Typed ESM message functions from JSON catalogs, catalog checks inside the build, and a context record that lands in the pull request with the string.
+description: A compiler for the contract between code and translations.
 template: splash
 tableOfContents: false
 prev: false
 next: false
 hero:
   title: Checking your catalog shouldn't be a tool you remember to add.
-  tagline: loclizr build turns your JSON translation catalogs into typed message functions, checks the catalogs on every build, and writes a context record for whoever translates next. No bundler plugin, and nothing rewrites your source.
+  tagline: loclizr build turns your JSON translation catalogs into typed message functions, checks the catalogs on every build, and writes a context record for whoever translates next.
   actions:
     - text: Quickstart
       link: /start/quickstart/
@@ -106,8 +106,8 @@ fell back to source text: de 2, de-AT 1
 
 The generated tree is still written, with the broken messages filled from the fallback chain, so
 the app keeps typechecking and the real errors are not buried under "cannot find module". The exit
-code is what gates. `loclizr build --no-fail` prints the same diagnostics and exits 0 for the dev
-server; `loclizr check` is the CI gate.
+code is what gates: `loclizr build --no-fail` prints the same diagnostics and exits 0 for the dev
+server, and `loclizr check` is the CI gate.
 
 ## Where to go next
 

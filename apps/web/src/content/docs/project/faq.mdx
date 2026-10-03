@@ -19,9 +19,10 @@ time is the set of messages and the shape of each one, not the values that flow 
 ## Can I pick the message itself at run time?
 
 From a set the build knows, yes. `groups: { errors: 'errors' }` generates a record and a key
-union, so `errors[code]({ seconds })` is typed, and a code outside the union is a type error. The
-cost is that a dynamic call has to pass the union of every member's arguments, and the build warns
-when the members disagree. [Dynamic keys](/guides/dynamic-keys/).
+union, so `errors[code]({ seconds })` is typed, and a code outside the union is a type error.
+
+The cost is that a dynamic call has to pass the union of every member's arguments, and the build
+warns when the members disagree. [Dynamic keys](/guides/dynamic-keys/).
 
 ## What about CMS content, or text a user typed?
 
@@ -33,10 +34,11 @@ generated code promises never to ship. A runtime `format()` entry is deferred; s
 ## Do I have to rewrite my i18next JSON?
 
 No. Point `catalogs` at the files, and each file is classified on its own: `{{name}}` and plural
-suffixes mark it as i18next and it is converted in memory, never written. Nesting with `$t(` and
-inline formatters are reported rather than converted, and context suffixes are detected with the
-rewrite printed for you. i18next keeps running while you look. [Importing i18next
-catalogs](/guides/i18next-import/).
+suffixes mark it as i18next and it is converted in memory, never written.
+
+Nesting with `$t(` and inline formatters are reported rather than converted, and context suffixes
+are detected with the rewrite printed for you. i18next keeps running while you look. [Importing
+i18next catalogs](/guides/i18next-import/).
 
 ## Is there a bundler plugin?
 
@@ -50,6 +52,7 @@ transform.
 The generated code imports nothing from any framework, so it runs in all three. What is tested is
 React on Vite. Server rendering covers Web Fetch handlers, with a headers primitive for Express and
 Fastify; the Next.js App Router is not a first-class target in v0.1 and there is no example.
+
 `loclizr/react` emits no `'use client'` directive, so add your own where a boundary is needed. On
 React Native the store works with no `document`; Hermes on Android needs the `intl` build, since
 the generated code calls `Intl.PluralRules`, `Intl.NumberFormat` and `Intl.DateTimeFormat`.
@@ -65,19 +68,26 @@ diagnostics and exits 0 once output is written, so a dev server starts. The gate
 ## Can I turn a check off?
 
 Any rule except three. `severity: { 'unused-message': 'off' }` in `loclizr.config.ts` takes a rule
-by name or code to `off`, `warn` or `error`. `config-invalid`, `outdir-unsafe` and
-`output-unwritable` cannot be re-levelled, because turning them down would let the tool do
-something it must never do quietly. Warnings alone never fail a run unless you pass
-`--max-warnings`.
+by name or code to `off`, `warn` or `error`.
+
+`config-invalid`, `outdir-unsafe` and `output-unwritable` cannot be re-levelled, because turning
+them down would let the tool do something it must never do quietly. Warnings alone never fail a
+run unless you pass `--max-warnings`.
 
 ## What is the context record for?
 
-Whoever translates next. Per message it carries the canonical source text and a hash of it, the
-argument names and types, the plural or select shape, the description and placeholder notes you
-wrote, the file and enclosing function where the message is used, and per-locale status. `build`
-writes it beside the catalogs, you commit it, and `check` compares the committed copy against
-what the tree now produces, so a string edit and its context land in the same pull request or the
-pull request fails.
+Whoever translates next. Per message it carries:
+
+- the canonical source text and a hash of it
+- the argument names and types
+- the plural or select shape
+- the description and placeholder notes you wrote
+- the file and enclosing function where the message is used
+- per-locale status
+
+`build` writes it beside the catalogs, you commit it, and `check` compares the committed copy
+against what the tree now produces, so a string edit and its context land in the same pull
+request or the pull request fails.
 
 ## How is that different from a TMS agent that writes context?
 
@@ -90,9 +100,11 @@ with the diff. It also stays yours when you change vendors.
 
 By default no. `build` writes a self-ignoring `.gitignore` inside `src/loclizr`, and the
 `prepare`, `predev`, `prebuild` and `pretypecheck` scripts that `init` prints keep a fresh clone
-working. The file that belongs in the pull request is `locales/loclizr.context.json`. A team that
-prefers to commit the tree deletes that one `.gitignore`, and `check` then starts comparing those
-files too.
+working.
+
+The file that belongs in the pull request is `locales/loclizr.context.json`. A team that prefers
+to commit the tree deletes that one `.gitignore`, and `check` then starts comparing those files
+too.
 
 ## Does the compiler ever write my catalogs?
 
