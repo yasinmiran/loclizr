@@ -179,3 +179,20 @@
     box-shadow: inset -1px 0 var(--sl-color-hairline);
   }
 }
+
+/* Code in a table's first column is a flag, a rule name or a call, and a
+   narrow column broke it at each hyphen: `build --no-fail` stranded a bare
+   `--`. Keep those spans whole; the table scrolls sideways when they no longer
+   fit. Later columns hold sentences and types, which have to wrap. */
+.sl-markdown-content td:first-child code {
+  white-space: nowrap;
+}
+
+/* The theme pins the step heading wrapper to the bullet's height, so a
+   heading that wraps at phone width spilled onto the paragraph below. Let the
+   wrapper grow with its heading, and start it at the bullet so the first line
+   stays level with the number. */
+.sl-markdown-content .sl-steps > li > .sl-heading-wrapper {
+  height: auto;
+  align-items: flex-start;
+}

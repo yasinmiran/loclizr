@@ -91,7 +91,7 @@ nothing matches
 | Request carried | Result |
 | --- | --- |
 | `cookie: locale=de-AT` and `accept-language: en` | the cookie won |
-| `accept-language: de-CH,de;q=0.9,en;q=0.8`, no cookie | `de-CH` truncated to the declared `de` |
+| `accept-language:` `de-CH,de;q=0.9,en;q=0.8`, no cookie | `de-CH` truncated to the declared `de` |
 | `fr` | the source locale |
 
 ## Cookie first, then Accept-Language
