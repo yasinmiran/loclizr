@@ -776,6 +776,12 @@ describe('checkDescriptions edge cases', () => {
     expect(checkDescriptions(program({ messages: [] }))).toEqual([])
   })
 
+  it.each([[''], ['   '], ['\t\n']])('reports a blank description %j as missing', (description) => {
+    const diagnostics = checkDescriptions(program({ messages: [withArg('a', description)] }))
+
+    expect(diagnostics.map((diagnostic) => diagnostic.rule)).toEqual(['missing-description'])
+  })
+
   it('emits at the rule default and never reads config.severity', () => {
     const input = program({ messages: [withArg('a', null)] })
     const silenced: Program = {

@@ -54,7 +54,7 @@ export function serializeRecord(record: ContextRecord): string {
 export function checkDescriptions(program: Program): readonly Diagnostic[] {
   const diagnostics: Diagnostic[] = []
   for (const message of byKey(program.messages)) {
-    if (message.description !== null) continue
+    if (message.description !== null && message.description.trim() !== '') continue
     if (message.args.length === 0 && message.markupTags.length === 0) continue
     diagnostics.push(missingDescription(message, program))
   }
