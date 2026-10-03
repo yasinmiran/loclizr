@@ -1,9 +1,10 @@
 import { describe, expect, it } from 'vitest'
-import type { Diagnostic, Node } from '../types'
+import type { Body, Diagnostic, Node } from '../types'
 import {
   argNode,
   at,
   body,
+  type BodyInput,
   branch,
   config,
   message,
@@ -39,6 +40,11 @@ function countPlural(keywords: readonly string[], ordinal = false): Node {
 
 const i18next = config({ catalogFormat: 'i18next' })
 
+// Pinning catalogFormat makes M2 read every file as i18next.
+function i18nextBody(locale: string, input: BodyInput): Body {
+  return body(locale, { ...input, format: 'i18next' })
+}
+
 describe('hints in a catalog read as i18next', () => {
   it('quotes a missing argument the way the file spells it, so the fix builds', () => {
     const diagnostics = runChecks(
@@ -48,11 +54,11 @@ describe('hints in a catalog read as i18next', () => {
           message({
             key: 'a',
             bodies: [
-              body('en', {
+              i18nextBody('en', {
                 nodes: [text('Hi '), argNode('name'), text(' '), argNode('x')],
                 args: [stringishArg('name'), stringishArg('x')],
               }),
-              body('de', { nodes: [text('Hallo '), argNode('x')], args: [stringishArg('x')] }),
+              i18nextBody('de', { nodes: [text('Hallo '), argNode('x')], args: [stringishArg('x')] }),
             ],
           }),
         ],
@@ -72,8 +78,8 @@ describe('hints in a catalog read as i18next', () => {
           message({
             key: 'a',
             bodies: [
-              body('en', { nodes: [text('Hi '), argNode('x')], args: [stringishArg('x')] }),
-              body('de', {
+              i18nextBody('en', { nodes: [text('Hi '), argNode('x')], args: [stringishArg('x')] }),
+              i18nextBody('de', {
                 nodes: [text('Hallo '), argNode('y'), text(' '), argNode('x')],
                 args: [stringishArg('y'), stringishArg('x')],
               }),
@@ -96,8 +102,8 @@ describe('hints in a catalog read as i18next', () => {
           message({
             key: 'a',
             bodies: [
-              body('en', { nodes: [countPlural(['one', 'other'])], args: [numberArg('count')] }),
-              body('ru', { nodes: [countPlural(['one', 'other'])], args: [numberArg('count')] }),
+              i18nextBody('en', { nodes: [countPlural(['one', 'other'])], args: [numberArg('count')] }),
+              i18nextBody('ru', { nodes: [countPlural(['one', 'other'])], args: [numberArg('count')] }),
             ],
           }),
         ],
@@ -116,7 +122,7 @@ describe('hints in a catalog read as i18next', () => {
         messages: [
           message({
             key: 'place',
-            bodies: [body('en', { nodes: [countPlural(['one', 'other'], true)], args: [numberArg('count')] })],
+            bodies: [i18nextBody('en', { nodes: [countPlural(['one', 'other'], true)], args: [numberArg('count')] })],
           }),
         ],
       }),
@@ -131,11 +137,11 @@ describe('hints in a catalog read as i18next', () => {
         messages: [
           message({
             key: 'place',
-            bodies: [body('en', { nodes: [countPlural(['one', 'other'])], args: [numberArg('count')] })],
+            bodies: [i18nextBody('en', { nodes: [countPlural(['one', 'other'])], args: [numberArg('count')] })],
           }),
           message({
             key: 'place_ordinal',
-            bodies: [body('en', { nodes: [countPlural(['one', 'other'], true)], args: [numberArg('count')] })],
+            bodies: [i18nextBody('en', { nodes: [countPlural(['one', 'other'], true)], args: [numberArg('count')] })],
           }),
         ],
       }),
@@ -152,7 +158,7 @@ describe('hints in a catalog read as i18next', () => {
         messages: [
           message({
             key: 'rank_ordinal',
-            bodies: [body('en', { nodes: [countPlural(['one', 'other'], true)], args: [numberArg('count')] })],
+            bodies: [i18nextBody('en', { nodes: [countPlural(['one', 'other'], true)], args: [numberArg('count')] })],
           }),
         ],
       }),
@@ -176,9 +182,9 @@ describe('hints in a catalog read as i18next', () => {
             key: 'common.cart.items',
             spans: nsSpans,
             bodies: [
-              body('en', { nodes: [countPlural(['one', 'other'])], args: [numberArg('count')] }),
-              body('ru', { nodes: [countPlural(['one', 'few', 'many', 'other'])], args: [numberArg('count')] }),
-              body('de', { nodes: [countPlural(['one', 'two', 'other'])], args: [numberArg('count')] }),
+              i18nextBody('en', { nodes: [countPlural(['one', 'other'])], args: [numberArg('count')] }),
+              i18nextBody('ru', { nodes: [countPlural(['one', 'few', 'many', 'other'])], args: [numberArg('count')] }),
+              i18nextBody('de', { nodes: [countPlural(['one', 'two', 'other'])], args: [numberArg('count')] }),
             ],
           }),
         ],
@@ -197,8 +203,8 @@ describe('hints in a catalog read as i18next', () => {
             key: 'common.cart.items',
             spans: nsSpans,
             bodies: [
-              body('en', { nodes: [countPlural(['one', 'other'])], args: [numberArg('count')] }),
-              body('ru', { nodes: [countPlural(['one', 'other'])], args: [numberArg('count')] }),
+              i18nextBody('en', { nodes: [countPlural(['one', 'other'])], args: [numberArg('count')] }),
+              i18nextBody('ru', { nodes: [countPlural(['one', 'other'])], args: [numberArg('count')] }),
             ],
           }),
         ],
@@ -217,8 +223,8 @@ describe('hints in a catalog read as i18next', () => {
           message({
             key: 'a',
             bodies: [
-              body('en', { nodes: [countPlural(['one', 'other'])], args: [numberArg('count')] }),
-              body('de', { nodes: [countPlural(['one', 'two', 'other'])], args: [numberArg('count')] }),
+              i18nextBody('en', { nodes: [countPlural(['one', 'other'])], args: [numberArg('count')] }),
+              i18nextBody('de', { nodes: [countPlural(['one', 'two', 'other'])], args: [numberArg('count')] }),
             ],
           }),
         ],
@@ -228,6 +234,126 @@ describe('hints in a catalog read as i18next', () => {
     const unreachable = only(diagnostics, 'LZ3013')
     expect(unreachable.message).toBe('de never selects "two", so this branch of {{count}} never renders.')
     expect(unreachable.hint).toBe('de never selects two; delete "a_two" from locales/de.json')
+  })
+})
+
+// Under the default catalogFormat 'auto' each file is classified on its own, so
+// the format a hint speaks has to come from the body, not from the config.
+describe('hints for a file auto-detected as i18next', () => {
+  it('quotes a missing argument the way the file spells it', () => {
+    const diagnostics = runChecks(
+      program({
+        messages: [
+          message({
+            key: 'a',
+            bodies: [
+              body('en', {
+                nodes: [text('Hi '), argNode('name'), text(' '), argNode('x')],
+                args: [stringishArg('name'), stringishArg('x')],
+                format: 'i18next',
+              }),
+              body('de', { nodes: [text('Hallo '), argNode('x')], args: [stringishArg('x')], format: 'i18next' }),
+            ],
+          }),
+        ],
+      }),
+    )
+
+    const missing = only(diagnostics, 'LZ3004')
+    expect(missing.message).toBe('The en text uses {{name}} and the de translation does not.')
+    expect(missing.hint).toBe('add {{name}} to "a" in locales/de.json')
+  })
+
+  it('quotes an extra argument the way the file spells it', () => {
+    const diagnostics = runChecks(
+      program({
+        messages: [
+          message({
+            key: 'a',
+            bodies: [
+              body('en', { nodes: [text('Hi '), argNode('x')], args: [stringishArg('x')], format: 'i18next' }),
+              body('de', {
+                nodes: [text('Hallo '), argNode('y'), text(' '), argNode('x')],
+                args: [stringishArg('y'), stringishArg('x')],
+                format: 'i18next',
+              }),
+            ],
+          }),
+        ],
+      }),
+    )
+
+    const extra = only(diagnostics, 'LZ3005')
+    expect(extra.message).toContain('uses {{y}}, which')
+    expect(extra.hint).toBe('check the spelling of {{y}} in locales/de.json, or add it to the en text')
+  })
+
+  it('names the plural keys to add', () => {
+    const diagnostics = runChecks(
+      program({
+        config: config({ locales: ['en', 'ru'] }),
+        messages: [
+          message({
+            key: 'a',
+            bodies: [
+              body('en', { nodes: [countPlural(['one', 'other'])], args: [numberArg('count')], format: 'i18next' }),
+              body('ru', { nodes: [countPlural(['one', 'other'])], args: [numberArg('count')], format: 'i18next' }),
+            ],
+          }),
+        ],
+      }),
+    )
+
+    const incomplete = only(diagnostics, 'LZ3007')
+    expect(incomplete.message).toContain('values of {{count}}')
+    expect(incomplete.hint).toBe('add "a_few", "a_many" to locales/ru.json')
+  })
+
+  it('says to delete an unreachable plural key', () => {
+    const diagnostics = runChecks(
+      program({
+        messages: [
+          message({
+            key: 'a',
+            bodies: [
+              body('en', { nodes: [countPlural(['one', 'other'])], args: [numberArg('count')], format: 'i18next' }),
+              body('de', {
+                nodes: [countPlural(['one', 'two', 'other'])],
+                args: [numberArg('count')],
+                format: 'i18next',
+              }),
+            ],
+          }),
+        ],
+      }),
+    )
+
+    const unreachable = only(diagnostics, 'LZ3013')
+    expect(unreachable.message).toBe('de never selects "two", so this branch of {{count}} never renders.')
+    expect(unreachable.hint).toBe('de never selects two; delete "a_two" from locales/de.json')
+  })
+
+  it('quotes the source in its own format and the hint in the translation file format', () => {
+    const diagnostics = runChecks(
+      program({
+        messages: [
+          message({
+            key: 'a',
+            bodies: [
+              body('en', {
+                nodes: [text('Hi '), argNode('name'), text(' '), argNode('x')],
+                args: [stringishArg('name'), stringishArg('x')],
+              }),
+              body('de', { nodes: [text('Hallo '), argNode('x')], args: [stringishArg('x')], format: 'i18next' }),
+            ],
+          }),
+        ],
+      }),
+    )
+
+    const missing = only(diagnostics, 'LZ3004')
+    expect(missing.message).toBe('The en text uses {name} and the de translation does not.')
+    expect(missing.hint).toBe('add {{name}} to "a" in locales/de.json')
   })
 })
 

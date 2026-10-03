@@ -293,6 +293,23 @@ describe('lower, plural semantics', () => {
     expect(found[0]?.hint).toContain('{a, number}')
   })
 
+  it('names no select in the LZ2008 hint when no select encloses the #', () => {
+    const result = lower("{a, plural, other {'#' items}}", icuContext())
+    expect(only(result.diagnostics, 'LZ2008').hint).toBe(
+      'Write # without the quotes, or {a, number}, to print the count.',
+    )
+  })
+
+  it('gives the LZ2008 hint in i18next syntax for a value converted from i18next', () => {
+    const result = lower(
+      "{count, plural, one {'#' item} other {'#' items}}",
+      icuContext({ catalogFormat: 'i18next' }),
+    )
+    const found = result.diagnostics.filter((diagnostic) => diagnostic.code === 'LZ2008')
+    expect(found).toHaveLength(2)
+    expect(found[0]?.hint).toBe('In an i18next file # is always the character. If you meant the count, write {{count}}.')
+  })
+
   it('raises LZ2006 for a branch keyword that is not a CLDR category', () => {
     const result = lower('{c, plural, banana {x} other {y}}', icuContext())
     expect(only(result.diagnostics, 'LZ2006').message).toContain('banana')
@@ -314,6 +331,22 @@ describe('lower, select semantics', () => {
     expect(result.nodes[0]).toMatchObject({
       branches: [{ option: 'a' }, { option: 'b' }, { option: 'other' }],
     })
+  })
+
+  it('keeps an option spelled as the catalog spells it, since the runtime matches it verbatim', () => {
+    const result = lower('{s, select, cafe\u0301 {a} other {c}}', icuContext())
+    expect(result.args[0]?.type).toStrictEqual({ kind: 'select', options: ['cafe\u0301'] })
+    expect(result.nodes[0]).toMatchObject({
+      branches: [{ option: 'cafe\u0301' }, { option: 'other' }],
+    })
+    expect(result.diagnostics).toStrictEqual([])
+  })
+
+  it('raises LZ2001 at the second option when two options are equal under NFC', () => {
+    const result = lower('{s, select, caf\u00e9 {a} cafe\u0301 {b} other {c}}', icuContext())
+    const found = only(result.diagnostics, 'LZ2001')
+    expect(found.message).toBe('The select {s} has two options that are both "caf\u00e9" under NFC.')
+    expect(found.span).toStrictEqual({ line: 3, column: 5 + 21, offset: 42 + 21, length: 5 })
   })
 })
 

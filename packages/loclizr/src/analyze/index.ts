@@ -169,6 +169,7 @@ type CatalogIndex = ReadonlyMap<string, ReadonlyMap<string, CatalogEntry>>
 interface LoweredBody {
   readonly result: LowerResult
   readonly valid: boolean
+  readonly format: 'icu' | 'i18next'
 }
 
 export function analyze(input: {
@@ -254,9 +255,15 @@ export function fallbackChain(locale: string, config: Config): readonly string[]
   return chain
 }
 
+// These render as nothing and pass into an export name unchanged, so two keys
+// that differ only by one look identical in review and in the .d.ts.
+const INVISIBLE_JOINERS = /[\u200C\u200D\u2060\uFEFF]/gu
+
 export function confusableSkeleton(value: string): string {
   let skeleton = ''
-  for (const char of value.normalize('NFKC')) skeleton += CONFUSABLE_FOLD.get(char) ?? char
+  for (const char of value.normalize('NFKC').replace(INVISIBLE_JOINERS, '')) {
+    skeleton += CONFUSABLE_FOLD.get(char) ?? char
+  }
   return skeleton
 }
 
@@ -362,7 +369,7 @@ function lowerKey(
     }
     const result = lower(entry.value, context)
     diagnostics.push(...result.diagnostics)
-    bodies.set(locale, { result, valid: !droppedByLowering(result.diagnostics) })
+    bodies.set(locale, { result, valid: !droppedByLowering(result.diagnostics), format: entry.format })
   }
   return { bodies, diagnostics }
 }
@@ -424,6 +431,7 @@ function ownBodies(lowered: ReadonlyMap<string, LoweredBody>): readonly Body[] {
       nodes: entry.result.nodes,
       args: entry.result.args,
       markupTags: entry.result.markupTags,
+      format: entry.format,
     })
   }
   return bodies
@@ -733,7 +741,7 @@ function checkConfusableKeys(
     diagnostics.push(
       diag('confusable-key', {
         message: `${bucket.length} keys are indistinguishable after confusable folding: "${skeleton}".`,
-        hint: 'One of them carries a Cyrillic or Greek homoglyph. Retype the key in Latin.',
+        hint: 'One of them carries a Cyrillic or Greek homoglyph, or an invisible character. Retype the key in Latin.',
         key: first.key,
         ...locationOf(first.key, sourceEntries),
         related: rest.map((message) =>

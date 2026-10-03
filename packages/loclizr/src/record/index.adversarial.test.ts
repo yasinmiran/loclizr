@@ -44,6 +44,7 @@ function cartItems(): Message {
     bodies: [
       {
         locale: 'en',
+        format: 'icu',
         nodes: CART_ITEMS_NODES,
         args: [{ name: 'count', type: { kind: 'number' } }],
         markupTags: [],
@@ -315,6 +316,7 @@ describe('buildRecord under hostile input', () => {
   it('transcribes an origin that contradicts the locale own body', () => {
     const germanBody: Body = {
       locale: 'de',
+      format: 'icu',
       nodes: [
         {
           kind: 'plural',
@@ -330,6 +332,7 @@ describe('buildRecord under hostile input', () => {
     }
     const englishBody: Body = {
       locale: 'en',
+      format: 'icu',
       nodes: [{ kind: 'text', value: 'Hi' }],
       args: [],
       markupTags: [],

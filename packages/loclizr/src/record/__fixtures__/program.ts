@@ -81,7 +81,7 @@ export function message(input: MessageInput): Message {
     markupTags,
     description: input.description ?? null,
     placeholders: input.placeholders ?? [],
-    bodies: input.bodies ?? [{ locale: 'en', nodes, args, markupTags }],
+    bodies: input.bodies ?? [{ locale: 'en', format: 'icu', nodes, args, markupTags }],
     origins: input.origins ?? [{ locale: 'en', origin: { status: 'translated' } }],
     spans: input.spans ?? [{ locale: 'en', file: 'locales/en.json', span: span(1, 1, 0) }],
   }

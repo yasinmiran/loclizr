@@ -192,6 +192,9 @@ export interface Body {
   readonly nodes: readonly Node[]
   readonly args: readonly Arg[]
   readonly markupTags: readonly string[]
+  // RawCatalog.format of the file this body came from, so a hint can speak that
+  // file's syntax under catalogFormat 'auto'.
+  readonly format: 'icu' | 'i18next'
 }
 
 export interface LocaleOrigin {

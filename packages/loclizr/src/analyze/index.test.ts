@@ -104,6 +104,16 @@ describe('confusableSkeleton', () => {
   it('leaves keys that differ by more than a homoglyph apart', () => {
     expect(confusableSkeleton('pay')).not.toBe(confusableSkeleton('pai'))
   })
+
+  it('drops the joiners that render as nothing and survive into an identifier', () => {
+    for (const invisible of ['\u200d', '\u200c', '\u2060', '\ufeff']) {
+      expect(confusableSkeleton(`pa${invisible}y`)).toBe('pay')
+    }
+  })
+
+  it('keeps a soft hyphen, whose export already differs visibly', () => {
+    expect(confusableSkeleton('pa\u00ady')).not.toBe('pay')
+  })
 })
 
 describe('the fallback seam', () => {
@@ -223,6 +233,19 @@ describe('bodies', () => {
     expect(message.bodies.map((body) => body.locale)).toEqual(['en'])
     expect(originFor(message, 'de')).toEqual({ status: 'fallback', from: 'en', reason: 'invalid' })
     expect(codes(program.diagnostics)).toContain('LZ2001')
+  })
+
+  it('carries the format each body was read as, file by file', () => {
+    const program = run({
+      config: config({ locales: ['en', 'de'] }),
+      catalogs: [
+        catalog({ locale: 'en', entries: { 'a.b': 'Hi' } }),
+        catalog({ locale: 'de', entries: { 'a.b': 'Hallo' }, format: 'i18next' }),
+      ],
+    })
+    const message = messageFor(program, 'a.b')
+    expect(bodyFor(message, 'en')?.format).toBe('icu')
+    expect(bodyFor(message, 'de')?.format).toBe('i18next')
   })
 
   it('lowers an empty source value to a message with no nodes', () => {
@@ -726,6 +749,17 @@ describe('identity rules', () => {
     const confusable = forRule(program, 'confusable-key')
     expect(confusable).toHaveLength(1)
     expect(confusable[0]?.related).toHaveLength(1)
+  })
+
+  it('raises LZ4003 for two keys that differ only by an invisible joiner', () => {
+    const program = run({
+      config: config({ locales: ['en'] }),
+      catalogs: [catalog({ locale: 'en', entries: { pay: 'A', 'pay\u200d': 'B', 'pay\u200c': 'C' } })],
+    })
+    const confusable = forRule(program, 'confusable-key')
+    expect(confusable).toHaveLength(1)
+    expect(confusable[0]?.related).toHaveLength(2)
+    expect(confusable[0]?.hint).not.toContain('Cyrillic or Greek homoglyph.')
   })
 
   it('leaves a wholly non-Latin key alone', () => {

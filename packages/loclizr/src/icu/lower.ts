@@ -128,12 +128,14 @@ interface State {
 
 // `plural` is the nearest enclosing plural selector and stays set through a
 // select, because a `#` the parser demoted to literal text is still the mistake
-// LZ2008 reports.
+// LZ2008 reports. `select` says a select sits between that plural and the text,
+// which is what the hint has to name.
 interface Scope {
   readonly plural: string | null
+  readonly select: boolean
 }
 
-const TOP_LEVEL: Scope = { plural: null }
+const TOP_LEVEL: Scope = { plural: null, select: false }
 
 function visit(
   state: State,
@@ -161,7 +163,7 @@ function lowerElement(state: State, element: MessageFormatElement, scope: Scope)
         state.diagnostics.push(
           report(state, 'pound-literal', rangeOf(element.location), {
             message: 'A literal "#" inside a plural body renders as the character, not the count.',
-            hint: `Move the # out of the nested select, or write {${scope.plural}, number}.`,
+            hint: poundHint(state.context.catalogFormat, scope.plural, scope.select),
           }),
         )
       }
@@ -197,6 +199,14 @@ function lowerElement(state: State, element: MessageFormatElement, scope: Scope)
   }
 }
 
+function poundHint(format: 'i18next' | 'icu', plural: string, select: boolean): string {
+  if (format === 'i18next') {
+    return `In an i18next file # is always the character. If you meant the count, write {{${plural}}}.`
+  }
+  if (select) return `Move the # out of the nested select, or write {${plural}, number}.`
+  return `Write # without the quotes, or {${plural}, number}, to print the count.`
+}
+
 function lowerDateTime(
   state: State,
   element: DateElement | TimeElement,
@@ -216,9 +226,28 @@ function lowerSelect(state: State, element: SelectElement, scope: Scope): Node {
   const ordered = orderSelect(element.options)
   const options = ordered.filter((entry) => entry.option !== 'other').map((entry) => entry.option)
   const name = register(state, element.value, { kind: 'select', options }, element.location)
+  // Options stay as written because the runtime matches them verbatim; only the
+  // collision is reported, as the parser reports a byte-identical repeat.
+  const seen = new Set<string>()
+  for (const entry of ordered) {
+    const normalized = entry.option.normalize('NFC')
+    if (seen.has(normalized)) {
+      state.diagnostics.push(
+        diag('icu-syntax', {
+          message: `The select {${name}} has two options that are both "${normalized}" under NFC.`,
+          hint: 'Delete one of the two branches. Their options differ only in how an accented letter is encoded.',
+          file: state.context.file,
+          locale: state.context.locale,
+          key: state.context.key,
+          span: spanFor(state, selectorRange(state.icu, entry)),
+        }),
+      )
+    }
+    seen.add(normalized)
+  }
   const branches: SelectBranch[] = ordered.map((entry) => ({
     option: entry.option,
-    body: visit(state, entry.body, scope),
+    body: visit(state, entry.body, { plural: scope.plural, select: true }),
   }))
   return { kind: 'select', name, branches }
 }
@@ -228,7 +257,7 @@ function lowerSelect(state: State, element: SelectElement, scope: Scope): Node {
 // printed source and the argument order disagree for the same message.
 function lowerPlural(state: State, element: PluralElement): Node {
   const name = register(state, element.value, NUMBER, element.location)
-  const scope: Scope = { plural: name }
+  const scope: Scope = { plural: name, select: false }
   const exact: Pending[] = []
   const keywords: Pending[] = []
   for (const [selector, option] of Object.entries(element.options)) {
@@ -291,6 +320,7 @@ interface Pending {
 interface OrderedOption {
   readonly option: string
   readonly body: readonly MessageFormatElement[]
+  readonly location: IcuLocation | undefined
 }
 
 // The parser hands back a plain object, so a catalog written `1 {..} 0 {..}`
@@ -300,9 +330,23 @@ function orderSelect(
   options: Readonly<Record<string, PluralOrSelectOption>>,
 ): readonly OrderedOption[] {
   return Object.entries(options)
-    .map(([option, value]) => ({ option, body: value.value, at: value.location?.start.offset ?? 0 }))
+    .map(([option, value]) => ({
+      option,
+      body: value.value,
+      at: value.location?.start.offset ?? 0,
+      location: value.location,
+    }))
     .sort((a, b) => Number(a.option === 'other') - Number(b.option === 'other') || a.at - b.at)
-    .map((entry) => ({ option: entry.option, body: entry.body }))
+    .map((entry) => ({ option: entry.option, body: entry.body, location: entry.location }))
+}
+
+// The parser records where a branch body starts but not its selector, which is
+// the option text just before that body's `{` and any whitespace.
+function selectorRange(icu: string, entry: OrderedOption): Range | null {
+  if (entry.location === undefined) return null
+  let end = entry.location.start.offset
+  while (end > 0 && /\s/u.test(icu[end - 1] ?? '')) end -= 1
+  return { start: end - entry.option.length, end }
 }
 
 const STRINGISH: ArgType = { kind: 'stringish' }

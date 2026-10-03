@@ -240,12 +240,14 @@ describe('buildRecord locale tags', () => {
 describe('buildRecord with a source locale other than en', () => {
   const english: Body = {
     locale: 'en',
+    format: 'icu',
     nodes: [pluralOver('english')],
     args: [{ name: 'english', type: { kind: 'number' } }],
     markupTags: [],
   }
   const german: Body = {
     locale: 'de',
+    format: 'icu',
     nodes: [pluralOver('german')],
     args: [{ name: 'german', type: { kind: 'number' } }],
     markupTags: [],

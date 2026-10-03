@@ -47,6 +47,7 @@ export interface BodyInput {
   readonly nodes?: readonly Node[]
   readonly args?: readonly Arg[]
   readonly markupTags?: readonly string[]
+  readonly format?: 'icu' | 'i18next'
 }
 
 export function body(locale: string, input: BodyInput = {}): Body {
@@ -55,6 +56,7 @@ export function body(locale: string, input: BodyInput = {}): Body {
     nodes: input.nodes ?? [],
     args: input.args ?? [],
     markupTags: input.markupTags ?? [],
+    format: input.format ?? 'icu',
   }
 }
 

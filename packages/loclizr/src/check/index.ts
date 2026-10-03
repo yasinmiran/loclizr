@@ -104,7 +104,6 @@ function checkTranslations(program: Program, message: Message, out: Diagnostic[]
 
 function checkArgs(comparison: Comparison, folded: Map<string, FoldState>, out: Diagnostic[]): void {
   const { program, message, source, body, file, span } = comparison
-  const format = formatOf(program)
   const translatedArgs = new Map(body.args.map((arg) => [arg.name, arg.type] as const))
   const sourceNames = new Set(source.args.map((arg) => arg.name))
   for (const arg of source.args) {
@@ -113,8 +112,8 @@ function checkArgs(comparison: Comparison, folded: Map<string, FoldState>, out: 
       if (arg.type.kind === 'markup') continue
       out.push(
         diag('arg-missing', {
-          message: `The ${program.sourceLocale} text uses ${argRef(format, arg.name)} and the ${body.locale} translation does not.`,
-          hint: `add ${argRef(format, arg.name)} to "${message.key}" in ${file}`,
+          message: `The ${program.sourceLocale} text uses ${argRef(source.format, arg.name)} and the ${body.locale} translation does not.`,
+          hint: `add ${argRef(body.format, arg.name)} to "${message.key}" in ${file}`,
           file,
           locale: body.locale,
           key: message.key,
@@ -132,10 +131,10 @@ function checkArgs(comparison: Comparison, folded: Map<string, FoldState>, out: 
       diag('arg-extra', {
         message: tag
           ? `The ${body.locale} translation uses the tag <${arg.name}>, which the ${program.sourceLocale} text does not have, so this locale renders ${program.sourceLocale} text instead.`
-          : `The ${body.locale} translation uses ${argRef(format, arg.name)}, which the ${program.sourceLocale} text does not have, so this locale renders ${program.sourceLocale} text instead.`,
+          : `The ${body.locale} translation uses ${argRef(body.format, arg.name)}, which the ${program.sourceLocale} text does not have, so this locale renders ${program.sourceLocale} text instead.`,
         hint: tag
           ? `remove <${arg.name}> from "${message.key}" in ${file}, or add it to the ${program.sourceLocale} text`
-          : `check the spelling of ${argRef(format, arg.name)} in ${file}, or add it to the ${program.sourceLocale} text`,
+          : `check the spelling of ${argRef(body.format, arg.name)} in ${file}, or add it to the ${program.sourceLocale} text`,
         file,
         locale: body.locale,
         key: message.key,
@@ -243,8 +242,8 @@ function checkMarkup(comparison: Comparison, out: Diagnostic[]): void {
 }
 
 function checkPluralCategories(program: Program, message: Message, out: Diagnostic[]): void {
-  const format = formatOf(program)
   for (const body of byLocale(message.bodies)) {
+    const format = body.format
     const file = catalogFile(program, message, body.locale)
     const span = spanOf(message, body.locale)
     // File, locale, key and span are the body's, so two plurals on one argument
@@ -290,12 +289,6 @@ function checkPluralCategories(program: Program, message: Message, out: Diagnost
       }
     })
   }
-}
-
-// Falls back to ICU under 'auto' because Program does not carry the format
-// each file was read as.
-function formatOf(program: Program): 'icu' | 'i18next' {
-  return program.config.catalogFormat === 'i18next' ? 'i18next' : 'icu'
 }
 
 function argRef(format: 'icu' | 'i18next', name: string): string {

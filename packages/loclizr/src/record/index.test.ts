@@ -297,6 +297,7 @@ describe('buildRecord', () => {
   it('reads the source locale body rather than the first body', () => {
     const germanOnly: Body = {
       locale: 'de',
+      format: 'icu',
       nodes: [
         {
           kind: 'plural',
@@ -310,7 +311,7 @@ describe('buildRecord', () => {
       args: [],
       markupTags: [],
     }
-    const english: Body = { locale: 'en', nodes: [{ kind: 'text', value: 'Home' }], args: [], markupTags: [] }
+    const english: Body = { locale: 'en', format: 'icu', nodes: [{ kind: 'text', value: 'Home' }], args: [], markupTags: [] }
 
     const record = buildRecord(
       program({
