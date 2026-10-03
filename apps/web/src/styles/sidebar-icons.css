@@ -1,0 +1,99 @@
+/* Icons in public/icons, copied unmodified apart from whitespace and the
+   lucide class attribute; each lucide file keeps its license line:
+   - react, svelte, vuedotjs, solid, astro, typescript: simple-icons 16.33.0,
+     CC0-1.0 (brand marks remain their owners' trademarks).
+   - every other icon: lucide-static 1.51.0, ISC.
+   Each icon is a mask over currentColor, so it follows the link color in both
+   themes, on hover and on the current page without a rule per state. */
+
+:is(.sidebar-content, .mobile-nav-section:not(:first-child) .mobile-nav-links) a::before {
+  content: '';
+  flex: none;
+  align-self: flex-start;
+  width: var(--sidebar-icon-size);
+  /* One line box tall, so the glyph centres on the first line of a label
+     that wraps instead of floating between its lines. */
+  height: 1lh;
+  background-color: currentColor;
+  /* An entry added to sidebar.ts without an icon keeps a blank slot rather
+     than a solid square, and its label stays in the column. */
+  mask: var(--sidebar-icon, linear-gradient(transparent 0 0)) center / var(--sidebar-icon-fit) no-repeat;
+}
+
+.sidebar-content a.entry-link {
+  --sidebar-icon-size: 1rem;
+  /* A label that wraps beside its icon would be clipped: the theme pins
+     links at 30px and inherits body leading. Keep 30px as the floor, with
+     leading set for a two-line label, and pad a single line back to where it
+     sat. */
+  height: auto;
+  min-height: 30px;
+  line-height: 1.35;
+  padding-block: calc((30px - 1lh) / 2);
+  align-items: flex-start;
+}
+
+.mobile-nav-section:not(:first-child) .mobile-nav-links a {
+  --sidebar-icon-size: 1.25rem;
+  align-items: flex-start;
+}
+
+/* Lucide draws inside a 2px margin of its 24px grid while simple-icons fill
+   it edge to edge. Shrinking the brand marks to the same 20/24 keeps every
+   glyph the same optical size, and the solid marks no heavier than needed. */
+:is(.sidebar-content, .mobile-nav-links) {
+  --sidebar-icon-fit: 100%;
+
+  & a[href$='/guides/react/'],
+  & a[href$='/guides/svelte/'],
+  & a[href$='/guides/vue/'],
+  & a[href$='/guides/solid/'],
+  & a[href$='/guides/astro/'],
+  & a[href$='/guides/vanilla/'] {
+    --sidebar-icon-fit: 83.333%;
+  }
+
+  /* A full square reads larger than a round mark of the same width; Lucide
+     insets its own squares to 18/24 for the same reason. */
+  & a[href$='/guides/vanilla/'] {
+    --sidebar-icon-fit: 75%;
+  }
+
+  & a[href$='/start/introduction/'] { --sidebar-icon: url(/icons/book-open.svg); }
+  & a[href$='/start/quickstart/'] { --sidebar-icon: url(/icons/rocket.svg); }
+  & a[href$='/start/playground/'] { --sidebar-icon: url(/icons/play.svg); }
+  & a[href$='/start/how-it-works/'] { --sidebar-icon: url(/icons/workflow.svg); }
+  & a[href$='/start/agents/'] { --sidebar-icon: url(/icons/bot.svg); }
+
+  & a[href$='/guides/catalogs/'] { --sidebar-icon: url(/icons/file-json.svg); }
+  & a[href$='/guides/i18next-import/'] { --sidebar-icon: url(/icons/import.svg); }
+  & a[href$='/guides/language-switching/'] { --sidebar-icon: url(/icons/languages.svg); }
+  & a[href$='/guides/server-rendering/'] { --sidebar-icon: url(/icons/server.svg); }
+  & a[href$='/guides/dynamic-keys/'] { --sidebar-icon: url(/icons/key-round.svg); }
+  & a[href$='/guides/continuous-integration/'] { --sidebar-icon: url(/icons/git-pull-request.svg); }
+  & a[href$='/guides/testing/'] { --sidebar-icon: url(/icons/flask-conical.svg); }
+  & a[href$='/guides/translation-workflow/'] { --sidebar-icon: url(/icons/arrow-right-left.svg); }
+  & a[href$='/guides/monorepo/'] { --sidebar-icon: url(/icons/boxes.svg); }
+
+  & a[href$='/guides/react/'] { --sidebar-icon: url(/icons/react.svg); }
+  & a[href$='/guides/svelte/'] { --sidebar-icon: url(/icons/svelte.svg); }
+  & a[href$='/guides/vue/'] { --sidebar-icon: url(/icons/vuedotjs.svg); }
+  & a[href$='/guides/solid/'] { --sidebar-icon: url(/icons/solid.svg); }
+  & a[href$='/guides/astro/'] { --sidebar-icon: url(/icons/astro.svg); }
+  & a[href$='/guides/vanilla/'] { --sidebar-icon: url(/icons/typescript.svg); }
+
+  & a[href$='/reference/cli/'] { --sidebar-icon: url(/icons/terminal.svg); }
+  & a[href$='/reference/configuration/'] { --sidebar-icon: url(/icons/cog.svg); }
+  & a[href$='/reference/generated-code/'] { --sidebar-icon: url(/icons/file-code.svg); }
+  & a[href$='/reference/runtime-api/'] { --sidebar-icon: url(/icons/square-function.svg); }
+  & a[href$='/reference/checks/'] { --sidebar-icon: url(/icons/list-checks.svg); }
+  & a[href$='/reference/context-record/'] { --sidebar-icon: url(/icons/scroll-text.svg); }
+
+  & a[href$='/project/why/'] { --sidebar-icon: url(/icons/lightbulb.svg); }
+  & a[href$='/project/comparison/'] { --sidebar-icon: url(/icons/scale.svg); }
+  & a[href$='/project/limits/'] { --sidebar-icon: url(/icons/gauge.svg); }
+  & a[href$='/project/security/'] { --sidebar-icon: url(/icons/shield.svg); }
+  & a[href$='/project/continuity/'] { --sidebar-icon: url(/icons/life-buoy.svg); }
+  & a[href$='/project/roadmap/'] { --sidebar-icon: url(/icons/map.svg); }
+  & a[href$='/project/faq/'] { --sidebar-icon: url(/icons/circle-help.svg); }
+}

@@ -21,8 +21,8 @@ const base = '/loclizr'
 // variable range fixes that in one file per style. The plugin must stay after
 // starlightThemeBlack: its integration has to run after the theme's adds fonts.
 const fonts = {
-  '--font-geist': { name: 'Inter', weights: ['400 700'] },
-  '--font-geist-mono': { name: 'JetBrains Mono', fallbacks: ['monospace'] },
+  '--font-geist': { name: 'Schibsted Grotesk', weights: ['400 700'] },
+  '--font-geist-mono': { name: 'Geist Mono', weights: ['400 700'], fallbacks: ['monospace'] },
 }
 
 function rebindThemeFonts(families) {
@@ -80,7 +80,7 @@ export default defineConfig({
         { icon: 'github', label: 'GitHub', href: 'https://github.com/yasinmiran/loclizr' },
       ],
       credits: false,
-      customCss: ['./src/styles/custom.css'],
+      customCss: ['./src/styles/custom.css', './src/styles/sidebar-icons.css'],
       sidebar,
     }),
   ],
