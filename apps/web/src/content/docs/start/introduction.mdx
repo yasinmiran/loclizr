@@ -3,7 +3,7 @@ title: Introduction
 description: What loclizr is, what it refuses to do, and who it is for.
 ---
 
-import { Aside } from '@astrojs/starlight/components'
+import { Aside, Steps } from '@astrojs/starlight/components'
 
 ```ts title="src/Cart.tsx"
 import * as m from './loclizr/messages'
@@ -20,7 +20,8 @@ any other function.
 - No bundler plugin, no AST pass, nothing rewrites application code: no transform ordering for a
   framework's next compiler release to break.
 - One output runs in a Vite SPA, a server render, React Native and plain Node.
-- ICU MessageFormat is parsed at build time; the browser ships no parser.
+- ICU MessageFormat, the syntax inside a catalog value for arguments, plurals and selects
+  ([Catalogs](/guides/catalogs/)), is parsed at build time; the browser ships no parser.
 - The locale is read at call time, so switching language needs no reload.
 
 <Aside type="caution">
@@ -39,8 +40,9 @@ typecheck at the call site rather than rendering `undefined` to somebody.
 ### Diagnostics, from the same pass
 
 Checking is part of `build`, on from the first run, and an error exits 1. Missing and blank
-translations, ICU syntax errors, arguments that differ between two locales, plural categories a
-locale can never select, keys that differ only by a homoglyph.
+translations, reported rather than quietly falling back (a locale with no value for a key renders
+the source locale's text), ICU syntax errors, arguments that differ between two locales, plural
+categories a locale can never select, keys that differ only by a homoglyph.
 
 Fifty-six rules, each with a stable code; all but three re-level to `off`, `warn` or `error` from
 one line of config. Other tools check catalogs too, usually as a step you remember to wire up,
@@ -62,11 +64,43 @@ A new app is the easy case: catalogs from the first commit, a hard gate from the
 nothing to unlearn. The more common case is an app whose strings are still English literals
 sitting in JSX, where the thing you are replacing is not another library.
 
-Already on i18next? Point `catalogs` at the files you have. Nothing is written back, so i18next
-keeps serving the app while you read the diagnostics. The format is decided per file, not per
-project: `{{name}}` interpolation or `_one` and `_other` keys mark a file as i18next, the
-interpolation becomes an ICU argument and the suffixed keys fold into one plural, all in memory,
-beside any ICU-native file.
+Already on i18next, the most widely used JavaScript translation library? Point `catalogs` at the
+files you have. Nothing is written back, so i18next keeps serving the app while you read the
+diagnostics. The format is decided per file, not per project: `{{name}}` interpolation or `_one`
+and `_other` keys mark a file as i18next, the interpolation becomes an ICU argument and the
+suffixed keys fold into one plural, all in memory, beside any ICU-native file.
+
+### Retrofitting by hand
+
+There is no extractor. Nothing reads your components looking for strings, so the retrofit is
+yours, and the loop is short enough to run a screen at a time.
+
+<Steps>
+
+1. Pick one literal and a key for it, `checkout.title` for the heading of the checkout screen.
+
+2. Move the string into `locales/en.json` under that key.
+
+3. Replace the literal with `m.checkout_title()`, or `m.checkout_items({ count })` once the
+   string carries a plural.
+
+4. `loclizr build`, typecheck, next literal.
+
+</Steps>
+
+Give each screen its own top-level segment, `checkout.*`, `account.*`. A segment is one generated
+module, `messages/checkout.js`, so a key's module says which screen owns it and a screen that
+goes away takes its module with it.
+
+When the last literal is gone, turn on `unused-message` (`LZ5005`), which ships `off`:
+
+```ts title="loclizr.config.ts"
+severity: { 'unused-message': 'warn' }
+```
+
+It lists every key the usage scan found no call for, which after a retrofit is the strings you
+moved into the catalog and never called. It fires only once the scan has found a generated import,
+so a wrong glob costs one warning rather than one per key.
 
 ## What it deliberately does not do
 

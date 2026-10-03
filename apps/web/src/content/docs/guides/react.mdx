@@ -30,6 +30,12 @@ Outside production one effect compares `document.documentElement.lang` with the 
 assigns it when they differ, and warns once. Missing attribute or wrong one, the fix is under
 [Server rendering](/guides/server-rendering/).
 
+A client-only app sees the second warning once, after a reload that follows a persisted switch:
+`index.html` says `lang="en"`, the cookie says `de`, and the store reads the cookie first. By the
+time the warning prints the hook has already assigned `lang`, so there is nothing left to do. The
+`Content-Language` remedy is for a page the server rendered; the example's `index.html` is the
+static case, and it keeps `lang="en"`.
+
 ## useSetLocale
 
 The store's `setLocale` from a hook, so a component need not import the generated barrel for the

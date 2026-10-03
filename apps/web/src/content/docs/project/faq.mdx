@@ -57,6 +57,17 @@ Fastify; the Next.js App Router is not a first-class target in v0.1 and there is
 React Native the store works with no `document`; Hermes on Android needs the `intl` build, since
 the generated code calls `Intl.PluralRules`, `Intl.NumberFormat` and `Intl.DateTimeFormat`.
 
+## Cannot find module './loclizr/messages' (TS2307)
+
+```text
+src/App.tsx(4,20): error TS2307: Cannot find module './loclizr/messages' or its corresponding type declarations.
+```
+
+The generated tree has not been built yet: a fresh clone, a teammate's checkout, an editor opened
+before the first build, CI before the first build. Run `npx loclizr build`. The `predev`,
+`prebuild` and `pretypecheck` scripts `init` prints stop it recurring, since each regenerates the
+tree before the command that imports it.
+
 ## Will one missing translation fail my build?
 
 `loclizr build` reports it as an error and exits 1, and still writes the generated tree with that
@@ -64,6 +75,11 @@ message filled from the fallback chain, so your typecheck keeps working while yo
 `predev` and `prepare` the documented wiring is `build --no-fail`, which prints the same
 diagnostics and exits 0 once output is written, so a dev server starts. The gate is
 `loclizr check` in CI, which takes no such flag.
+
+So yes: one untranslated key fails `prebuild`, and that is the default and the point. A team whose
+translators work after the merge re-levels it, `severity: { 'missing-translation': 'warn' }`, and
+has chosen a reminder over a gate; [Translation workflow](/guides/translation-workflow/) has what
+that costs.
 
 ## Can I turn a check off?
 

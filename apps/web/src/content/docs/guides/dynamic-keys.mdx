@@ -71,7 +71,19 @@ The example app types its state with the generated key union and indexes the rec
 - Sound, and the tier's cost: one new member taking `{ retryAt }` breaks every existing dynamic
   call site.
 
-The build says so the moment the members disagree:
+The build says so the moment the members disagree. The example turns that rule off, because the
+app exists to show the union call site:
+
+```ts title="loclizr.config.ts"
+  severity: {
+    'ambiguous-source': 'error',
+    // The errors group mixes a message that takes {seconds} with two that take
+    // nothing, on purpose: the app shows the union call site that produces.
+    'group-args-heterogeneous': 'off',
+  },
+```
+
+With the rule at its default severity, the same build prints:
 
 ```text
 warn  LZ4006  group-args-heterogeneous
@@ -85,8 +97,8 @@ warn  LZ4006  group-args-heterogeneous
   fix  Split the group by argument shape, or give the odd members bare {x} arguments.
 ```
 
-The example ships with that warning on purpose. Two groups, one for the argument-free codes and
-one for those carrying a retry, would silence it.
+Two groups, one for the argument-free codes and one for those carrying a retry, would silence it
+without the `off`.
 
 ## An empty group
 

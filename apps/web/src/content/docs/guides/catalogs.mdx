@@ -27,7 +27,9 @@ One file per locale at `locales/{locale}.json`. The compiler reads it and never 
   `nav`.
 - A key written already dotted, `"nav.home": "Home"`, flattens to the same path and collides with
   the nested form: `LZ1011 duplicate-key`.
-- A `null` leaf is a missing translation and takes the fallback chain, like an absent key.
+- A `null` leaf is a missing translation and takes the fallback chain, like an absent key. In the
+  source locale a `null` leaf removes the message from the tree with no diagnostic today; a target
+  catalog that still carries the key then gets `LZ3003 extra-translation`.
 - An array leaf is `LZ1010 catalog-shape-invalid`. The app wants the array; flattening it into
   `tips.0` and `tips.1` would hand it one message per item.
 
@@ -85,6 +87,30 @@ category and `#` use the value minus the offset; `=0` and `=1` still see the ori
   `zero` branch passes every syntax check and never renders it, because German never selects
   `zero`: `LZ3013 plural-category-unreachable`. The fix is the exact branch `=0`.
 - The mirror case, a locale missing a category it needs, is `LZ3007`.
+
+### The `many` category
+
+```txt
+warn  LZ3007  plural-category-incomplete  locales/es.json:1:23  es  cart.items
+
+  es selects many for some values of {count}, and this plural has no branch for it.
+
+  fix  add many {...} to {count, plural, ...} in locales/es.json
+```
+
+Spanish, French, Italian and Portuguese select `many` for the millions in current CLDR: on Node
+22, `new Intl.PluralRules('es').resolvedOptions().pluralCategories` is `['many', 'one', 'other']`.
+A plural translated with `one` and `other` alone passes every syntax check and raises `LZ3007`
+once per plural message per such locale, at `warn`.
+
+- Add `many {# ...}` to each message, mirroring `other`. For a message that counts things it is
+  the same text twice.
+- Or re-level `'plural-category-incomplete': 'off'` until the catalog is cleaned, then turn it
+  back on.
+
+The i18next importer does not synthesize the branch. `items_one` beside `items_other` folds into
+a plural with those two branches and the same warning fires; an `items_many` key folds in like any
+other suffix and clears it.
 
 ## Select
 
@@ -168,8 +194,9 @@ appears there as `Don''t use '{' or '}' as literal text` and renders as
 ## Descriptions and placeholder notes
 
 Notes for the translator live beside the source catalog, in `locales/en.meta.json`, never inside
-it. A TMS imports every leaf of `en.json` as a translatable string, so a description written there
-ships as copy.
+it. A TMS (a translation management system, the web app translators work in) imports every leaf
+of `en.json` as a translatable string, so a description written there ships as copy.
+[Translation workflow](/guides/translation-workflow/) has the export rules.
 
 ```json title="locales/en.meta.json"
 {

@@ -1,0 +1,117 @@
+---
+title: Testing
+description: Set the locale per test, assert through the message functions, build the tree before vitest runs.
+---
+
+import { Aside } from '@astrojs/starlight/components'
+
+```tsx title="test/cart.test.tsx"
+// @vitest-environment jsdom
+import { render, screen } from '@testing-library/react'
+import { setLocale } from 'loclizr'
+import { beforeEach, expect, test } from 'vitest'
+import { Cart } from '../src/Cart'
+import * as m from '../src/loclizr/messages'
+
+beforeEach(() => {
+  setLocale('de', { persist: false })
+})
+
+test('renders German', () => {
+  render(<Cart count={3} />)
+  expect(screen.getByText(m.cart_items({ count: 3 }, { locale: 'de' }), { exact: false })).toBeTruthy()
+})
+
+test('one call can override the locale', () => {
+  expect(m.cart_items({ count: 3 }, { locale: 'en' })).toBe('3 items in your cart')
+})
+```
+
+A message is a plain function, so a test calls it the way the app does. No provider to wrap, no
+module to mock, no fixture catalog. Every block on this page ran under vitest 5 with jsdom 30
+against a two-message catalog (`cart.greeting`, `cart.items`, in `en` and `de`) before it was
+pasted.
+
+## Component tests under jsdom
+
+`setLocale('de', { persist: false })` in `beforeEach` sets the store and skips the cookie; a
+single assertion can pass `{ locale }` per call instead. Both appear above.
+
+The order matters more than it looks. Detection latches on the first `getLocale()` read, so a
+cookie written after that read is never consulted:
+
+```ts title="test/latch.test.ts"
+// @vitest-environment jsdom
+import { getLocale, setLocale } from 'loclizr'
+import { expect, test } from 'vitest'
+import * as m from '../src/loclizr/messages'
+
+test('detection latches on the first read', () => {
+  expect(getLocale()).toBe('en')
+  document.cookie = 'locale=de; path=/'
+  expect(getLocale()).toBe('en')
+  expect(m.cart_greeting({ name: 'Ada' })).toBe('Hi Ada, your cart is ready')
+  setLocale('de', { persist: false })
+  expect(m.cart_greeting({ name: 'Ada' })).toBe('Hallo Ada, dein Warenkorb ist bereit')
+})
+```
+
+Set the locale, not the cookie, before the first render. A test that is about cookie detection
+writes `document.cookie` first and reads once, which works because that file's first read is the
+one that latches.
+
+<Aside type="caution">
+There is no reset export. Vitest isolates test files, so each file starts with an empty store and
+`getLocale()` returns the source locale; inside a file the locale one test set is what the next
+test sees. The explicit `setLocale` in `beforeEach` is the reset.
+</Aside>
+
+## Node and server rendering
+
+```tsx title="test/ssr.test.tsx"
+import { renderToString } from 'react-dom/server'
+import { runWithLocale } from 'loclizr/server'
+import { expect, test } from 'vitest'
+import { Cart } from '../src/Cart'
+import * as m from '../src/loclizr/messages'
+
+test('renders inside a request scope', () => {
+  const html = runWithLocale('de', () => renderToString(<Cart count={3} />))
+  expect(html).toContain(m.cart_greeting({ name: 'Ada' }, { locale: 'de' }))
+  expect(html).toContain('3 Artikel im Warenkorb')
+})
+```
+
+`runWithLocale` opens the same request scope `withLocale` would, so the test exercises the path
+production takes. `setLocale` throws inside it; pass `{ locale }` per call if one assertion needs
+another language. Once a request scope has been opened in the process, by one `runWithLocale` or
+`withLocale` call, a message call outside any scope resolves to the source locale and warns once
+outside production, which is the signal that a render escaped its scope.
+
+## Assert through the message function
+
+```ts
+expect(html).toContain(m.cart_greeting({ name: 'Ada' }, { locale: 'de' }))
+```
+
+A literal in a test is a second copy of the catalog, and a copy edit then breaks a test that was
+never about the copy. Calling the function keeps one side of the assertion tied to the catalog
+and the test tied to the behaviour: the right message, in the right locale, with these arguments.
+Keep a literal only where the text itself is the subject.
+
+## The tree has to exist
+
+```json title="package.json"
+"pretest": "loclizr build",
+"test": "vitest run"
+```
+
+Tests import `src/loclizr/messages`, which `build` writes and the default `.gitignore` keeps out
+of the repository, so a fresh clone has nothing to import until a build runs. `pretest` is the
+smallest fix. A team that commits the tree instead, by deleting the `.gitignore` once, needs no
+script.
+
+Plain `build` fails the test run on a catalog error, which is usually what you want from a test
+run. `build --no-fail` is the alternative when an untranslated key should not block it. In CI keep
+`check` ahead of `test`: `pretest` rewrites the record that `check` compares, and
+[Continuous integration](/guides/continuous-integration/) has the ordering.

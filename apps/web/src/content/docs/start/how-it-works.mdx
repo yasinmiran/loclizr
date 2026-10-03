@@ -74,6 +74,16 @@ The generated code imports four helpers from `loclizr`: a locale resolver and th
 identity. Nothing else. No ICU parser reaches the browser; parsing finished at build time, and what
 shipped is a function with a `switch` in it.
 
+### What runs where
+
+| Where | What loads | Size, gzipped and unminified |
+| --- | --- | --- |
+| Browser | The generated tree and the `loclizr` entry: the locale store, a cookie reader, the locale resolver and the three `Intl` wrappers. No dependencies; the entry imports only its own store chunk. | The example's tree, 26 messages in 3 locales across 10 modules: 8.8 kB raw, 1.9 kB gzipped. The store as shipped in `dist`: 6.1 kB raw, 2.1 kB gzipped. |
+| Server | Adds `loclizr/server`, which imports `node:async_hooks` for `AsyncLocalStorage`. | |
+| Build and CI | `loclizr/compiler` and the CLI, with the package's four production dependencies: `@formatjs/icu-messageformat-parser`, `jiti`, `picocolors`, `tinyglobby`. | |
+
+[Security](/project/security/) takes that surface further.
+
 ### Resolving the locale
 
 `getLocale()` reads, in order:
@@ -109,11 +119,55 @@ The price is a build step and generated files in the tree.
 
 ### The example's Vite plugin
 
-For a catalog edit to land in the running app, the example ships a small plugin inside its own
+```ts title="vite.config.ts" {9,18}
+import react from '@vitejs/plugin-react'
+import { defineConfig, normalizePath, type Plugin } from 'vite'
+
+function loclizrCatalogs(): Plugin {
+  return {
+    name: 'loclizr-catalogs',
+    configureServer(server) {
+      const root = server.config.root
+      const catalogs = normalizePath(`${root}/locales`)
+      const record = `${catalogs}/loclizr.context.json`
+      let pending = Promise.resolve()
+      const rebuild = (changed: string): void => {
+        const file = normalizePath(changed)
+        if (!file.startsWith(`${catalogs}/`) || file === record) return
+        pending = pending
+          .then(async () => {
+            const { build } = await import('loclizr/compiler')
+            const { summary } = await build({ cwd: root, failOnError: false })
+            const counts = `${summary.messages} messages, ${summary.errors} errors, ${summary.warnings} warnings`
+            server.config.logger.info(`loclizr rebuilt ${file.slice(root.length + 1)}: ${counts}`)
+          })
+          .catch((error: unknown) => {
+            server.config.logger.error(`loclizr rebuild failed: ${String(error)}`)
+          })
+      }
+      server.watcher.add(catalogs)
+      server.watcher.on('add', rebuild)
+      server.watcher.on('change', rebuild)
+      server.watcher.on('unlink', rebuild)
+    },
+  }
+}
+
+export default defineConfig({
+  plugins: [react(), loclizrCatalogs()],
+})
+```
+
+For a catalog edit to land in the running app, the example ships this inside its own
 `vite.config.ts`: `configureServer` adds `locales/` to the dev server's watcher and calls `build`
 from `loclizr/compiler` when a file under it changes. The compiler rewrites `src/loclizr/**`,
 already in Vite's module graph, and HMR does the rest.
 
+Two lines change when you copy it, both marked: the watched directory, when `catalogs` in your
+config points somewhere other than `locales/`, and `failOnError: false`, which keeps the dev
+server up through an untranslated key the way `--no-fail` does in `predev`. Without a plugin, one
+process beside the dev server does the same job: `nodemon -w locales -x 'loclizr build --no-fail'`.
+
 It reruns the compiler and touches no app source, so the narrow promise holds: no plugin is
-required, nothing rewrites your code, and the twenty lines that make the loop tight are yours
-rather than a package you depend on.
+required, nothing rewrites your code, and the lines that make the loop tight are yours rather than
+a package you depend on.

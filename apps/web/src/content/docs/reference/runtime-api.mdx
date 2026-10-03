@@ -337,7 +337,7 @@ diagnostics and the code, and the reporters are the CLI's.
 import { build } from 'loclizr/compiler'
 
 const result = await build({ cwd: root, failOnError: false })
-result.summary            // { errors: 0, warnings: 1, messages: 26, locales: 3, fellBack: [] }
+result.summary            // { errors: 0, warnings: 0, messages: 26, locales: 3, fellBack: [] }
 result.exitCode           // 0
 result.written.length     // 21 on a first run, 0 when nothing changed
 ```
@@ -350,7 +350,7 @@ import { check } from 'loclizr/compiler'
 
 const gate = await check({ cwd: root })
 gate.exitCode                                   // 0 on a clean, committed tree
-gate.diagnostics.map((d) => d.code)             // ['LZ4006']
+gate.diagnostics.map((d) => d.code)             // []
 gate.written                                    // []
 ```
 

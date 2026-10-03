@@ -29,7 +29,7 @@ Each rule carries a fatal scope, which decides whether a tree is written at all:
 | never | Reported; output is written regardless. Twelve missing German translations still write `messages.js`, fill those twelve from the fallback chain, print twelve `LZ3001` diagnostics and exit 1. |
 | always | Blocks emission. No correct artifact is producible: an identifier collision would write a module declaring one function twice. |
 | if source | Blocks only for the source catalog. An unreadable `de.json` is an error that still emits; the same problem in `en.json` is fatal. |
-| message | Drops that one message from the program and blocks nothing. A source body that fails to parse never reaches the emitter. |
+| message | Drops that one message from the program and blocks nothing. A source body that fails to parse never reaches the emitter or the record: the tree is written without that function, which is `TS2339: Property 'cart_greeting' does not exist` at an `import * as m` call site in TypeScript and `TypeError: m.cart_greeting is not a function` at render in JavaScript. The fallback text `LZ3001` fills in applies to target locales only; the source locale has nothing to fall back to. |
 
 A target locale whose value fails to lower is not dropped. It resolves through the fallback chain
 like a blank value would, and raises nothing beyond the syntax error already reported against its
@@ -124,7 +124,7 @@ Nine rules about one value on its own.
 
 | Code | Rule | Default | Fatal | Fires when | Fix, as printed |
 | --- | --- | --- | --- | --- | --- |
-| `LZ2001` | `icu-syntax` | error | message | The ICU parser rejected the value, for any reason other than a missing `other` branch. | By parser error. Unclosed brace: `An argument was opened with { and never closed. Add the matching }.` Malformed name: `An argument name takes letters, digits and _. Write {name} rather than {{name}}, and rename an argument carrying a dot, a dash or a $.` Unclosed tag: `Tag-shaped text lowers to markup here. Close the tag to make it a markup argument, or quote it as '<br>' to keep it literal text.` Otherwise: `Look for an unbalanced { or }, an unclosed ' quote, or a < the parser read as the start of a tag.` |
+| `LZ2001` | `icu-syntax` | error | message | The ICU parser rejected the value, for any reason other than a missing `other` branch. | In an ICU file, by parser error. Unclosed brace: `An argument was opened with { and never closed. Add the matching }.` Malformed name, such as `{user.name}`: `An argument name takes letters, digits and _. Write {name} rather than {{name}}, and rename an argument carrying a dot, a dash or a $.` Unclosed tag: `Tag-shaped text lowers to markup here. Close the tag to make it a markup argument, or quote it as '<br>' to keep it literal text.` Otherwise: `Look for an unbalanced { or }, an unclosed ' quote, or a < the parser read as the start of a tag.` In a file read as i18next, one hint shape for every parser error, carrying the parser's own detail; `{{- name}}` and `{{user.name}}` both print `This value was rewritten from i18next before parsing, so the position names the catalog entry rather than the character. Parser error: MALFORMED_ARGUMENT.` |
 | `LZ2002` | `icu-style-unknown` | error | never | A named style that is neither built in nor in `formats`. | `Define formats.number.compact in loclizr.config.ts, or use an ICU skeleton.` or, for `currency`: `ICU carries no currency code. Define formats.number.currency, or write ::currency/USD.` |
 | `LZ2003` | `icu-skeleton-invalid` | error | never | A `::` skeleton the parser could not resolve, or one `Intl` cannot build. | `Falling back to the bare number format. Fix the skeleton, or use a named style from formats.` |
 | `LZ2004` | `plural-other-missing` | error | message | A plural or selectordinal with no `other` branch. | `Every plural needs an other branch. Add other {...} as its last branch.` |
@@ -140,7 +140,11 @@ hint says so and carries the parser's own error.
 
 ## LZ3xxx: the cross-locale contract
 
-Thirteen rules that compare a translation against the source locale.
+Thirteen rules that compare a translation against the source locale. None of them reads the words:
+a target value byte-identical to the source passes every rule and the record marks it
+`translated`, so a catalog seeded by copying `en.json` is a catalog of untranslated strings
+nothing here reports. [Translation workflow](/guides/translation-workflow/) has the habit that
+keeps them visible.
 
 | Code | Rule | Default | Fatal | Fires when | Fix, as printed |
 | --- | --- | --- | --- | --- | --- |

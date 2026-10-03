@@ -33,10 +33,10 @@ The binary is `loclizr`, from the package of the same name, run as `npx loclizr`
 `package.json` script. One help text serves all three commands: no `--version`, no per-command
 help, and `loclizr build --help` prints the block above.
 
-Every sample here comes from the [example app](https://github.com/loclizr/loclizr/tree/main/examples/vite-react)
-catalogs (`en.json`, `en.meta.json`, `de.json`, a sparse `de-AT.json`) with
-`groups: { errors: 'errors' }` in the config. Where a sample shows an error, the edit that
-produced it is named.
+Every sample here comes from the catalogs of `examples/vite-react` in the loclizr repository
+(`en.json`, `en.meta.json`, `de.json`, a sparse `de-AT.json`) with `groups: { errors: 'errors' }`
+in the config and `group-args-heterogeneous` turned off there, which is why no `LZ4006` appears
+in them. Where a sample shows an error, the edit that produced it is named.
 
 ## Commands
 
@@ -68,6 +68,9 @@ Add this step to CI:
   Create-only: an existing file is left as it was, and the output says so.
 - Prints an install note, the scripts and a CI step rather than editing `package.json`.
 - Takes `--cwd` and `--config`. `--no-fail` is a usage error.
+
+Install loclizr as a regular dependency, `npm i loclizr`, whatever the note says: the generated
+tree imports the locale store from it at run time.
 
 Before writing, `init` looks for catalogs on disk and reports them
 (`found 3 locales at locales/{locale}.json: de, de-AT, en`). What it finds decides the config:
@@ -124,19 +127,9 @@ i18next file lands beside it. The config never carries a `catalogFormat` line.
 ### `loclizr build`
 
 ```txt title="npx loclizr build, first run"
-warn  LZ4006  group-args-heterogeneous
-
-  The group "errors" has members with different argument sets, so every dynamic call site must pass the union: seconds.
-
-    errors.forbidden       takes no arguments
-    errors.not_found       takes no arguments
-    errors.rate_limited    takes seconds
-
-  fix  Split the group by argument shape, or give the odd members bare {x} arguments.
-
 wrote src/loclizr (21 files) and locales/loclizr.context.json
 commit locales/loclizr.context.json; `loclizr check` compares it
-26 messages, 3 locales (source en), 0 errors, 1 warning
+26 messages, 3 locales (source en), 0 errors, 0 warnings
 ```
 
 Reads the catalogs, lowers every message, runs the whole rule set, scans the sources for usage
@@ -177,17 +170,7 @@ error  LZ5003  record-stale  locales/loclizr.context.json
 
   fix  run `loclizr build` and commit the record with the string change.
 
-warn  LZ4006  group-args-heterogeneous
-
-  The group "errors" has members with different argument sets, so every dynamic call site must pass the union: seconds.
-
-    errors.forbidden       takes no arguments
-    errors.not_found       takes no arguments
-    errors.rate_limited    takes seconds
-
-  fix  Split the group by argument shape, or give the odd members bare {x} arguments.
-
-26 messages, 3 locales (source en), 3 errors, 1 warning
+26 messages, 3 locales (source en), 3 errors, 0 warnings
 ```
 
 | Gate | Fires when |
@@ -237,19 +220,9 @@ error  LZ3001  missing-translation  locales/de.json  de  cart.greeting
 
   fix  add "cart.greeting" to locales/de.json
 
-warn  LZ4006  group-args-heterogeneous
-
-  The group "errors" has members with different argument sets, so every dynamic call site must pass the union: seconds.
-
-    errors.forbidden       takes no arguments
-    errors.not_found       takes no arguments
-    errors.rate_limited    takes seconds
-
-  fix  Split the group by argument shape, or give the odd members bare {x} arguments.
-
 wrote src/loclizr (1 file) and locales/loclizr.context.json
 commit locales/loclizr.context.json; `loclizr check` compares it
-26 messages, 3 locales (source en), 1 error, 1 warning
+26 messages, 3 locales (source en), 1 error, 0 warnings
 fell back to source text: de 1
 ```
 
@@ -265,19 +238,9 @@ error  LZ3001  missing-translation  locales/de.json  de  cart.greeting
 
   fix  add "cart.greeting" to locales/de.json
 
-warn  LZ4006  group-args-heterogeneous
-
-  The group "errors" has members with different argument sets, so every dynamic call site must pass the union: seconds.
-
-    errors.forbidden       takes no arguments
-    errors.not_found       takes no arguments
-    errors.rate_limited    takes seconds
-
-  fix  Split the group by argument shape, or give the odd members bare {x} arguments.
-
 wrote src/loclizr (1 file) and locales/loclizr.context.json
 commit locales/loclizr.context.json; `loclizr check` compares it
-26 messages, 3 locales (source en), 1 error, 1 warning
+26 messages, 3 locales (source en), 1 error, 0 warnings
 fell back to source text: de 1
 ```
 
@@ -294,8 +257,10 @@ One code moves, and only downward:
   command uncovers.
 - A write-if-changed run that wrote zero bytes still reached the write step, so a clean rebuild
   is 0.
-- The gate never takes it: [the scripts below](#the-scripts-init-prints) put it on `prepare` and
-  `predev` only.
+- The gate never takes it: [the scripts below](#the-scripts-init-prints) put it on `predev`, and
+  on the `prepare` line this page says to drop.
+- A 2000-key, 10-locale catalog builds in about half a second on a laptop, so the loop is a full
+  rebuild every time rather than a watcher.
 
 ## Exit codes
 
@@ -355,10 +320,11 @@ error  LZ3012  ambiguous-source  locales/en.json:5:14
   diagnostic carries, two spaces apart.
 - Related locations, when the rule has them: a three-column table.
 - `fix`: the rule's hint, a multi-line hint keeping its lines.
-- Summary: one line of counts, `27 messages, 3 locales (source en), 6 errors, 1 warning`. On a
+- Summary: one line of counts, `26 messages, 3 locales (source en), 3 errors, 0 warnings`. On a
   `build`, a `wrote ...` line precedes it when anything was written, plus a reminder to commit the
-  record unless an `LZ5007` already says so. `fell back to source text: de 1, de-AT 1` follows it
-  when any message resolved all the way to source text.
+  record unless an `LZ5007` already says so. `fell back to source text: de 2, de-AT 1` follows it
+  when any message resolved all the way to source text; both lines are from the run below that
+  deleted two German strings.
 
 Keys, source text and file paths all reach a terminal here. Control characters a terminal would
 obey print as `<U+009B>` instead, and a newline inside a key collapses to one space so the header
@@ -369,49 +335,36 @@ stays one line.
 ```json title="npx loclizr check --reporter json, clean tree"
 {
   "schema": 1,
-  "diagnostics": [
-    {
-      "code": "LZ4006",
-      "rule": "group-args-heterogeneous",
-      "severity": "warn",
-      "fatal": false,
-      "message": "The group \"errors\" has members with different argument sets, so every dynamic call site must pass the union: seconds.",
-      "hint": "Split the group by argument shape, or give the odd members bare {x} arguments.",
-      "file": null,
-      "locale": null,
-      "key": null,
-      "span": null,
-      "related": [
-        {
-          "file": null,
-          "locale": null,
-          "key": "errors.forbidden",
-          "span": null,
-          "message": "takes no arguments"
-        },
-        {
-          "file": null,
-          "locale": null,
-          "key": "errors.not_found",
-          "span": null,
-          "message": "takes no arguments"
-        },
-        {
-          "file": null,
-          "locale": null,
-          "key": "errors.rate_limited",
-          "span": null,
-          "message": "takes seconds"
-        }
-      ]
-    }
-  ],
+  "diagnostics": [],
   "summary": {
     "errors": 0,
-    "warnings": 1,
+    "warnings": 0,
     "messages": 26,
     "locales": 3,
     "fellBack": []
+  }
+}
+```
+
+The same command after deleting `nav.home` and `cart.greeting` from `de.json`, diagnostics
+elided:
+
+```json title="npx loclizr check --reporter json, two German strings deleted"
+  "summary": {
+    "errors": 3,
+    "warnings": 0,
+    "messages": 26,
+    "locales": 3,
+    "fellBack": [
+      {
+        "locale": "de",
+        "count": 2
+      },
+      {
+        "locale": "de-AT",
+        "count": 1
+      }
+    ]
   }
 }
 ```
@@ -456,6 +409,12 @@ Every field is present on every diagnostic, `null` where it does not apply:
 exist on a fresh clone and at the start of every dev session, and one untranslated key must not
 stop the dev server, so they carry `--no-fail`. `prebuild` and `pretypecheck` run in front of the
 commands that ship and take the real exit code. Neither is the gate, though.
+
+Remove `prepare` and keep the three `pre*` scripts. It runs on `npm ci`, so in CI it rewrites the
+record before `check` can compare it, and `check` then passes on a stale record. The cost is a
+fresh clone with no generated tree until the first `dev`, `build` or `typecheck`, which shows as
+editor errors under `./loclizr/messages` until then. A team that keeps `prepare` installs in CI
+with `npm ci --ignore-scripts` instead.
 
 ```yaml title=".github/workflows/ci.yml"
 # loclizr check compares the committed context record against this tree.

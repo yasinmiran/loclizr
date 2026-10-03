@@ -11,8 +11,8 @@ export const sidebar: SidebarGroup[] = [
     items: [
       { label: 'Introduction', slug: 'start/introduction' },
       { label: 'Quickstart', slug: 'start/quickstart' },
-      { label: 'Coding agents', slug: 'start/agents' },
       { label: 'How it works', slug: 'start/how-it-works' },
+      { label: 'Coding agents', slug: 'start/agents' },
     ],
   },
   {
@@ -25,6 +25,9 @@ export const sidebar: SidebarGroup[] = [
       { label: 'Server rendering', slug: 'guides/server-rendering' },
       { label: 'Dynamic keys', slug: 'guides/dynamic-keys' },
       { label: 'Continuous integration', slug: 'guides/continuous-integration' },
+      { label: 'Testing', slug: 'guides/testing' },
+      { label: 'Translation workflow', slug: 'guides/translation-workflow' },
+      { label: 'Monorepo', slug: 'guides/monorepo' },
     ],
   },
   {
@@ -44,8 +47,9 @@ export const sidebar: SidebarGroup[] = [
       { label: 'Why loclizr', slug: 'project/why' },
       { label: 'Comparison', slug: 'project/comparison' },
       { label: 'Honest limits', slug: 'project/limits' },
-      { label: 'Roadmap', slug: 'project/roadmap' },
+      { label: 'Security', slug: 'project/security' },
       { label: 'Continuity', slug: 'project/continuity' },
+      { label: 'Roadmap', slug: 'project/roadmap' },
       { label: 'FAQ', slug: 'project/faq' },
     ],
   },

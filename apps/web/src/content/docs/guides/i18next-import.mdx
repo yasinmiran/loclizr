@@ -3,7 +3,7 @@ title: Importing i18next catalogs
 description: Reading an existing i18next JSON catalog without editing it.
 ---
 
-import { Aside } from '@astrojs/starlight/components'
+import { Aside, Steps } from '@astrojs/starlight/components'
 
 ```ts title="loclizr.config.ts"
 import { defineConfig } from 'loclizr'
@@ -18,6 +18,27 @@ Point `catalogs` at the files you already have and run `loclizr build`. Nothing 
 so i18next keeps serving the app while you read the diagnostics and the generated functions. The
 default pattern is `locales/{locale}.json`; a split layout uses the `{ns}` token, and every key
 from `common.json` is prefixed with `common.`.
+
+Converts with zero edits:
+
+- a clean JSON v4 catalog, one file per locale or the `{ns}` layout
+- `{{name}}` placeholders
+- `_one` and `_other` plural suffixes, and `_zero`
+
+Needs a catalog rewrite before the message is right:
+
+- `$t()` nesting and `{{x, fmt}}` inline formatters: `LZ1012` and `LZ1013` at `error`, the
+  message still emitted and rendering the literal text or the raw value
+- `{{- x}}` (the unescaped prefix) and `{{a.b}}` (nested access): the value raises
+  `LZ2001 icu-syntax` and the message is dropped from the generated tree, so a JavaScript app
+  throws `m.cart_raw is not a function` at render and a TypeScript app fails typecheck with
+  `TS2339`
+- context suffixes (`friend_male`): `LZ1017` at `warn`, every suffix emitted as its own message
+- a JSON v3 `X` and `X_plural` pair: `LZ1014` at `warn`, both emitted as ordinary keys
+- `<b>` and `<a>` left in values by `Trans`: `LZ1016` at `warn`, rendered as the characters
+  until `i18nextMarkup: 'tags'`
+
+Each is shown below with the diagnostic it prints.
 
 ## What auto detection does
 
@@ -64,8 +85,7 @@ case 'lv':
   }
 ```
 
-A suffixed key with no `_other` sibling stays an ordinary key and warns, and so does the pre-v21
-`X_plural` beside a bare `X`:
+A suffixed key with no `_other` sibling stays an ordinary key and warns:
 
 ```text
 warn  LZ1014  plural-suffix-orphan  locales/en.json:9:19  en  cart.empty_one
@@ -74,6 +94,20 @@ warn  LZ1014  plural-suffix-orphan  locales/en.json:9:19  en  cart.empty_one
 
   fix  add cart.empty_other to fold the group, or rename the key if "_one" was never a plural.
 ```
+
+So does the JSON v3 pair, a bare `cart.item` beside `cart.item_plural`:
+
+```text
+warn  LZ1014  plural-suffix-orphan  locales/en.json:5:21  en  cart.item_plural
+
+  "cart.item_plural" is the i18next JSON v3 plural of "cart.item". Both stay ordinary keys, each rendering one grammatical number.
+
+  fix  run i18next's JSON v3 to v4 converter over this catalog, so cart.item_one and cart.item_other fold into one plural message.
+```
+
+The build is green with that warning, and `m.cart_item({ count: 5 })` renders `5 item` in every
+locale until the pair is folded by hand or by i18next's converter. Nothing selects the plural any
+more, so a warning is all the compiler can say.
 
 ## Detected, not converted
 
@@ -104,11 +138,38 @@ contains `{{` puts ICU syntax into a file read as i18next, and the run renders a
 | --- | --- | --- |
 | `$t(nav.home)` nesting | `LZ1012`, error | No ICU equivalent. |
 | `{{amount, currency}}` inline formatter | `LZ1013`, error | No place in ICU to carry the format. |
+| `{{- name}}` unescaped prefix | `LZ2001 icu-syntax`, error | The converter does not strip the `-`, so the ICU parser sees a malformed argument and the message is dropped. |
+| `{{user.name}}` nested access | `LZ2001 icu-syntax`, error | A dot is not an ICU argument name; the message is dropped. |
 | An array value | `LZ1010 catalog-shape-invalid` | |
 | ICU syntax in an i18next file | `LZ1020`, warn | The one mistake auto detection could otherwise make invisible. |
 
-The two errors still emit and render as the raw text or the raw value, so the page does not go
-blank while you fix them:
+The two `LZ2001` rows come out of a four-key catalog (`cart.greeting`, `cart.raw`,
+`cart.nested`, `nav.home`) as two messages:
+
+```text
+error  LZ2001  icu-syntax  locales/en.json:5:16  en  cart.nested
+
+  ICU syntax error: MALFORMED_ARGUMENT.
+
+  fix  This value was rewritten from i18next before parsing, so the position names the catalog entry rather than the character. Parser error: MALFORMED_ARGUMENT.
+
+error  LZ2001  icu-syntax  locales/en.json:4:13  en  cart.raw
+
+  ICU syntax error: MALFORMED_ARGUMENT.
+
+  fix  This value was rewritten from i18next before parsing, so the position names the catalog entry rather than the character. Parser error: MALFORMED_ARGUMENT.
+
+wrote src/loclizr (11 files) and locales/loclizr.context.json
+commit locales/loclizr.context.json; `loclizr check` compares it
+2 messages, 1 locale (source en), 2 errors, 0 warnings
+```
+
+`cart.d.ts` declares `cart_greeting` and nothing else. Rewrite `{{- name}}` as `{{name}}` (the
+generated code never HTML-escapes, so the prefix has no job) and `{{user.name}}` as a flat
+`{{userName}}` passed from the call site.
+
+The two `LZ1012` and `LZ1013` errors still emit and render as the raw text or the raw value, so
+the page does not go blank while you fix them:
 
 ```text
 error  LZ1012  i18next-nesting-unsupported  locales/en.json:8:16  en  cart.footer
@@ -181,3 +242,33 @@ writes the hardening line commented out:
 A file converted to ICU can sit next to files that are still i18next, since the format is per
 file. Convert the file that needs a select or a formatted number, leave the rest.
 </Aside>
+
+## Migrating an app
+
+There is no codemod. The catalogs are read in place; the call sites are swapped by hand, and
+both libraries stay installed until the last one is gone.
+
+<Steps>
+
+1. Point `catalogs` at the existing files, leave `catalogFormat` at `'auto'`, and run
+   `npx loclizr build --reporter json`.
+2. Group the diagnostics by `file` and `code`. Fix every `LZ1012` and `LZ1013` in the catalog:
+   inline the nested text, name the number style in `formats` and write the ICU form.
+3. Pick `i18nextMarkup`: `'tags'` if the app used `Trans`, otherwise leave the default.
+4. Convert the files that need ICU (a select, a formatted number, a context suffix) one at a
+   time. A converted file sits beside files still in i18next form.
+5. Swap call sites component by component. i18next keeps serving the components not yet moved.
+6. Keep i18next installed until `summary.errors` is `0` and every `useTranslation` is gone.
+7. Add `npx loclizr check` to CI.
+8. Remove the i18next backend and its bundle last.
+
+</Steps>
+
+| i18next | loclizr |
+| --- | --- |
+| `t('ns:key')` | `m.ns_key()` |
+| `t('key', { count })` | `m.key({ count })` |
+| `useTranslation('common')` | `m.common_*`, imported from the barrel |
+| `<Trans i18nKey="terms">` | `<Parts of={m.terms({ ... })} />` with `i18nextMarkup: 'tags'` |
+| `t('key', { returnObjects: true })` over an array | no equivalent; an array value is `LZ1010` |
+| `defaultValue` in code | the catalog only; the source text lives in `en.json` |

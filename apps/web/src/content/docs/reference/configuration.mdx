@@ -161,6 +161,9 @@ The generated `_locale.js` passes the name to `$configure1`, `setLocale` writes 
 reads it first when detecting the initial locale. `loclizr/server` takes the name separately in
 `NegotiateOptions`; the server entry never reads the generated tree.
 
+Only the name is configurable. The attributes `setLocale` writes are fixed: `path=/`, a one year
+`max-age`, `SameSite=Lax`, no `Domain` and no `Secure`.
+
 ## `augmentLocale`
 
 Controls one block in `messages.d.ts`:
@@ -224,8 +227,8 @@ fallback: { nb: ['no'] }
 ```
 
 A map replaces the middle for the locales it names; the rest stay on truncation. Keys that are
-not valid locale tags are dropped silently. The source locale is always the last step, named or
-not.
+not valid locale tags are dropped silently, and no diagnostic fires for that today. The source
+locale is always the last step, named or not.
 
 ## `formats`
 
@@ -301,6 +304,24 @@ because a run that could not produce output never exits 0, and fatality is not o
 The reporter reads `severity` once, at the end of the run. No analysis module reads it, so a
 re-levelled rule cannot change what the compiler emitted. One rule reads one key to write a
 sentence: `LZ3012`'s hint names the severity the rule is not already running at.
+
+### Sharing a config across projects
+
+```ts title="loclizr.config.ts"
+import { defineConfig } from 'loclizr'
+import { base } from '@acme/loclizr-config'
+
+export default defineConfig({
+  ...base,
+  locales: ['en', 'fr'],
+  severity: { ...base.severity, 'missing-translation': 'warn' },
+})
+```
+
+`defineConfig` returns the object it was given, so a shared config is a plain object one package
+exports and every project spreads. There is no `extends` field. A top-level spread replaces
+`severity` wholesale, which is why the example spreads it nested: without that line the project
+would keep its own one rule and lose every rule `base` set.
 
 ## Runtime and server settings that are not here
 

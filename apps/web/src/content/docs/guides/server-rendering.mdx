@@ -58,6 +58,13 @@ export const handler = withLocale(
 
 </Steps>
 
+<Aside type="note">
+The generated tree is ESM, so wherever Node runs it `package.json` needs `"type": "module"`.
+Under Node's own resolver, or `moduleResolution: nodenext`, import `./loclizr/messages.js` with
+the extension, as the snippet does; under a bundler the extension is optional. The example app's
+`package.json` has the field, which is why every snippet on this page ran as written.
+</Aside>
+
 Three requests against the example catalogs:
 
 ```text

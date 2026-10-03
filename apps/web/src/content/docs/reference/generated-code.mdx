@@ -451,12 +451,31 @@ export declare const errors: Readonly<{
 - A mapped type, so `errors.rate_limited({ seconds: 30 })` is checked exactly. `errors[code]` with
   `code: ErrorsKey` is a union of call signatures, which TypeScript calls with the intersection of
   the parameter types, a superset of every member's arguments; `args` is required so
-  `errors[code]()` cannot compile and crash. That intersection is the cost `LZ4006` names at build
-  time for this very group.
+  `errors[code]()` cannot compile and crash. That intersection is the union type at the call site,
+  the cost `LZ4006 group-args-heterogeneous` names; the example turns the rule off in its config
+  because it shows that call site on purpose.
 - `__proto__: null` keeps a member named `constructor` from reaching `Object.prototype`.
 
 </TabItem>
 </Tabs>
+
+### What can throw at run time
+
+The type signature is the only guard. A message function is a template string and a `switch`;
+it validates nothing, so a value that arrived from an API is checked at the boundary, not by the
+message. Each row ran under Node against the example's tree, locale `en`:
+
+| Call | Result |
+| --- | --- |
+| `m.cart_greeting({})` | renders `Hi undefined, your cart is ready` |
+| `m.cart_items({ count: NaN })` | renders `NaN items in your cart` |
+| `m.cart_total({})` | renders `Total: $NaN` |
+| `m.order_status({ state: 'nope' })` | renders `Processing`, the `other` branch |
+| `m.cart_updated({ at: new Date('nope') })` | throws `RangeError: Invalid time value` from `Intl.DateTimeFormat` |
+| `m.terms_accept({})` | throws `TypeError: args.link is not a function` |
+
+The two throws are the two places generated code calls something: `Intl` for a date, and your
+tag handler for markup. Everything else interpolates whatever it was given.
 
 ## How a call resolves its locale
 
@@ -549,6 +568,19 @@ Emit sorts everything itself, all by code point:
 It then runs itself a second time over a reversed program and byte-compares. A difference is
 `LZ4005 nondeterministic-output`, fatal, and its hint says to report it, because nothing in the
 project can be changed to clear it. That check runs on every build, in memory.
+
+The output is a function of these inputs and nothing else:
+
+| Input | What it touches |
+| --- | --- |
+| the catalogs, the meta sidecar and the config | everything |
+| the scanned sources | the record's `usage` entries only |
+| the build host's ICU and CLDR data, through `Intl.PluralRules` | which plural categories a locale has: the `=0` or `zero` arm a target locale gets from an i18next `_zero` key, and the `LZ3007` and `LZ3013` category checks |
+
+The last row is the one that can differ between two machines. Node ships full ICU by default
+and `LZ1019 icu-data-incomplete` catches a build with truncated data, but CLDR itself moves
+between ICU releases, so pin the Node major across the apps and CI that share one generated
+tree.
 
 <Aside type="note">
 The four `$`-prefixed imports (`$configure1`, `$plural1`, `$number1`, `$dateTime1`) are the

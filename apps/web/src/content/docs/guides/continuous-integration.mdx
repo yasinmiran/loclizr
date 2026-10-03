@@ -22,12 +22,24 @@ import { Aside } from '@astrojs/starlight/components'
 
 | Hook | Runs | Why |
 | --- | --- | --- |
-| `prepare`, `predev` | `build --no-fail` | A working tree has to exist; one untranslated key must not stop `vite dev`. |
+| `prepare` | `build --no-fail` | Printed by `init`; remove it. It runs on `npm ci`, so a plain install rewrites the record before `check` can compare it. |
+| `predev` | `build --no-fail` | A working tree has to exist; one untranslated key must not stop `vite dev`. |
 | `prebuild`, `pretypecheck` | `build` | Fails on an error. |
 | CI | `check` | Compares the committed record instead of rewriting it. |
 
-That step is the whole of loclizr's part. A complete workflow around it, with the install step
-`init` leaves to you:
+## A complete workflow
+
+<Aside type="caution">
+`check` has to run before anything that runs `loclizr build`, and `prepare` runs on `npm ci`.
+Remove `prepare` from `package.json`: `init` prints it, but `predev`, `prebuild` and
+`pretypecheck` already cover every command a developer runs, and the only cost is editor squiggles
+on a fresh clone until the first `dev` or `build`. A plain `npm ci` then installs without touching
+the record. A team that keeps `prepare` installs with `npm ci --ignore-scripts` instead, which also
+skips every other package's install script.
+</Aside>
+
+The step `init` printed is the whole of loclizr's part. A complete job around it, with the install
+step `init` leaves to you:
 
 ```yaml title=".github/workflows/loclizr.yml"
 on: [push, pull_request]
@@ -39,20 +51,19 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: 22
-      - run: npm ci --ignore-scripts
+      # A plain install assumes prepare is gone from package.json; see the note above.
+      - run: npm ci
+      # The gate. Only this step is loclizr's; the rest prove the tree against the app.
       - run: npx loclizr check
+      # prebuild regenerates the tree before the app builds.
+      - run: npm run build
+      - run: npm run typecheck
+      - run: npm test
 ```
 
-<Aside type="caution">
-`check` has to run before anything that runs `loclizr build`, and `prepare` runs on `npm ci`. A
-plain `npm ci` rewrites the record during the install, and `check` then passes on a stale record.
-`--ignore-scripts` closes that. It also skips other packages' install scripts, so if a dependency
-of yours needs its script, drop `prepare` from `package.json` instead and rely on `predev`,
-`prebuild` and `pretypecheck`.
-</Aside>
-
 The transcripts on this page come from `examples/vite-react` in the loclizr repository: 26
-messages, 3 locales, and one warning the example keeps on purpose.
+messages, 3 locales, no warnings. The two that show a warning come from a copy of the example with
+the `'group-args-heterogeneous': 'off'` line removed from `loclizr.config.ts`, and say so.
 
 ## `build --no-fail`
 
@@ -73,11 +84,19 @@ Everything `build` does, with no writes, plus two rules.
 | `LZ5002 output-stale` | A generated file on disk differs from what this run would write. |
 | `LZ5003 record-stale` | The committed `locales/loclizr.context.json` differs from the one this tree produces. |
 
-A fresh clone with the generated tree gitignored, the default, gives `LZ5002` nothing to compare,
-so `check` needs no prior `build`:
+Whether the generated tree is committed decides what the first rule gates. It is a trade a team
+picks deliberately, and the default picks the first row:
+
+| Generated tree | What CI gates | A translator's pull request |
+| --- | --- | --- |
+| ignored, the default | The catalogs and the record. The tree is rebuilt on every clone, so `LZ5002` has nothing to compare and never fires in CI; on a developer machine a stale tree is not caught but rebuilt, by `pretypecheck` before `tsc` runs. | Passes `check`. |
+| committed | The tree too: an edit to `de.json` changes `messages/nav.js` on disk. | Fails `check` until someone reruns `build` and commits the result. |
+
+A fresh clone with the generated tree gitignored gives `LZ5002` nothing to compare, so `check`
+needs no prior `build`:
 
 ```text
-26 messages, 3 locales (source en), 0 errors, 1 warning
+26 messages, 3 locales (source en), 0 errors, 0 warnings
 ```
 
 ## The committed record
@@ -118,9 +137,10 @@ catalogs with the generated tree absent, which is the CI state.
 - **Translator pull requests.** A German string edited in `de.json`, then a key deleted from it:
   neither raised `LZ5003`. The deletion raised `LZ3001 missing-translation` for the two locales
   that now fall back, the right error for it. With the generated tree still on disk the string
-  edit also raises `LZ5002`, which the note below covers. Per-locale status is the record's `translations`
-  array, outside the gate, because a batch of translations landing is not a change to the
-  contract.
+  edit also raises `LZ5002`, which the table above covers. Per-locale status is the record's
+  `translations` array, outside the gate, because a batch of translations landing is not a change
+  to the contract. [Translation workflow](/guides/translation-workflow/) follows one such batch
+  from the record to the merge.
 - **Usage churn.** A component calling `m.nav_home()` renamed and its file moved to another
   directory: `check` exited 0. The `usage` entries, file plus enclosing scope, sit outside the
   gate too; the next `build` rewrote them.
@@ -138,9 +158,29 @@ that pull request fails `check` until someone reruns `build`. With the tree igno
 
 | Flag | Effect |
 | --- | --- |
-| `--max-warnings` | No cap by default, so warnings alone never fail a run. `--max-warnings 0` turns the example's one warning into exit 1 on `check`; `build --no-fail` still exits 0. |
+| `--max-warnings` | No cap by default, so warnings alone never fail a run. `--max-warnings 0` turns the one warning below into exit 1 on `check`; `build --no-fail` prints the same and still exits 0. |
 | `--quiet` | Errors only, plus a summary line when warnings were dropped. |
 | `--reporter json` | One object: diagnostics sorted by severity, code, file, locale, key and offset, summary last. |
+
+Both transcripts below come from a copy of the example with the `'group-args-heterogeneous': 'off'`
+line removed from `loclizr.config.ts`, so the `errors` group reports its mixed argument sets at the
+rule's default severity. The example itself turns the rule off and prints no warning.
+
+```text
+warn  LZ4006  group-args-heterogeneous
+
+  The group "errors" has members with different argument sets, so every dynamic call site must pass the union: seconds.
+
+    errors.forbidden       takes no arguments
+    errors.not_found       takes no arguments
+    errors.rate_limited    takes seconds
+
+  fix  Split the group by argument shape, or give the odd members bare {x} arguments.
+
+26 messages, 3 locales (source en), 0 errors, 1 warning
+```
+
+That is `check --max-warnings 0`, exit 1. The same run through `--reporter json`:
 
 ```json
 {
@@ -158,13 +198,37 @@ that pull request fails `check` until someone reruns `build`. With the tree igno
       "key": null,
       "span": null,
       "related": [
-        { "file": null, "locale": null, "key": "errors.forbidden", "span": null, "message": "takes no arguments" },
-        { "file": null, "locale": null, "key": "errors.not_found", "span": null, "message": "takes no arguments" },
-        { "file": null, "locale": null, "key": "errors.rate_limited", "span": null, "message": "takes seconds" }
+        {
+          "file": null,
+          "locale": null,
+          "key": "errors.forbidden",
+          "span": null,
+          "message": "takes no arguments"
+        },
+        {
+          "file": null,
+          "locale": null,
+          "key": "errors.not_found",
+          "span": null,
+          "message": "takes no arguments"
+        },
+        {
+          "file": null,
+          "locale": null,
+          "key": "errors.rate_limited",
+          "span": null,
+          "message": "takes seconds"
+        }
       ]
     }
   ],
-  "summary": { "errors": 0, "warnings": 1, "messages": 26, "locales": 3, "fellBack": [] }
+  "summary": {
+    "errors": 0,
+    "warnings": 1,
+    "messages": 26,
+    "locales": 3,
+    "fellBack": []
+  }
 }
 ```
 

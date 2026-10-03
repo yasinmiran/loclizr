@@ -26,9 +26,6 @@ export default defineConfig({
       ],
       description:
         'A compiler for the contract between code and translations. Typed ESM message functions from JSON catalogs, catalog checks inside the build, and a context record per message.',
-      social: [
-        { icon: 'github', label: 'GitHub', href: 'https://github.com/loclizr/loclizr' },
-      ],
       credits: false,
       customCss: ['./src/styles/custom.css'],
       sidebar,

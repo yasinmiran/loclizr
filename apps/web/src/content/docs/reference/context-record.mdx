@@ -287,6 +287,16 @@ counts that as a use, which is the right answer for a translator asking where th
   same component would merge-conflict inside a generated JSON file. Precise positions stay in the
   JSON reporter's diagnostics and in `BuildResult.program.usages` from `loclizr/compiler`, where
   every site keeps its line, column and snippet.
+- Not an input: the host's ICU data or Node version. Neither the record nor the emitted code reads
+  `Intl` at build time. The two plural-category rules, `LZ3007` and `LZ3013`, do, and `LZ1019`
+  reports a Node built with small ICU, so a laptop and a runner can disagree on those diagnostics
+  but never on this file. Pinning Node, through `engines` or `.nvmrc`, is for the diagnostics.
+
+Size, measured on the example's committed file: 23,774 bytes over 26 messages, about 914 bytes
+per message. The `translations` array is close to half the file, three entries per message, and
+`usage` about an eighth. The contract fields, `source`, `sourceHash`, `description`, `args`,
+`variants` and `markup`, take about a quarter together, and those are the fields the gate compares
+and a reviewer reads; the two arrays are context, not contract.
 
 Two hashes are worth knowing. `a826cf6a40d3293e` is the hash of the `cart.items` source string
 exactly as printed above, and `3a78695388b38b5c` is the hash of `Home`, the `nav.home` entry in
@@ -333,6 +343,88 @@ coverage changed. Polishing a German sentence is not a contract change and appea
 `check` compares; `build` rewrites. A CI job that runs `loclizr build` rewrites the record in its
 own workspace and passes, so put `loclizr check` there instead.
 </Aside>
+
+## Reviewing a string change
+
+```diff title="git diff, after rewording cart.greeting and running build"
+diff --git a/locales/en.json b/locales/en.json
+index e1732a1..567cd72 100644
+--- a/locales/en.json
++++ b/locales/en.json
+@@ -21,7 +21,7 @@
+     "cart": "Cart"
+   },
+   "cart": {
+-    "greeting": "Hi {name}, your cart is ready",
++    "greeting": "Hello {name}, your cart is ready",
+     "items": "{count, plural, =0 {Your cart is empty} one {# item in your cart} other {# items in your cart}}",
+     "total": "Total: {amount, number, ::currency/USD}",
+     "updated": "Updated {at, date, medium}"
+diff --git a/locales/loclizr.context.json b/locales/loclizr.context.json
+index 561f905..328a8e3 100644
+--- a/locales/loclizr.context.json
++++ b/locales/loclizr.context.json
+@@ -582,8 +582,8 @@
+       "id": "cart_greeting",
+       "module": "messages/cart.js",
+       "kind": "text",
+-      "source": "Hi {name}, your cart is ready",
+-      "sourceHash": "54db56b1aeaf77ae",
++      "source": "Hello {name}, your cart is ready",
++      "sourceHash": "cb7288f2f820ef90",
+       "description": null,
+       "args": [
+         {
+```
+
+This is what the pull request for a rewording looks like, taken from a copy of the example app:
+one hunk in the catalog, one in the record, `source` and `sourceHash` moving together and nothing
+else. `de.json` is untouched, which is the gettext fuzzy signal from the section above.
+
+Adding a placeholder to the same string grows `args`, and the same `build` fails `LZ3004
+arg-missing` for `de` and `de-AT`, since the translations no longer carry what the source does:
+
+```diff title="git diff, after adding a count placeholder to cart.greeting"
+diff --git a/locales/loclizr.context.json b/locales/loclizr.context.json
+index 328a8e3..f0bfa6f 100644
+--- a/locales/loclizr.context.json
++++ b/locales/loclizr.context.json
+@@ -582,8 +582,8 @@
+       "id": "cart_greeting",
+       "module": "messages/cart.js",
+       "kind": "text",
+-      "source": "Hello {name}, your cart is ready",
+-      "sourceHash": "cb7288f2f820ef90",
++      "source": "Hello {name}, your {count} items are ready",
++      "sourceHash": "220d19181cdee30a",
+       "description": null,
+       "args": [
+         {
+@@ -591,6 +591,12 @@
+           "type": "text",
+           "options": null,
+           "note": null
++        },
++        {
++          "name": "count",
++          "type": "text",
++          "options": null,
++          "note": null
+         }
+       ],
+       "variants": [],
+```
+
+What a reviewer checks, in the order the diff presents it:
+
+1. The record moved with the string: the pull request touches `locales/loclizr.context.json`, and
+   its hunk sits under the same key as the catalog hunk.
+2. `args` and `variants` are what the new text needs. A placeholder added shows as a new `args`
+   entry with the type the call site will demand; a plural added shows under `variants`.
+3. The description is still true of the new text, or was changed with it.
+4. No `translations` entry flipped to `fallback`. A rewording keeps every target `translated`; a
+   deleted target value flips one, and the build already failed on it.
+5. The `usage` sites are plausible: the files a translator would open to see the string on screen.
 
 ## What it does not carry
 

@@ -62,52 +62,153 @@ m.cart_items({ count: '3' })       // type error: count is a number
     default.
   </Card>
   <Card title="A context record per message" icon="document">
-    Source text, argument types, plural shape, description, and the file and component where
-    the message is used. Deterministic, committed, and diffed in the same pull request as the
+    Argument types, plural shape, the file and enclosing scope where the message is called, and
+    an optional description. Deterministic, committed, diffed in the same pull request as the
     string change.
   </Card>
 </CardGrid>
 
+One entry of that record, for `cart.greeting` in the example app, as the build wrote it with the
+indentation of its enclosing array removed:
+
+```json title="locales/loclizr.context.json (one entry)"
+{
+  "key": "cart.greeting",
+  "id": "cart_greeting",
+  "module": "messages/cart.js",
+  "kind": "text",
+  "source": "Hi {name}, your cart is ready",
+  "sourceHash": "54db56b1aeaf77ae",
+  "description": null,
+  "args": [
+    {
+      "name": "name",
+      "type": "text",
+      "options": null,
+      "note": null
+    }
+  ],
+  "variants": [],
+  "markup": [],
+  "translations": [
+    {
+      "locale": "de",
+      "status": "translated",
+      "from": null,
+      "reason": null
+    },
+    {
+      "locale": "de-AT",
+      "status": "translated",
+      "from": null,
+      "reason": null
+    },
+    {
+      "locale": "en",
+      "status": "translated",
+      "from": null,
+      "reason": null
+    }
+  ],
+  "usage": [
+    {
+      "file": "src/App.tsx",
+      "scope": "App"
+    }
+  ]
+}
+```
+
 ## What a failing build looks like
 
-Take the example app's catalogs, delete `cart.total` from `de.json`, and misspell `{name}` as
-`{nmae}` in its `cart.greeting`. The next build prints this and exits 1:
+Translate both messages above into German, with one typo: `{name}` became `{nmae}`.
+
+```json title="locales/de.json"
+{
+  "cart": {
+    "greeting": "Hallo {nmae}, dein Warenkorb ist bereit",
+    "items": "{count, plural, =0 {Dein Warenkorb ist leer} one {# Artikel im Warenkorb} other {# Artikel im Warenkorb}}"
+  }
+}
+```
+
+The next build prints this and exits 1. It was run after a green build, which is why only one
+file was rewritten:
 
 ```txt frame="terminal" title="loclizr build"
-error  LZ3001  missing-translation  locales/de-AT.json  de-AT  cart.total
-
-  The de-AT catalog has no value for this key, so this message renders en text.
-
-  fix  add "cart.total" to locales/de-AT.json
-
-error  LZ3001  missing-translation  locales/de.json  de  cart.total
-
-  The de catalog has no value for this key, so this message renders en text.
-
-  fix  add "cart.total" to locales/de.json
-
-error  LZ3004  arg-missing  locales/de.json:24:18  de  cart.greeting
+error  LZ3004  arg-missing  locales/de.json:3:18  de  cart.greeting
 
   The en text uses {name} and the de translation does not.
 
   fix  add {name} to "cart.greeting" in locales/de.json
 
-error  LZ3005  arg-extra  locales/de.json:24:18  de  cart.greeting
+error  LZ3005  arg-extra  locales/de.json:3:18  de  cart.greeting
 
   The de translation uses {nmae}, which the en text does not have, so this locale renders en text instead.
 
   fix  check the spelling of {nmae} in locales/de.json, or add it to the en text
 
-wrote src/loclizr (19 files) and locales/loclizr.context.json
+wrote src/loclizr (1 file) and locales/loclizr.context.json
 commit locales/loclizr.context.json; `loclizr check` compares it
-26 messages, 3 locales (source en), 4 errors, 0 warnings
-fell back to source text: de 2, de-AT 1
+2 messages, 2 locales (source en), 2 errors, 0 warnings
+fell back to source text: de 1
 ```
 
-The generated tree is still written, with the broken messages filled from the fallback chain, so
-the app keeps typechecking and the real errors are not buried under "cannot find module". The exit
-code is what gates: `loclizr build --no-fail` prints the same diagnostics and exits 0 for the dev
-server, and `loclizr check` is the CI gate.
+Each header line reads: severity, code, rule, `file:line:column`, locale, key. Two errors from
+one typo: the German text lost `{name}` and gained `{nmae}`, and the compiler does not guess which
+one you meant.
+
+| Error | What it caught | What the build did about it |
+| --- | --- | --- |
+| `LZ3004 arg-missing` | The German text no longer uses `{name}`. | Reported it, exit 1. On its own this keeps the German arm, which would render without the name. |
+| `LZ3005 arg-extra` | The German text uses `{nmae}`, which the function's `args` will never carry. | Dropped the German arm. German renders the English text until the typo is fixed. |
+
+The function the build wrote, from `src/loclizr/messages/cart.js`:
+
+```js title="src/loclizr/messages/cart.js"
+export function cart_greeting(args, opts) {
+  switch ($l(opts)) {
+    default:
+      return `Hi ${args.name}, your cart is ready`
+  }
+}
+```
+
+The `de` arm is gone, because a function reading `args.nmae` would print `undefined` to somebody.
+The `default` arm serves German until the typo is fixed, which is what
+`fell back to source text: de 1` counts.
+
+What the app shows meanwhile, both calls run against that tree:
+
+```ts
+m.cart_greeting({ name: 'Ada' }, { locale: 'de' })   // "Hi Ada, your cart is ready"
+m.cart_items({ count: 3 }, { locale: 'de' })         // "3 Artikel im Warenkorb"
+```
+
+The first line is English for a German visitor. The second message was never touched and still
+renders German.
+
+Put `{name}` back and rebuild:
+
+```txt frame="terminal" title="loclizr build"
+wrote src/loclizr (1 file) and locales/loclizr.context.json
+commit locales/loclizr.context.json; `loclizr check` compares it
+2 messages, 2 locales (source en), 0 errors, 0 warnings
+```
+
+```js title="src/loclizr/messages/cart.js"
+    case 'de':
+      return `Hallo ${args.name}, dein Warenkorb ist bereit`
+```
+
+A target locale whose value fails to lower, or carries an argument the source lacks, is filled
+from the fallback chain. The generated tree is still written, so the app keeps typechecking and
+the real errors are not buried under "cannot find module". The exit code is what gates:
+`loclizr build --no-fail` prints the same diagnostics and exits 0 for the dev server, and
+`loclizr check` is the CI gate: the same two blocks on a fresh clone, exit 1, nothing written. On
+a machine that still holds the green tree it adds a third, `LZ5002 output-stale`, naming
+`cart.js`. The source locale is the exception: a source value that fails to parse has no function at all, which
+is its [fatal scope](/reference/checks/#fatal-scope).
 
 ## Where to go next
 
@@ -116,12 +217,17 @@ server, and `loclizr check` is the CI gate.
   <LinkCard title="Server rendering" description="Request-scoped locale through AsyncLocalStorage, cookie first, then Accept-Language." href="/guides/server-rendering/" />
   <LinkCard title="Importing i18next catalogs" description="What converts, what does not, and the diagnostics that say so." href="/guides/i18next-import/" />
   <LinkCard title="Comparison" description="i18next, next-intl, Paraglide, Lingui, FormatJS and Intlayer, and when to pick them instead." href="/project/comparison/" />
+  <LinkCard title="Before you adopt" description="Limits, security, versions and continuity." href="/project/limits/" />
 </CardGrid>
 
 ## What it deliberately does not do
 
 - **No per-locale delivery.** Every declared locale of every used message is inlined into that
-  message function, so bundle size grows with locale count.
+  message function, one arm per locale per used message, so bundle size grows with locale count.
+  For the example's 26 messages in 3 locales, the generated tree and the `loclizr` runtime it
+  imports come out as one chunk of 7.0 kB minified and 2.6 kB gzipped in a `vite build` of the
+  example. The same build with `loclizr` marked external leaves the tree alone at 4.7 kB and
+  1.6 kB gzipped; the runtime bundled by itself is 2.6 kB minified and 1.2 kB gzipped.
 - **No runtime `format()` for content unknown at build time.** ICU is parsed at build time only
   and the browser never ships a parser.
 - **No extraction.** It does not find hardcoded strings in your source or rewrite them into
@@ -131,6 +237,8 @@ server, and `loclizr check` is the CI gate.
 - **No URL-prefix locale routing.** The locale comes from a cookie or from `Accept-Language`.
 - **No `--watch`.** `loclizr build --no-fail` in `predev`, or the example's inline Vite plugin,
   is the dev loop.
+- **Translations are a build input.** A copy fix is a commit and a deploy; if copy has to change
+  in production without a release, i18next with a backend is built for that.
 
 Day zero. No users yet, no track record, and no promise about how long this stays maintained.
 MIT, with the [maintenance situation written down](/project/continuity/) rather than implied.

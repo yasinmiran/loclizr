@@ -1,0 +1,104 @@
+---
+title: Monorepo
+description: Two workspace layouts, what the usage scan binds across packages, and two trees in one program.
+---
+
+import { Aside } from '@astrojs/starlight/components'
+
+```ts title="packages/i18n/loclizr.config.ts"
+import { defineConfig } from 'loclizr'
+
+export default defineConfig({
+  locales: ['en', 'de', 'de-AT'],
+  sourceLocale: 'en',
+  scan: { include: ['../../apps/web/src/**/*.{ts,tsx}'] },
+})
+```
+
+One build reads one catalog root and writes one tree. In a workspace that leaves two layouts, and
+the choice decides where `check` runs and what the usage scan can see.
+
+## Catalogs in each app
+
+Every app keeps its own `locales/`, `loclizr.config.ts` and generated tree, exactly as a single
+app would, and the record lands in that app's pull request. The pipeline runs one `check` per
+package; from the workspace root, `--cwd` names it:
+
+```yaml title=".github/workflows/loclizr.yml"
+- run: npx loclizr check --cwd apps/web
+- run: npx loclizr check --cwd apps/admin
+```
+
+## One shared package
+
+`packages/i18n` holds the catalogs, runs `loclizr build`, and exports the generated barrel and
+groups:
+
+```json title="packages/i18n/package.json"
+{
+  "name": "@acme/i18n",
+  "type": "module",
+  "exports": {
+    "./messages": "./src/loclizr/messages.js",
+    "./groups": "./src/loclizr/groups.js"
+  }
+}
+```
+
+`scan.include` points at the apps' sources, as the config above does. Paths print relative to the
+package that ran the build, so a usage site in the record reads `../../apps/web/src/App.tsx`, and
+`check` runs in that package's CI job: one gate for every app's strings.
+
+## What the scan binds
+
+The scan reads import specifiers by suffix and resolves nothing, which is what makes `@/loclizr/messages`
+bind with no alias map. Across packages that cuts both ways. Below, a build from `packages/i18n`
+with `apps/web/src/App.tsx` calling `m.nav_home()`, one import form per row:
+
+| Import in `apps/web/src/App.tsx` | Bound | `usage` for `nav.home` |
+| --- | --- | --- |
+| `'@acme/i18n/messages'` | no | `[]`, and `LZ5004` fires |
+| `'../../../packages/i18n/src/loclizr/messages'` | yes | `../../apps/web/src/App.tsx`, scope `App` |
+| `'@acme/i18n/loclizr/messages'` | yes, by suffix | `../../apps/web/src/App.tsx`, scope `App` |
+
+```text
+warn  LZ5004  scan-found-nothing
+
+  The scan read 1 file and found no import of the generated messages.
+
+  fix  check scan.include in loclizr.config.ts. A usage site is found through an import such as import * as m from './loclizr/messages'
+```
+
+So the package-name import costs the record its `usage` column, and the warning says so on every
+build. The two forms that bind are a relative path into the package, or an export whose subpath
+ends in `loclizr/messages`: add `"./loclizr/messages": "./src/loclizr/messages.js"` to the
+`exports` map above and import it as the third row does.
+
+## Two trees in one program
+
+An app with its own tree that also imports the shared package's has two generated barrels in one
+TypeScript program and one bundle.
+
+- Types: both barrels augment `LocaleRegistry` by default. Identical locale lists merge with no
+  error. A second list that differs is TS2717 only with `skipLibCheck` off; under Vite's default
+  `skipLibCheck: true` it is silent and the first tree's `AppLocale` wins. Either way `getLocale()`,
+  `setLocale()` and `useLocale()` from `loclizr` are typed by the first tree's list, and
+  `augmentLocale: false` on the second tree makes that explicit.
+- Runtime: each barrel registers its locale list and cookie name with the one store when it is
+  imported. The first registration wins and keeps `getLocale()`'s list; a second that differs
+  prints, outside production, `a second generated directory registered [...]; the first registration keeps getLocale().`
+
+The recipe that works today: the app owns registration, with its tree imported first and
+`augmentLocale` left on, and the shared package declares the same `locales`, `sourceLocale` and
+`cookie`, so its registration is a no-op and every call resolves one locale.
+
+## What is not supported
+
+One catalog root per build. `catalogs` is a single pattern, there is no second source, and no
+build merges another package's catalogs into an app's tree. A string two apps share lives in the
+shared package, or in both apps' catalogs twice.
+
+<Aside type="note">
+`scan.include` reaching outside the package is the one cross-package feature; the catalogs, the
+record and the tree stay where the config is.
+</Aside>

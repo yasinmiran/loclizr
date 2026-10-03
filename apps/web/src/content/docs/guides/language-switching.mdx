@@ -64,6 +64,46 @@ Detection never reads `navigator.languages` or `localStorage`: a server sees nei
 page would hydrate in a language it was not rendered in.
 </Aside>
 
+### First visit on a static site
+
+```tsx title="src/main.tsx"
+import * as m from './loclizr/messages'
+
+function pickFirstLocale(): void {
+  const chosen = document.cookie.split(';').some((pair) => pair.trim().startsWith('locale='))
+  if (chosen) return
+  for (const tag of navigator.languages) {
+    const wanted = tag.toLowerCase()
+    const language = wanted.split('-')[0]
+    const match =
+      m.locales.find((known) => known.toLowerCase() === wanted) ??
+      m.locales.find((known) => known.toLowerCase() === language)
+    if (match !== undefined) {
+      m.setLocale(match)
+      return
+    }
+  }
+}
+
+pickFirstLocale()
+```
+
+With no server, the first visit renders the source locale: there is no cookie yet, `<html lang>`
+is whatever `index.html` says, and nothing reads `navigator.languages`. A German visitor sees
+English until they use the switcher. That is a gap in v0.1, and closing it is yours.
+
+The helper above does it, placed before the first render in the example's `main.tsx`: match the
+browser's languages against `m.locales`, exact tag first
+(`de-AT`), then the language subtag (`de-CH` to `de`), and call `setLocale` only when no cookie is
+set. `locale=` is the default cookie name; read the one your `cookie` setting names. `setLocale(match)`
+persists the tag, so a later change of browser language is not re-detected; `{ persist: false }`
+detects on every visit until the visitor picks.
+
+<Aside type="caution">
+Do not reach for `negotiate` here. It lives in `loclizr/server`, which imports `node:async_hooks`,
+and that entry does not bundle for the browser.
+</Aside>
+
 ## Persistence
 
 `setLocale('de')`, in order:
@@ -76,6 +116,16 @@ page would hydrate in a language it was not rendered in.
 The cookie is the only channel a server can read back, hence the only persistence.
 `{ persist: false }` changes the language for this page load only. With no `document`, React
 Native included, the store updates in memory and notifies subscribers; nothing persists.
+
+The attributes are fixed in v0.1: `path=/`, `max-age` of one year, `SameSite=Lax`, no `Domain` and
+no `Secure`. Without `Domain` the cookie is host-scoped, so `shop.example.com` and
+`help.example.com` do not share a choice. `setLocale` sets `lang` on `<html>` and never `dir`; an
+RTL locale sets `dir` itself, from `useLocale()` or a `subscribe` listener.
+
+After a reload that follows a persisted switch, a client-only app prints one warning outside
+production, `<html lang="en"> disagrees with the resolved locale "de"`: the cookie says `de`,
+`index.html` still says `en`, and the hook has already assigned `lang` by the time it warns, so
+there is nothing to do. [React](/guides/react/) has the text and the server-side fix.
 
 <Aside type="caution">
 Inside a server request scope `setLocale` throws: changing a process-wide locale in the middle of

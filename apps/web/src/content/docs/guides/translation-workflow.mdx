@@ -1,0 +1,239 @@
+---
+title: Translation workflow
+description: Who owns which file, what each pull request shape raises, and how a lagging locale is handled.
+---
+
+import { Aside, Steps } from '@astrojs/starlight/components'
+
+| File | Owner | Written by |
+| --- | --- | --- |
+| `locales/en.json` | developers | hand, or the TMS pulling source strings |
+| `locales/en.meta.json` | developers | hand |
+| `loclizr.config.ts` | developers | hand |
+| `locales/de.json` and every other target catalog | localisation | the TMS, or a translator's editor |
+| `locales/loclizr.context.json` | the compiler | `loclizr build`, committed with the string change |
+| `src/loclizr/` | the compiler | `loclizr build`, gitignored |
+
+The compiler never writes a catalog. It reads every file in the first four rows and writes the
+last two, so a translation tool that opens pull requests against `locales/` fits without the
+compiler knowing it exists.
+
+Every transcript below comes from a copy of `examples/vite-react` in the loclizr repository, 26
+messages and 3 locales. Each `check` ran with the generated tree absent, which is the CI state;
+each `build` ran with it present, which is a laptop.
+
+## Two pull-request shapes
+
+### A string change
+
+A developer edits `cart.greeting` in `en.json` and opens the pull request without rebuilding:
+
+```txt frame="terminal" title="npx loclizr check"
+error  LZ5003  record-stale  locales/loclizr.context.json
+
+  `locales/loclizr.context.json` no longer matches the catalogs: the contract this build derived differs from the committed record.
+
+  fix  run `loclizr build` and commit the record with the string change.
+
+26 messages, 3 locales (source en), 1 error, 0 warnings
+```
+
+<Steps>
+
+1. `npx loclizr build` rewrites the record and says so once, at `warn`:
+
+   ```txt frame="terminal" title="npx loclizr build"
+   warn  LZ5007  record-rewritten  locales/loclizr.context.json
+
+     `locales/loclizr.context.json` was rewritten: the committed record's contract differs from the one these catalogs produce.
+
+     fix  commit the rewritten record with the string change, so the context lands in the same pull request.
+
+   wrote src/loclizr (2 files) and locales/loclizr.context.json
+   26 messages, 3 locales (source en), 0 errors, 1 warning
+   ```
+
+2. Commit `locales/loclizr.context.json` with the string change. `check` is clean, and the
+   reviewer sees the new source text, its arguments and its description in the same diff.
+
+</Steps>
+
+Locally, with the generated tree on disk, the same `check` also prints `LZ5002 output-stale` for
+each generated file the edit changed. That rule fires only for files that exist, so a CI checkout
+with the tree gitignored never sees it.
+
+### A translation change
+
+A translator edits `cart.greeting` in `de.json`. Nothing in the contract moved, so the gate
+passes without a rebuild:
+
+```txt frame="terminal" title="npx loclizr check"
+26 messages, 3 locales (source en), 0 errors, 0 warnings
+```
+
+The record's per-locale `translations` array is projected out of the comparison for exactly this
+reason: a batch of translations landing is not a change to the contract. The next `build` on
+`main` rewrites that array; nobody has to commit it with the translation.
+
+A translation pull request that fills a key the build was reporting as missing clears the error
+on its own. The same run after `cart.greeting` had been deleted from `de.json` and then
+restored:
+
+```txt frame="terminal" title="npx loclizr check, de.json missing cart.greeting"
+error  LZ3001  missing-translation  locales/de.json  de  cart.greeting
+
+  The de catalog has no value for this key, so this message renders en text.
+
+  fix  add "cart.greeting" to locales/de.json
+
+26 messages, 3 locales (source en), 1 error, 0 warnings
+fell back to source text: de 1
+```
+
+```txt frame="terminal" title="npx loclizr check, after the translation lands"
+26 messages, 3 locales (source en), 0 errors, 0 warnings
+```
+
+### What a target edit can raise
+
+Every rule in the `LZ3` range compares a translation against the source text, and all of them
+run on a translator's pull request. Two of them, from one `de.json` edit that dropped the
+placeholder from `cart.greeting` and the tag from `terms.accept`:
+
+```txt frame="terminal" title="npx loclizr check"
+error  LZ3004  arg-missing  locales/de.json:24:18  de  cart.greeting
+
+  The en text uses {name} and the de translation does not.
+
+  fix  add {name} to "cart.greeting" in locales/de.json
+
+error  LZ3010  markup-mismatch  locales/de.json:38:16  de  terms.accept
+
+  The en text uses <link> and the de translation does not.
+
+  fix  wrap the matching words of "terms.accept" in <link> in locales/de.json
+
+26 messages, 3 locales (source en), 2 errors, 0 warnings
+```
+
+| Edit to a target catalog | Raises |
+| --- | --- |
+| a placeholder or tag dropped, added or retyped, or a select branch the source does not name | `LZ3004`, `LZ3005`, `LZ3006`, `LZ3009`, `LZ3010`, at `error` |
+| a select branch the source names left out, a plural branch the locale never selects, or one it needs and lacks | `LZ3008`, `LZ3013`, `LZ3007`, at `warn` |
+| a key deleted, or set to `null` | `LZ3001` for that locale and for every locale that inherited through it: `nav.home` nulled in `de.json` reports `de` and `de-AT` |
+| a key set to `""` | `LZ3002` for that locale, `LZ3001` for the locales inheriting through it |
+| a key the source does not have | `LZ3003` at `warn`; no message is generated for it and the run exits 0 |
+
+[Checks](/reference/checks/#lz3xxx-the-cross-locale-contract) has every rule in the range with
+its printed fix.
+
+### A deleted source key
+
+Deleting a key from `en.json` is a contract change, so it is a string pull request: `LZ5003`
+until the record is rebuilt and committed. Each target catalog still carrying the key reports it
+as extra, at `warn`, and the message count drops by one:
+
+```txt frame="terminal" title="npx loclizr check, nav.home deleted from en.json"
+error  LZ5003  record-stale  locales/loclizr.context.json
+
+  `locales/loclizr.context.json` no longer matches the catalogs: the contract this build derived differs from the committed record.
+
+  fix  run `loclizr build` and commit the record with the string change.
+
+warn  LZ3003  extra-translation  locales/de.json:20:14  de  nav.home
+
+  "nav.home" is in the de catalog and not in en, so no message is generated for it.
+
+  fix  add "nav.home" to the en catalog, or delete it from locales/de.json
+
+25 messages, 3 locales (source en), 1 error, 1 warning
+```
+
+A `null` in the source catalog does the same as deleting the key.
+
+## While translations lag
+
+Translations usually land after the string does. At the default, `LZ3001 missing-translation`
+is an `error`, so every pull request between the two fails the gate.
+
+```ts title="loclizr.config.ts"
+export default defineConfig({
+  severity: { 'missing-translation': 'warn' },
+})
+```
+
+```txt frame="terminal" title="npx loclizr check, nav.home missing from de.json"
+warn  LZ3001  missing-translation  locales/de-AT.json  de-AT  nav.home
+
+  The de-AT catalog has no value for this key, so this message renders en text.
+
+  fix  add "nav.home" to locales/de-AT.json
+
+warn  LZ3001  missing-translation  locales/de.json  de  nav.home
+
+  The de catalog has no value for this key, so this message renders en text.
+
+  fix  add "nav.home" to locales/de.json
+
+26 messages, 3 locales (source en), 0 errors, 2 warnings
+fell back to source text: de 1, de-AT 1
+```
+
+- On pull requests, `npx loclizr check` exits 0 with that config, and the missing keys are still
+  printed and counted.
+- On `main`, before a release, a scheduled `npx loclizr check --max-warnings 0` exits 1 on the
+  same tree, so nothing ships untranslated unnoticed.
+
+This chooses a reminder over a gate. Severity is per rule, not per locale: a team shipping a
+new locale in stages re-levels `missing-translation` for every locale at once, and gets the hard
+gate back by deleting the line once the catalogs have caught up.
+
+## Rules for the vendor export
+
+What the TMS writes back into a target catalog decides which rule fires, so set the export up
+once:
+
+| Untranslated key exported as | Build |
+| --- | --- |
+| absent, or `null` | `LZ3001 missing-translation`, the right diagnostic |
+| `""` | `LZ3002 blank-translation`, an error that also stops every locale inheriting through it |
+| the source text copied in | nothing fires, and the record marks the locale `translated` |
+
+The last row is the one to configure away. No rule compares a translation against the source
+text for equality, and the record cannot tell a deliberate `Home` from a placeholder one.
+
+## Descriptions
+
+Nothing in a TMS reads `loclizr.context.json` natively. Descriptions and placeholder notes reach
+the translator the way they always have, through the vendor's own context or notes field, and
+today the team writes the script that fills it. The read side is `locales/en.meta.json`:
+
+```js title="scripts/tms-context.mjs"
+import { readFileSync, writeFileSync } from 'node:fs'
+
+const meta = JSON.parse(readFileSync('locales/en.meta.json', 'utf8'))
+const context = {}
+for (const [key, entry] of Object.entries(meta)) {
+  const notes = Object.entries(entry.placeholders ?? {}).map(([name, note]) => `{${name}}: ${note}`)
+  context[key] = [entry.description, ...notes].filter(Boolean).join(' ')
+}
+writeFileSync('tms-context.json', JSON.stringify(context, null, 2) + '\n')
+```
+
+```json title="tms-context.json"
+{
+  "cart.items": "Badge under the cart icon on every page. {count}: Number of line items, not total quantity."
+}
+```
+
+One string per key, which is the shape most context fields take; the upload itself is the
+vendor's API or import option. The record carries the same description and notes, plus the
+argument types, plural shape and the file and enclosing scope of each call site, for a reviewer
+or a translator reading the pull request. [Context record](/reference/context-record/) has the
+schema.
+
+<Aside type="note">
+A sidecar entry whose key is not in `en.json` is `LZ1015 meta-orphan`, so a key renamed in the
+catalog and not in the sidecar is caught in the same build. [Catalogs](/guides/catalogs/#descriptions-and-placeholder-notes)
+covers the sidecar.
+</Aside>
