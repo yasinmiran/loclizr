@@ -133,8 +133,24 @@ describe('toIcu reports tag-shaped text and nothing else', () => {
     expect(convert(value).diagnostics).toEqual([])
   })
 
-  it.each(tagShaped)('raises no LZ1016 for %j under i18nextMarkup tags', (value) => {
-    expect(codes(convert(value, 'tags').diagnostics)).not.toContain('LZ1016')
+  const lowered: readonly string[] = ['<b>{{x}}</b>']
+  // The quoted tag is unclosed once the apostrophes are doubled around it.
+  const rejected: readonly string[] = [
+    'Line<br>break {{x}}',
+    'Read <a href="/t">terms</a> {{x}}',
+    "'<b>' quoted {{x}}",
+  ]
+
+  it.each(lowered)('raises no LZ1016 for %j under i18nextMarkup tags', (value) => {
+    const { icu, diagnostics } = convert(value, 'tags')
+    expect(codes(diagnostics)).not.toContain('LZ1016')
+    expect(() => ast(icu)).not.toThrow()
+  })
+
+  it.each(rejected)('escapes %j under i18nextMarkup tags and raises one LZ1016', (value) => {
+    const { icu, diagnostics } = convert(value, 'tags')
+    expect(codes(diagnostics)).toEqual(['LZ1016'])
+    expect(render(ast(icu))).toBe(asRendered(value))
   })
 })
 

@@ -265,6 +265,45 @@ describe('readCatalogs format decisions', () => {
     expect(entryOf(result, 'en', 'terms')?.value).toBe('Read <b>{what}</b>')
     expect(result.diagnostics).toEqual([])
   })
+
+  it('keeps every entry the importer cannot convert, as ICU the parser accepts', async () => {
+    const root = await tree({
+      'locales/en.json': json({
+        common: {
+          greetingRaw: 'Hello {{- name}}',
+          loggedInAs: 'Logged in as {{user.name}}',
+        },
+        trans: {
+          terms: 'I accept the <1>terms of service</1>',
+          nested: '<0><1>Read this first</1></0>',
+        },
+      }),
+    })
+    const result = await readCatalogs(
+      makeConfig(root, { meta: false, catalogFormat: 'i18next', i18nextMarkup: 'tags' }),
+    )
+
+    const keys = ['common.greetingRaw', 'common.loggedInAs', 'trans.terms', 'trans.nested']
+    for (const key of keys) {
+      const value = entryOf(result, 'en', key)?.value
+      expect(value, key).toBeDefined()
+      expect(() => ast(value ?? ''), key).not.toThrow()
+    }
+    expect(entryOf(result, 'en', 'common.greetingRaw')?.value).toBe('Hello {name}')
+    expect(ast(entryOf(result, 'en', 'common.loggedInAs')?.value ?? '')).toEqual([
+      { type: TYPE.literal, value: 'Logged in as {{user.name}}' },
+    ])
+    expect(ast(entryOf(result, 'en', 'trans.terms')?.value ?? '')).toEqual([
+      { type: TYPE.literal, value: 'I accept the <1>terms of service</1>' },
+    ])
+    expect(
+      result.diagnostics.map((one) => [one.code, one.key]),
+    ).toEqual([
+      ['LZ1013', 'common.loggedInAs'],
+      ['LZ1016', 'trans.terms'],
+      ['LZ1016', 'trans.nested'],
+    ])
+  })
 })
 
 describe('readCatalogs failures', () => {

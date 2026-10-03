@@ -32,6 +32,17 @@ const PLAIN_SUFFIX = new RegExp(`^(.+)_(${CATEGORIES})$`)
 const PLURAL_SUFFIX = '_plural'
 const TAG_SHAPED = /<\/?[A-Za-z][^<>]*>/
 const TYPED_ARGUMENT = /^\{\s*([^\s{},]+)\s*,\s*(selectordinal|plural|select|number|date|time)\b/
+// The parser's identifier: `{user.name}` and `{- name}` stop at the dot and
+// the dash and are malformed arguments, not arguments with odd names.
+const ICU_ARGUMENT_NAME = /^[^\p{White_Space}\p{Pattern_Syntax}]+$/u
+// The parser's tag grammar with ignoreTag off. A tag opens on `<` plus an
+// ASCII letter, its name continues over XML name characters, and Pattern
+// White_Space may sit before the closing bracket.
+const TAG_START = /^<[A-Za-z]/
+const TAG_NAME_CHARS =
+  '[-.0-9A-Z_a-z\\u00B7\\u00C0-\\u00D6\\u00D8-\\u00F6\\u00F8-\\u037D\\u037F-\\u1FFF\\u200C\\u200D\\u203F\\u2040\\u2070-\\u218F\\u2C00-\\u2FEF\\u3001-\\uD7FF\\uF900-\\uFDCF\\uFDF0-\\uFFFD\\u{10000}-\\u{EFFFF}]*'
+const OPENING_TAG = new RegExp(`^<([A-Za-z]${TAG_NAME_CHARS})\\p{Pattern_White_Space}*(/?)>`, 'u')
+const CLOSING_TAG = new RegExp(`^</([A-Za-z]${TAG_NAME_CHARS})\\p{Pattern_White_Space}*>`, 'u')
 
 interface SuffixMatch {
   readonly base: string
@@ -60,6 +71,12 @@ interface PluralGroup {
 interface Run {
   readonly text: string
   readonly placeholder: boolean
+}
+
+interface Piece {
+  // An argument name, or literal text still to be escaped.
+  readonly text: string
+  readonly argument: boolean
 }
 
 export function classifyFormat(entries: readonly RawEntry[]): FormatVerdict {
@@ -110,31 +127,30 @@ export function toIcu(value: string, context: ToIcuContext): ToIcuResult {
       }),
     )
   }
+  const pieces = piecesOf(value, context, diagnostics)
+  // One tag the parser rejects would drop the whole message, so the value
+  // falls back to the literal mode as a whole and keeps its return type.
+  const rejected = context.markup === 'tags' ? rejectedTag(pieces) : null
+  const markup = rejected === null ? context.markup : 'literal'
   let icu = ''
   let escapedTag = false
-  for (const run of runsOf(value)) {
-    if (!run.placeholder) {
-      if (context.markup === 'literal' && TAG_SHAPED.test(run.text)) escapedTag = true
-      icu += escapeIcuLiteral(run.text, { markup: context.markup })
+  for (const piece of pieces) {
+    if (piece.argument) {
+      icu += `{${piece.text}}`
       continue
     }
-    const inner = run.text.trim()
-    const comma = inner.indexOf(',')
-    if (comma < 0) {
-      icu += `{${inner}}`
-      continue
-    }
-    const name = inner.slice(0, comma).trim()
+    if (markup === 'literal' && TAG_SHAPED.test(piece.text)) escapedTag = true
+    icu += escapeIcuLiteral(piece.text, { markup })
+  }
+  if (rejected !== null) {
     diagnostics.push(
-      diag('i18next-format-unsupported', {
-        message: `The placeholder {{${inner}}} carries an i18next formatter, which has no ICU equivalent. It renders as the raw value.`,
-        hint: `name the style in formats.number or formats.dateTime, convert this file to ICU, and write {${name}, number, yourStyle}.`,
+      diag('i18next-markup-literal', {
+        message: `The tag ${rejected} cannot lower to a markup argument, so every tag in this value was escaped to literal text, which is what i18next's t() rendered.`,
+        hint: 'a tag lowers when its name starts with a letter, it carries no attributes and it is closed, <link>...</link> or <br/>: name a numbered tag and move attributes to the call site.',
         ...where(context),
       }),
     )
-    icu += `{${name}}`
-  }
-  if (escapedTag) {
+  } else if (escapedTag) {
     diagnostics.push(
       diag('i18next-markup-literal', {
         message: 'Tag-shaped text in this value was escaped to literal text, which is what i18next itself rendered.',
@@ -399,6 +415,99 @@ function runsOf(value: string): readonly Run[] {
 
 function isPlaceholderName(inner: string): boolean {
   return inner.trim() !== '' && !inner.includes('{') && !inner.includes('}')
+}
+
+function piecesOf(value: string, context: ToIcuContext, diagnostics: Diagnostic[]): readonly Piece[] {
+  const pieces: Piece[] = []
+  for (const run of runsOf(value)) {
+    const piece = run.placeholder
+      ? placeholderPiece(run.text, context, diagnostics)
+      : { text: run.text, argument: false }
+    const last = pieces[pieces.length - 1]
+    // A placeholder that stays text rejoins the text around it, so the stretch
+    // is escaped in one pass rather than with a quote closed and reopened
+    // between two braces.
+    if (last !== undefined && !last.argument && !piece.argument) {
+      pieces[pieces.length - 1] = { text: last.text + piece.text, argument: false }
+    } else {
+      pieces.push(piece)
+    }
+  }
+  return pieces
+}
+
+// i18next's unescape prefix is a dash straight after the braces. Nothing
+// loclizr renders is HTML-escaped, so `{{- x}}` and `{{x}}` are one argument.
+function placeholderPiece(raw: string, context: ToIcuContext, diagnostics: Diagnostic[]): Piece {
+  const inner = (raw.startsWith('-') ? raw.slice(1) : raw).trim()
+  const comma = inner.indexOf(',')
+  const name = comma < 0 ? inner : inner.slice(0, comma).trim()
+  if (!ICU_ARGUMENT_NAME.test(name)) {
+    const flat = flatName(name)
+    diagnostics.push(
+      diag('i18next-format-unsupported', {
+        message: `The placeholder {{${raw}}} names "${name}", which ICU cannot read as an argument. It renders as literal text.`,
+        hint: `give the argument one plain name: write {{${flat}}} here and pass ${flat} at the call site.`,
+        ...where(context),
+      }),
+    )
+    return { text: `{{${raw}}}`, argument: false }
+  }
+  if (comma >= 0) {
+    diagnostics.push(
+      diag('i18next-format-unsupported', {
+        message: `The placeholder {{${inner}}} carries an i18next formatter, which has no ICU equivalent. It renders as the raw value.`,
+        hint: `name the style in formats.number or formats.dateTime, convert this file to ICU, and write {${name}, number, yourStyle}.`,
+        ...where(context),
+      }),
+    )
+  }
+  return { text: name, argument: true }
+}
+
+function flatName(name: string): string {
+  const [first = 'value', ...rest] = name
+    .split(/[^\p{ID_Continue}$]+/u)
+    .filter((word) => word !== '')
+  return first + rest.map((word) => word.charAt(0).toUpperCase() + word.slice(1)).join('')
+}
+
+// Walks the text pieces as the parser would: a tag must close on its own
+// name, `</` outside one is unmatched, and a name an argument cuts short is
+// malformed because the parser meets `{` where it expects `>`. Returns the
+// construct the parser would reject, or null where every tag lowers.
+function rejectedTag(pieces: readonly Piece[]): string | null {
+  const open: string[] = []
+  for (const piece of pieces) {
+    if (piece.argument) continue
+    let cursor = 0
+    for (;;) {
+      const at = piece.text.indexOf('<', cursor)
+      if (at < 0) break
+      const rest = piece.text.slice(at)
+      if (rest.startsWith('</')) {
+        const closing = CLOSING_TAG.exec(rest)
+        if (closing === null || closing[1] !== open.pop()) return tagText(rest)
+        cursor = at + closing[0].length
+        continue
+      }
+      if (!TAG_START.test(rest)) {
+        cursor = at + 1
+        continue
+      }
+      const opening = OPENING_TAG.exec(rest)
+      if (opening === null) return tagText(rest)
+      if (opening[2] === '') open.push(opening[1] ?? '')
+      cursor = at + opening[0].length
+    }
+  }
+  const unclosed = open.pop()
+  return unclosed === undefined ? null : `<${unclosed}>`
+}
+
+function tagText(rest: string): string {
+  const close = rest.indexOf('>')
+  return close < 0 ? rest : rest.slice(0, close + 1)
 }
 
 // Re-quotes every `#` that a plural body would otherwise read as the count,

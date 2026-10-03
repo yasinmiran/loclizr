@@ -132,6 +132,138 @@ describe('toIcu placeholders', () => {
       { type: TYPE.literal, value: 'Open {{{name}}' },
     ])
   })
+
+  it('drops the unescape prefix and keeps the argument', () => {
+    expect(convert('Hello {{- name}}')).toEqual({ icu: 'Hello {name}', diagnostics: [] })
+    expect(convert('Hello {{-name}}').icu).toBe('Hello {name}')
+  })
+
+  it('drops the unescape prefix before it reads a formatter', () => {
+    const { icu, diagnostics } = convert('{{- price, currency}}')
+    expect(icu).toBe('{price}')
+    expect(codes(diagnostics)).toEqual(['LZ1013'])
+  })
+
+  it('keeps a dash that is not the unescape prefix as the literal text i18next rendered', () => {
+    const { icu, diagnostics } = convert('Hello {{ - name}}')
+    expect(ast(icu)).toEqual([{ type: TYPE.literal, value: 'Hello {{ - name}}' }])
+    expect(codes(diagnostics)).toEqual(['LZ1013'])
+  })
+
+  it('keeps a nested path as literal text and names the flat argument to write', () => {
+    const { icu, diagnostics } = convert('Logged in as {{user.name}}')
+    expect(ast(icu)).toEqual([{ type: TYPE.literal, value: 'Logged in as {{user.name}}' }])
+    expect(codes(diagnostics)).toEqual(['LZ1013'])
+    expect(diagnostics[0]?.message).toContain('{{user.name}}')
+    expect(diagnostics[0]?.hint).toContain('{{userName}}')
+  })
+
+  it('keeps every name the parser would reject as literal text', () => {
+    for (const value of ['{{user-name}}', '{{items[0]}}', '{{a b}}', '{{a.b, currency}}']) {
+      const { icu, diagnostics } = convert(value)
+      expect(ast(icu)).toEqual([{ type: TYPE.literal, value }])
+      expect(codes(diagnostics)).toEqual(['LZ1013'])
+    }
+  })
+
+  it('escapes the text around a rejected name in one pass', () => {
+    expect(ast(convert('Press { then {{user.name}} and {{x}}').icu)).toEqual([
+      { type: TYPE.literal, value: 'Press { then {{user.name}} and ' },
+      { type: TYPE.argument, value: 'x' },
+    ])
+  })
+})
+
+describe('toIcu under i18nextMarkup tags', () => {
+  it('escapes a numbered Trans tag to literal text and names it', () => {
+    const { icu, diagnostics } = convert('I accept the <1>terms of service</1>', 'tags')
+    expect(ast(icu)).toEqual([{ type: TYPE.literal, value: 'I accept the <1>terms of service</1>' }])
+    expect(codes(diagnostics)).toEqual(['LZ1016'])
+    expect(diagnostics[0]?.message).toContain('</1>')
+  })
+
+  it('escapes nested numbered tags to literal text', () => {
+    const { icu, diagnostics } = convert('<0><1>Read this first</1></0>', 'tags')
+    expect(ast(icu)).toEqual([{ type: TYPE.literal, value: '<0><1>Read this first</1></0>' }])
+    expect(codes(diagnostics)).toEqual(['LZ1016'])
+  })
+
+  it('escapes a tag with attributes to literal text', () => {
+    const { icu, diagnostics } = convert('Read <a href="/t">terms</a>', 'tags')
+    expect(ast(icu)).toEqual([{ type: TYPE.literal, value: 'Read <a href="/t">terms</a>' }])
+    expect(codes(diagnostics)).toEqual(['LZ1016'])
+    expect(diagnostics[0]?.message).toContain('<a href="/t">')
+  })
+
+  it('escapes the whole value when one tag of it cannot lower', () => {
+    const value = '<bold>Ada</bold> accepted the <1>terms</1>'
+    const { icu, diagnostics } = convert(value, 'tags')
+    expect(ast(icu)).toEqual([{ type: TYPE.literal, value }])
+    expect(codes(diagnostics)).toEqual(['LZ1016'])
+  })
+
+  it('escapes what the parser would reject as unclosed, unmatched or cut by an argument', () => {
+    for (const value of [
+      'Line<br>break',
+      '<b><i>x</b></i>',
+      'stray </b> here',
+      '<b{{x}}>',
+      '</{{x}}',
+      '{{a<b}}',
+      '{{<b>}}',
+    ]) {
+      const { icu, diagnostics } = convert(value, 'tags')
+      expect(() => ast(icu)).not.toThrow()
+      expect(codes(diagnostics)).toContain('LZ1016')
+    }
+  })
+
+  it('still lowers a self-closing tag and a tag with space before its bracket', () => {
+    expect(convert('a<br/>b <br />c', 'tags').diagnostics).toEqual([])
+    expect(() => ast(convert('a<br/>b <br />c', 'tags').icu)).not.toThrow()
+    const { icu, diagnostics } = convert('<b >x</b >', 'tags')
+    expect(diagnostics).toEqual([])
+    expect(ast(icu)).toEqual([
+      { type: TYPE.tag, value: 'b', children: [{ type: TYPE.literal, value: 'x' }] },
+    ])
+  })
+
+  it('leaves an angle bracket that opens no tag alone', () => {
+    for (const value of ['a < b && c > d', '<3 {{x}}', '<{{x}}', 'x <']) {
+      const { icu, diagnostics } = convert(value, 'tags')
+      expect(diagnostics).toEqual([])
+      expect(() => ast(icu)).not.toThrow()
+    }
+  })
+})
+
+describe('toIcu output always parses', () => {
+  const values: readonly string[] = [
+    'Hello {{- name}}',
+    'Logged in as {{user.name}}',
+    'I accept the <1>terms of service</1>',
+    '<0><1>Read this first</1></0>',
+    'Read <a href="/t">terms</a>',
+    'Line<br>break',
+    '<b><i>x</b></i>',
+    'stray </b> here',
+    '<b{{x}}>',
+    '{{a<b}}',
+    '{{<b>}}',
+    'Press { then {{user.name}}',
+    '{{- }}',
+    '{{ - x}}',
+    '{{a.b, currency}}',
+    "'{'{{user.name}}'}'",
+  ]
+
+  it.each(values)('parses %j under i18nextMarkup literal', (value) => {
+    expect(() => ast(convert(value).icu)).not.toThrow()
+  })
+
+  it.each(values)('parses %j under i18nextMarkup tags', (value) => {
+    expect(() => ast(convert(value, 'tags').icu)).not.toThrow()
+  })
 })
 
 describe('findTypedArgument', () => {
