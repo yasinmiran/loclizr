@@ -12,6 +12,7 @@ import {
   templateText,
   textOf,
 } from './shared'
+import { hash16, stableStringify } from '../util'
 import { body, message, text, translated } from './__fixtures__/program'
 
 const LONE_SURROGATE = /[\uD800-\uDBFF](?![\uDC00-\uDFFF])|(?<![\uD800-\uDBFF])[\uDC00-\uDFFF]/u
@@ -245,6 +246,22 @@ describe('formatName', () => {
 
   test('names the empty option set the same every time', () => {
     expect(formatName({})).toBe(formatName({}))
+  })
+
+  // Intl reads hour12 with ToBoolean, so NaN means 24 hour and Infinity 12 hour.
+  test('gives NaN, Infinity and -Infinity three names', () => {
+    const names = [Number.NaN, Infinity, -Infinity].map((hour12) => formatName({ hour: 'numeric', hour12 }))
+    expect(new Set(names).size).toBe(3)
+  })
+
+  test('tells a non-finite number apart from the string that prints like it', () => {
+    expect(formatName({ hour12: Number.NaN })).not.toBe(formatName({ hour12: 'NaN' }))
+    expect(formatName({ hour12: Infinity })).not.toBe(formatName({ hour12: 'Infinity' }))
+  })
+
+  test('names a finite option set by the hash of its canonical JSON', () => {
+    const options = { style: 'currency', currency: 'EUR', minimumFractionDigits: 2, useGrouping: false }
+    expect(formatName(options)).toBe(`$f${hash16(stableStringify(options))}`)
   })
 })
 

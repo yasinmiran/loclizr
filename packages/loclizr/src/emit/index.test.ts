@@ -725,6 +725,22 @@ describe('declarations', () => {
     expect(contentsOf(files, 'messages/nav.js')).toContain("return `n ${args['9x']}`")
     expect(contentsOf(files, 'messages/nav.d.ts')).toContain("args: { '9x': string | number }")
   })
+
+  test('reaches an argument named __proto__ by subscript, since LZ2007 rejects it too', () => {
+    const proto: Arg = { name: '__proto__', type: { kind: 'stringish' } }
+    const files = only({
+      message: message({
+        key: 'nav.proto',
+        source: 'proto',
+        args: [proto],
+        bodies: [body('en', [text('p '), arg('__proto__')])],
+        origins: [translated('en')],
+      }),
+      locales: ['en'],
+    })
+    expect(contentsOf(files, 'messages/nav.js')).toContain("return `p ${args['__proto__']}`")
+    expect(contentsOf(files, 'messages/nav.d.ts')).toContain("args: { '__proto__': string | number }")
+  })
 })
 
 describe('the tree', () => {

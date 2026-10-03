@@ -1,6 +1,6 @@
 import type { ExactBranch, IntlOptions, Node, PluralBranch, SelectBranch } from '../types'
 import { compareCodepoint } from '../util'
-import { PLURAL_KEYWORDS, formatName, isIdentifier, pad, quoted, templateText } from './shared'
+import { PLURAL_KEYWORDS, formatName, isArgName, pad, quoted, templateText } from './shared'
 
 type PluralNode = Extract<Node, { kind: 'plural' }>
 
@@ -29,6 +29,11 @@ interface ArmContext extends MessageContext {
   // date formatting stay on the requesting locale, which is what a regional
   // overlay such as de-AT over de is declared for.
   readonly locale: string
+  // A plan probes each branch by rendering it, and that render plans every
+  // branch nested inside, so without these each level of nesting would double
+  // the work. Kept per arm because a plural plan depends on the arm's locale.
+  readonly pluralPlans: Map<PluralNode, PluralPlan>
+  readonly selectPlans: Map<SelectNode, Map<Frame | null, SelectPlan>>
 }
 
 export function messageContext(
@@ -64,7 +69,7 @@ export function renderArm(
   indent: number,
   locale: string,
 ): string {
-  return statements(nodes, { ...ctx, locale }, indent, null)
+  return statements(nodes, { ...ctx, locale, pluralPlans: new Map(), selectPlans: new Map() }, indent, null)
 }
 
 export function localDeclarations(ctx: MessageContext, indent: number): readonly string[] {
@@ -321,6 +326,8 @@ interface PluralPlan {
 // when it renders byte-identically to one that survives, so what it collected
 // is collected anyway.
 function pluralPlan(node: PluralNode, ctx: ArmContext): PluralPlan {
+  const cached = ctx.pluralPlans.get(node)
+  if (cached !== undefined) return cached
   const inner: Frame = { index: indexOf(node.name, ctx), name: node.name, offset: node.offset }
   const other = node.branches.find((branch) => branch.keyword === 'other')?.body ?? []
   const keywords = orderKeywords(node.branches.filter((branch) => branch.keyword !== 'other'))
@@ -330,7 +337,9 @@ function pluralPlan(node: PluralNode, ctx: ArmContext): PluralPlan {
   const exact = [...node.exact]
     .sort((a, b) => a.value - b.value)
     .filter((branch) => !collapsed || probe(branch.body) !== baseline)
-  return { inner, exact, keywords: collapsed ? [] : keywords, other }
+  const plan: PluralPlan = { inner, exact, keywords: collapsed ? [] : keywords, other }
+  ctx.pluralPlans.set(node, plan)
+  return plan
 }
 
 interface SelectPlan {
@@ -339,6 +348,9 @@ interface SelectPlan {
 }
 
 function selectPlan(node: SelectNode, ctx: ArmContext, frame: Frame | null): SelectPlan {
+  const byFrame = ctx.selectPlans.get(node) ?? new Map<Frame | null, SelectPlan>()
+  const cached = byFrame.get(frame)
+  if (cached !== undefined) return cached
   const other = node.branches.find((branch) => branch.option === 'other')?.body ?? []
   const options = [...node.branches]
     .filter((branch) => branch.option !== 'other')
@@ -346,7 +358,9 @@ function selectPlan(node: SelectNode, ctx: ArmContext, frame: Frame | null): Sel
   const probe = (body: readonly Node[]): string => armExpression(body, ctx, 0, frame)
   const baseline = probe(other)
   const collapsed = options.every((branch) => probe(branch.body) === baseline)
-  return { options: collapsed ? [] : options, other }
+  const plan: SelectPlan = { options: collapsed ? [] : options, other }
+  ctx.selectPlans.set(node, byFrame.set(frame, plan))
+  return plan
 }
 
 function orderKeywords(branches: readonly PluralBranch[]): readonly PluralBranch[] {
@@ -401,7 +415,7 @@ function refersToHandler(node: Node, ctx: ArmContext): node is ArgNode {
 }
 
 function access(name: string): string {
-  return isIdentifier(name) ? `args.${name}` : `args[${quoted(name)}]`
+  return isArgName(name) ? `args.${name}` : `args[${quoted(name)}]`
 }
 
 function walk(nodes: readonly Node[], visit: (node: Node) => void): void {

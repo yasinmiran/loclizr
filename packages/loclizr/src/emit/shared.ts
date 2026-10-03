@@ -19,12 +19,28 @@ export function isIdentifier(name: string): boolean {
   return IDENTIFIER.test(name)
 }
 
+// LZ2007's predicate. `__proto__` lexes as an identifier, but the rule rejects
+// it, and section 7.2 reaches every name the rule rejects by subscript.
+export function isArgName(name: string): boolean {
+  return isIdentifier(name) && name !== '__proto__'
+}
+
 export function property(name: string): string {
   return isIdentifier(name) ? name : quoted(name)
 }
 
+// JSON writes NaN and both infinities as null, which would give three option
+// sets one name and render one with another's options. An option value is
+// never an array, so wrapping the spelling in one cannot meet a real value,
+// while a finite option set still hashes exactly its canonical JSON.
 export function formatName(options: IntlOptions): string {
-  return `$f${hash16(stableStringify(options))}`
+  const canonical = Object.fromEntries(
+    Object.entries(options).map(([key, value]) => [
+      key,
+      typeof value === 'number' && !Number.isFinite(value) ? [String(value)] : value,
+    ]),
+  )
+  return `$f${hash16(stableStringify(canonical))}`
 }
 
 export function byCodepoint(values: readonly string[]): readonly string[] {

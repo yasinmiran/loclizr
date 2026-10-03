@@ -1,6 +1,6 @@
 import type { Arg, ArgType, Message } from '../types'
 import { compareCodepoint } from '../util'
-import { MAX_LINE, bindsHandlerType, docComment, property, quoted } from './shared'
+import { MAX_LINE, bindsHandlerType, docComment, isArgName, quoted } from './shared'
 
 export function argsParameter(args: readonly Arg[]): string {
   return args.length === 0 ? 'args?: EmptyArgs' : `args: ${argsShape(args)}`
@@ -8,7 +8,7 @@ export function argsParameter(args: readonly Arg[]): string {
 
 export function argsShape(args: readonly Arg[]): string {
   if (args.length === 0) return 'EmptyArgs'
-  const fields = args.map((arg) => `${property(arg.name)}: ${typeOf(arg.type)}`)
+  const fields = args.map((arg) => `${isArgName(arg.name) ? arg.name : quoted(arg.name)}: ${typeOf(arg.type)}`)
   return `{ ${fields.join('; ')} }`
 }
 

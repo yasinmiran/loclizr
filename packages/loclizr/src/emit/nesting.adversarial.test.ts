@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'vitest'
-import type { EmittedFile, Message } from '../types'
+import type { Arg, EmittedFile, Message, Node } from '../types'
 import { emit } from './index'
 import {
   body,
@@ -178,5 +178,59 @@ describe('an ordinal plural', () => {
     })
     const arm = compileArm(place, 'race_place', 'en')
     expect([1, 2, 3, 4, 11].map((rank) => arm({ rank }))).toEqual(['1st', '2nd', '3rd', '4th', '11th'])
+  })
+})
+
+describe('a deep, narrow nesting', () => {
+  // Emit is synchronous, so a timeout cannot cut it short: the bound is
+  // asserted, at a depth that still finishes when each level doubles the work.
+  const BOUND_MS = 500
+
+  function selectChain(level: number, depth: number): readonly Node[] {
+    if (level === depth) return [text('bottom')]
+    return [
+      choice('s', [
+        { option: 'x', body: [text(`${level}>`), ...selectChain(level + 1, depth)] },
+        { option: 'other', body: [text(`stop at ${level}`)] },
+      ]),
+    ]
+  }
+
+  function pluralChain(level: number, depth: number): readonly Node[] {
+    if (level === depth) return [text('bottom')]
+    return [
+      plural('n', {
+        branches: [
+          { keyword: 'one', body: [text(`${level}>`), ...pluralChain(level + 1, depth)] },
+          { keyword: 'other', body: [pound(), text(` at ${level}`)] },
+        ],
+      }),
+    ]
+  }
+
+  function chained(key: string, args: readonly Arg[], nodes: readonly Node[]): Message {
+    return message({ key, source: key, args, bodies: [body('en', nodes)], origins: [translated('en')] })
+  }
+
+  function timed(only: Message): number {
+    const started = performance.now()
+    emit(program({ messages: [only], config: config({ locales: ['en'] }) }))
+    return performance.now() - started
+  }
+
+  test('emits twenty nested selects without doubling the work at each level', () => {
+    const deep = chained('deep.select', [{ name: 's', type: { kind: 'select', options: ['x'] } }], selectChain(0, 20))
+    expect(timed(deep)).toBeLessThan(BOUND_MS)
+    const arm = compileArm(deep, 'deep_select', 'en')
+    expect(arm({ s: 'x' })).toBe(`${Array.from({ length: 20 }, (_, level) => `${level}>`).join('')}bottom`)
+    expect(arm({ s: 'y' })).toBe('stop at 0')
+  })
+
+  test('emits eighteen nested plurals without doubling the work at each level', () => {
+    const deep = chained('deep.plural', [{ name: 'n', type: { kind: 'number' } }], pluralChain(0, 18))
+    expect(timed(deep)).toBeLessThan(BOUND_MS)
+    const arm = compileArm(deep, 'deep_plural', 'en')
+    expect(arm({ n: 1 })).toBe(`${Array.from({ length: 18 }, (_, level) => `${level}>`).join('')}bottom`)
+    expect(arm({ n: 3 })).toBe('3 at 0')
   })
 })
