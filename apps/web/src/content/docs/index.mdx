@@ -18,6 +18,7 @@ hero:
 ---
 
 import { Card, CardGrid, LinkCard } from '@astrojs/starlight/components'
+import LanguageDemo from '../../components/LanguageDemo.astro'
 
 ## Sixty seconds
 
@@ -46,6 +47,13 @@ m.cart_greeting({ name: 'Ada' })   // "Hi Ada, your cart is ready"
 m.cart_items({ count: 3 })         // "3 items in your cart"
 m.cart_items({ count: '3' })       // type error: count is a number
 ```
+
+## Try it
+
+<LanguageDemo />
+
+This site compiles its own catalogs with loclizr. The [Playground](/start/playground/) shows one count in
+all 13 languages at once.
 
 ## One pass, three outputs
 

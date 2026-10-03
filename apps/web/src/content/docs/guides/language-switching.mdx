@@ -4,6 +4,7 @@ description: The locale is read at call time, so a switch needs no reload.
 ---
 
 import { Aside } from '@astrojs/starlight/components'
+import LanguageDemo from '../../../components/LanguageDemo.astro'
 
 ```ts title="src/loclizr/messages.d.ts"
 export type AppLocale = 'de' | 'de-AT' | 'en'
@@ -133,7 +134,10 @@ loclizr: setLocale() cannot run inside a request scope. Pass { locale } per call
 m.cart_items({ count: 3 }, { locale: 'de' })   // "3 Artikel in deinem Warenkorb"
 ```
 
-A second-argument `{ locale }` beats the store for that call.
+A second-argument `{ locale }` beats the store for that call. The switcher below works this way, so the
+page around it keeps its own language:
+
+<LanguageDemo />
 
 ## What re-renders, and what does not
 
