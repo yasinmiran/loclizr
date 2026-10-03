@@ -1,134 +1,281 @@
 ---
 title: React
-description: useLocale, Parts, and the two patterns that survive React Compiler.
+description: Key the root on useLocale, pass the locale per call where state must survive, render markup with Parts.
 ---
 
-import { Aside } from '@astrojs/starlight/components'
+import { Steps } from '@astrojs/starlight/components'
 
-```ts
-useLocale(): Locale
-useSetLocale(): (locale: Locale, options?: SetLocaleOptions) => void
-Parts(props: { of: readonly (string | ReactNode)[] }): ReactElement
-```
+You end up with a Vite app that switches language in place, keeps the state that matters, and a
+test that proves both.
 
-React is an optional peer dependency (18 or newer); nothing else in the package touches it, so an
-app that never imports `loclizr/react` ships no React binding. `Locale` is your declared union once the barrel
-has augmented it: `'de' | 'de-AT' | 'en'` in the example app.
+<Steps>
 
-## useLocale
+1. ### Create the app
 
-`useSyncExternalStore` over the store with module-level function references: nothing resubscribes
-on render, no tearing. The only subscription in the library; a message call is not one, which
-drives every pattern below.
+   ```bash
+   npm create vite@latest app -- --template react-ts
+   cd app
+   npm i
+   npm i loclizr
+   npx loclizr init
+   ```
 
-```text
-loclizr: <html> carries no lang attribute, so a client with no cookie has nothing to read. Render lang from the Content-Language header withLocale sets.
-loclizr: <html lang="en"> disagrees with the resolved locale "de". Render lang from the Content-Language header withLocale sets.
-```
+   Set the scripts: the three `init` prints, the `typecheck` from the [Quickstart](/start/quickstart/),
+   and a `pretest` so the test runs against a fresh build.
 
-Outside production one effect compares `document.documentElement.lang` with the resolved locale,
-assigns it when they differ, and warns once. Missing attribute or wrong one, the fix is under
-[Server rendering](/guides/server-rendering/).
+   ```json title="package.json"
+   "scripts": {
+     "predev": "loclizr build --no-fail",
+     "dev": "vite",
+     "prebuild": "loclizr build",
+     "build": "tsc -b && vite build",
+     "lint": "oxlint",
+     "preview": "vite preview",
+     "pretypecheck": "loclizr build",
+     "typecheck": "tsc -b",
+     "pretest": "loclizr build",
+     "test": "vitest run"
+   }
+   ```
 
-A client-only app sees the second warning once, after a reload that follows a persisted switch:
-`index.html` says `lang="en"`, the cookie says `de`, and the store reads the cookie first. By the
-time the warning prints the hook has already assigned `lang`, so there is nothing left to do. The
-`Content-Language` remedy is for a page the server rendered; the example's `index.html` is the
-static case, and it keeps `lang="en"`.
+   Replace the catalog `init` seeded with these two:
 
-## useSetLocale
+   ```json title="locales/en.json"
+   {
+     "app": {
+       "more": "One item more",
+       "note": "Note for the courier",
+       "notePlaceholder": "Leave it with the neighbour",
+       "noteKeeps": "This panel renders in place, so the note you type survives a language change."
+     },
+     "cart": {
+       "greeting": "Hi {name}, your cart is ready",
+       "items": "{count, plural, =0 {Your cart is empty} one {# item in your cart} other {# items in your cart}}"
+     },
+     "terms": {
+       "accept": "Read our <link>terms</link> before you continue."
+     }
+   }
+   ```
 
-The store's `setLocale` from a hook, so a component need not import the generated barrel for the
-setter alone. The example's `Switcher` calls `m.setLocale` directly; either is fine.
+   ```json title="locales/de.json"
+   {
+     "app": {
+       "more": "Ein Artikel mehr",
+       "note": "Nachricht an den Boten",
+       "notePlaceholder": "Bitte beim Nachbarn abgeben",
+       "noteKeeps": "Dieses Feld wird an Ort und Stelle neu gerendert, deine Notiz überlebt also den Sprachwechsel."
+     },
+     "cart": {
+       "greeting": "Hallo {name}, dein Warenkorb ist bereit",
+       "items": "{count, plural, =0 {Dein Warenkorb ist leer} one {# Artikel in deinem Warenkorb} other {# Artikel in deinem Warenkorb}}"
+     },
+     "terms": {
+       "accept": "Lies unsere <link>AGB</link>, bevor du fortfährst."
+     }
+   }
+   ```
 
-## Parts
+2. ### Key the root on the locale
 
-```tsx title="src/App.tsx"
-<p className="terms" id="terms">
-  <Parts
-    of={m.terms_accept({
-      link: (chunks) => (
-        <a className="terms__link" href="#terms">
-          {chunks}
-        </a>
-      ),
-    })}
-  />
-</p>
-```
+   ```tsx title="src/main.tsx"
+   import { StrictMode, useState } from 'react'
+   import { createRoot } from 'react-dom/client'
+   import { useLocale } from 'loclizr/react'
+   import './index.css'
+   import { App, type Cart } from './App'
+   import { CourierNote } from './CourierNote'
 
-A markup message returns an array, not a string; `Parts` renders it. The whole component is
-`createElement(Fragment, null, ...props.of)`, and positional children need no keys.
+   const openingCart: Cart = { name: 'Ada', count: 3 }
 
-<Aside type="note">
-v0.1 emits no `'use client'` directive, so `Parts` works from a server component too; an app that
-needs the directive puts it on its own file.
-</Aside>
+   function Shop() {
+     const locale = useLocale()
+     const [cart, setCart] = useState(openingCart)
+     return (
+       <>
+         <App key={locale} cart={cart} onChange={(patch) => setCart((current) => ({ ...current, ...patch }))} />
+         <CourierNote />
+       </>
+     )
+   }
 
-## The key-on-root pattern
+   createRoot(document.getElementById('root')!).render(
+     <StrictMode>
+       <Shop />
+     </StrictMode>,
+   )
+   ```
 
-```tsx title="src/main.tsx"
-function Shop() {
-  const locale = useLocale()
-  const [cart, setCart] = useState(openingCart)
-  return (
-    <>
-      <App key={locale} cart={cart} onChange={(patch) => setCart((current) => ({ ...current, ...patch }))} />
-      <CourierNote />
-    </>
-  )
-}
-```
+   A message call subscribes to nothing, so the `key` remounts `App` on a switch and every string
+   under it re-renders. The remount drops state under the key, so `cart` lives above it in `Shop`.
 
-A component that only calls `m.*()` re-renders when its parent does and at no other time. Key the
-root on the locale and one `useLocale` call recomputes every string under `App` on a switch, with
-no per-component discipline below.
+3. ### Pass the locale per call where state must survive
 
-The cost is a remount, which discards local state under the key:
+   ```tsx title="src/CourierNote.tsx"
+   import { useState } from 'react'
+   import { useLocale } from 'loclizr/react'
+   import * as m from './loclizr/messages'
 
-- an open accordion closes
-- a half-typed form empties
-- a virtualized list that kept its scroll offset in state jumps back to the top
+   export function CourierNote() {
+     const locale = useLocale()
+     const [note, setNote] = useState('')
+     return (
+       <section className="note">
+         <label htmlFor="note">{m.app_note({}, { locale })}</label>
+         <textarea id="note" value={note} placeholder={m.app_notePlaceholder({}, { locale })} onChange={(event) => setNote(event.target.value)} />
+         <p>{m.app_noteKeeps({}, { locale })}</p>
+       </section>
+     )
+   }
+   ```
 
-For most apps a language switch is a page-level event, which is fine. State that must survive goes
-above the key: `cart` lives in `Shop` and is passed down.
+   `CourierNote` sits outside the key, subscribes itself and passes the locale into each call. It
+   re-renders in place and keeps `note`.
 
-## The state-preserving alternative
+4. ### Add a switcher
 
-```tsx title="src/CourierNote.tsx"
-export function CourierNote() {
-  const locale = useLocale()
-  const [note, setNote] = useState('')
-  return (
-    <section className="note">
-      <label htmlFor="note">{m.app_note({}, { locale })}</label>
-      <textarea id="note" value={note} placeholder={m.app_notePlaceholder({}, { locale })} onChange={(event) => setNote(event.target.value)} />
-      <p>{m.app_noteKeeps({}, { locale })}</p>
-    </section>
-  )
-}
-```
+   ```tsx title="src/Switcher.tsx"
+   import { useLocale, useSetLocale } from 'loclizr/react'
+   import * as m from './loclizr/messages'
 
-A component that cannot afford the remount subscribes on its own and passes the locale into each
-call; it re-renders in place and keeps `note`. A call that forgets `{ locale }` still reads the
-store and still renders the right language, with no visible dependency.
+   export function Switcher() {
+     const locale = useLocale()
+     const setLocale = useSetLocale()
+     return (
+       <nav>
+         {m.locales.map((tag) => (
+           <button key={tag} type="button" aria-pressed={tag === locale} onClick={() => setLocale(tag)}>
+             {tag}
+           </button>
+         ))}
+       </nav>
+     )
+   }
+   ```
 
-<Aside type="note">
-`CourierNote` is rendered outside the keyed `App` on purpose, so both patterns sit on one page:
-switch the language with text in the box and the text is still there.
-</Aside>
+   `useSetLocale` returns the same function as `m.setLocale`. It writes the `locale` cookie, so a
+   reload keeps the choice ([Language switching](/guides/language-switching/)).
+
+5. ### Render markup with `Parts`
+
+   ```tsx title="src/App.tsx"
+   import { memo } from 'react'
+   import { Parts } from 'loclizr/react'
+   import * as m from './loclizr/messages'
+   import { Switcher } from './Switcher'
+
+   export type Cart = { name: string; count: number }
+
+   const Terms = memo(function Terms() {
+     return (
+       <p className="terms" id="terms">
+         <Parts
+           of={m.terms_accept({
+             link: (chunks) => (
+               <a className="terms__link" href="#terms">
+                 {chunks}
+               </a>
+             ),
+           })}
+         />
+       </p>
+     )
+   })
+
+   export function App({ cart, onChange }: { cart: Cart; onChange: (patch: Partial<Cart>) => void }) {
+     return (
+       <main>
+         <Switcher />
+         <h1>{m.cart_greeting({ name: cart.name })}</h1>
+         <p>{m.cart_items({ count: cart.count })}</p>
+         <button type="button" onClick={() => onChange({ count: cart.count + 1 })}>
+           {m.app_more()}
+         </button>
+         <Terms />
+       </main>
+     )
+   }
+   ```
+
+   A markup message returns an array, not a string, and `Parts` renders it. `Terms` is memoized so
+   the test can show the key reaching it.
+
+6. ### Test the switch
+
+   ```bash
+   npm i -D vitest @testing-library/react jsdom
+   ```
+
+   ```tsx title="src/main.test.tsx"
+   // @vitest-environment jsdom
+   import { act, fireEvent, screen } from '@testing-library/react'
+   import { expect, test } from 'vitest'
+
+   test('a switch rewrites the page and keeps state above the key', async () => {
+     document.body.innerHTML = '<div id="root"></div>'
+     await act(() => import('./main'))
+
+     fireEvent.click(screen.getByRole('button', { name: 'One item more' }))
+     fireEvent.change(screen.getByRole('textbox'), { target: { value: 'Back door' } })
+     expect(screen.getByRole('heading').textContent).toBe('Hi Ada, your cart is ready')
+
+     fireEvent.click(screen.getByRole('button', { name: 'de' }))
+
+     expect(screen.getByRole('heading').textContent).toBe('Hallo Ada, dein Warenkorb ist bereit')
+     expect(screen.getByText('4 Artikel in deinem Warenkorb')).toBeDefined()
+     expect(screen.getByRole('link').textContent).toBe('AGB')
+     expect(screen.getByRole('textbox')).toHaveProperty('value', 'Back door')
+     expect(document.cookie).toBe('locale=de')
+   })
+   ```
+
+   ```txt frame="terminal" title="npm test"
+   > app@0.0.0 pretest
+   > loclizr build
+
+   wrote src/loclizr (13 files) and locales/loclizr.context.json
+   commit locales/loclizr.context.json; `loclizr check` compares it
+   7 messages, 2 locales (source en), 0 errors, 0 warnings
+
+   > app@0.0.0 test
+   > vitest run
+
+    Test Files  1 passed (1)
+         Tests  1 passed (1)
+      Start at  21:30:11
+      Duration  450ms (environment 56%, tests 31%, import 9%, transform 3%)
+   ```
+
+   Drop the `key` and it fails with `expected 'terms' to be 'AGB'`: the memoized `Terms` never
+   re-renders.
+
+</Steps>
+
+## The `<html lang>` warning
+
+Outside production `useLocale` compares `<html lang>` with the resolved locale, assigns it when
+they differ or the attribute is missing, and warns once in the console. A server-rendered page
+avoids it by rendering `lang` from the `Content-Language` header
+([Server rendering](/guides/server-rendering/)).
+
+A client-only app sees the `disagrees with the resolved locale` warning once, after a reload that
+follows a switch: `index.html` says `lang="en"`, the cookie says `de`. The hook has already fixed
+`lang` by then, so there is nothing to do.
 
 ## React Compiler
 
-The hazard sits outside `useLocale`: `m.app_name()` reads mutable external state and takes no
-arguments, so a memoizing compiler is entitled to cache its result for a component instance's
-lifetime. Both patterns already answer it:
+`m.app_more()` reads mutable external state and takes no arguments, so a memoizing compiler may
+cache its result for a component instance's lifetime. Both patterns above hold up:
 
 | Pattern | Why it is sound |
 | --- | --- |
 | Keyed root | Caches are per instance, and a remount throws them away. |
 | Per-call `{ locale }` | A value the compiler can see change. |
 
-Two holes in the keyed root, documentation rather than structure: a second `createRoot`, such as a
-separately mounted toast layer, and a string computed once at module scope. The per-call override
-is the escape for both, and that, more than convenience, is why it exists.
+The keyed root misses a second `createRoot`, such as a separately mounted toast layer, and a string
+computed once at module scope. Pass `{ locale }` per call there.
+
+## Peer dependency
+
+React is an optional peer dependency (18 or newer); an app that never imports `loclizr/react` ships
+no React binding. Signatures are in [Runtime API](/reference/runtime-api/).

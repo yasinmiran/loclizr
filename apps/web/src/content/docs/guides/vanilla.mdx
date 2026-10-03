@@ -1,0 +1,176 @@
+---
+title: Vanilla TypeScript
+description: Messages in the DOM, a select that switches language, and subscribe re-rendering, with no framework.
+---
+
+import { Aside, Steps } from '@astrojs/starlight/components'
+
+A Vite app with no framework: three messages rendered into the DOM, a `<select>` that switches
+language without a reload, and a test that proves the switch. Every framework integration is this
+page plus that framework's way of re-rendering.
+
+<Steps>
+
+1. ### Create the app
+
+   ```bash
+   npm create vite@latest app -- --template vanilla-ts
+   cd app
+   npm i
+   npm i loclizr
+   npx loclizr init
+   ```
+
+   `init` writes `loclizr.config.ts` and a seeded `locales/en.json`, then prints the scripts to add.
+   The template's `counter.ts`, `style.css` and `assets/` go unused once `main.ts` is replaced.
+
+2. ### Add the scripts
+
+   ```json title="package.json"
+   "scripts": {
+     "predev": "loclizr build --no-fail",
+     "dev": "vite",
+     "prebuild": "loclizr build",
+     "build": "tsc && vite build",
+     "preview": "vite preview",
+     "pretypecheck": "loclizr build",
+     "typecheck": "tsc",
+     "pretest": "loclizr build",
+     "test": "vitest run"
+   }
+   ```
+
+   `typecheck` is plain `tsc`, since the template's `tsconfig.json` is one `noEmit` project, and
+   `pretest` builds the tree the test imports. [Quickstart](/start/quickstart/) explains the other
+   hooks and why there is no `prepare`.
+
+3. ### Add a second locale
+
+   ```json title="locales/de.json"
+   {
+     "nav": {
+       "home": "Startseite",
+       "cart": "Warenkorb"
+     },
+     "cart": {
+       "greeting": "Hallo {name}, dein Warenkorb ist bereit",
+       "items": "{count, plural, =0 {Dein Warenkorb ist leer} one {# Artikel in deinem Warenkorb} other {# Artikel in deinem Warenkorb}}"
+     }
+   }
+   ```
+
+   Same keys as the seeded `en.json`, German values.
+
+4. ### Render, switch, re-render
+
+   ```ts title="src/main.ts"
+   import * as m from './loclizr/messages'
+
+   const app = document.querySelector<HTMLDivElement>('#app')!
+   app.innerHTML = `
+     <select id="locale" aria-label="Language"></select>
+     <h1 id="greeting"></h1>
+     <p id="items"></p>
+   `
+
+   const select = app.querySelector<HTMLSelectElement>('#locale')!
+   for (const tag of m.locales) select.add(new Option(tag, tag))
+   select.addEventListener('change', () => m.setLocale(select.value as m.AppLocale))
+
+   function render(): void {
+     const locale = m.getLocale()
+     select.value = locale
+     document.documentElement.lang = locale
+     document.title = m.nav_cart()
+     app.querySelector('#greeting')!.textContent = m.cart_greeting({ name: 'Ada' })
+     app.querySelector('#items')!.textContent = m.cart_items({ count: 3 })
+   }
+
+   m.subscribe(render)
+   render()
+   ```
+
+   - Each message call reads the locale when it runs, so `render` is the whole update.
+   - `subscribe(render)` calls it after every `setLocale`, with no argument. It does not fire on
+     attach, hence the explicit `render()` on the last line.
+   - `select.value` is a `string`; the cast narrows it to the generated `AppLocale` union.
+
+   <Aside type="caution">
+   `setLocale` writes a `locale` cookie, so a reload opens in German. It also sets `<html lang>`,
+   but a page opened German from the cookie keeps the `lang` from `index.html`, so `render`
+   assigns it.
+   </Aside>
+
+5. ### Build
+
+   ```txt frame="terminal" title="npm run build"
+   > app@0.0.0 prebuild
+   > loclizr build
+
+   wrote src/loclizr (11 files) and locales/loclizr.context.json
+   commit locales/loclizr.context.json; `loclizr check` compares it
+   4 messages, 2 locales (source en), 0 errors, 0 warnings
+
+   > app@0.0.0 build
+   > tsc && vite build
+
+   vite v8.3.2 building client environment for production...
+   transforming...
+   ✓ 11 modules transformed.
+   rendering chunks...
+   computing gzip size...
+   dist/index.html                0.37 kB │ gzip: 0.26 kB
+   dist/assets/index-CHzLFzLx.js  4.13 kB │ gzip: 1.86 kB
+
+   ✓ built in 16ms
+   ```
+
+   `npm run preview` and pick `de`: the heading reads `Hallo Ada, dein Warenkorb ist bereit`, the
+   tab title `Warenkorb`.
+
+6. ### Test the switch
+
+   ```bash
+   npm i -D vitest jsdom
+   ```
+
+   ```ts title="src/main.test.ts"
+   // @vitest-environment jsdom
+   import { expect, test } from 'vitest'
+
+   test('a switch re-renders the page in German', async () => {
+     document.body.innerHTML = '<div id="app"></div>'
+     await import('./main')
+     expect(document.querySelector('h1')?.textContent).toBe('Hi Ada, your cart is ready')
+
+     const select = document.querySelector('select')!
+     select.value = 'de'
+     select.dispatchEvent(new Event('change'))
+
+     expect(document.querySelector('h1')?.textContent).toBe('Hallo Ada, dein Warenkorb ist bereit')
+     expect(document.querySelector('p')?.textContent).toBe('3 Artikel in deinem Warenkorb')
+     expect(document.title).toBe('Warenkorb')
+     expect(document.documentElement.lang).toBe('de')
+   })
+   ```
+
+   `main.ts` renders on import, so the test creates `#app` first and imports after. Delete
+   `m.subscribe(render)` and the German heading assertion fails with
+   `Received: "Hi Ada, your cart is ready"`.
+
+   ```txt frame="terminal" title="npm test"
+    Test Files  1 passed (1)
+         Tests  1 passed (1)
+   ```
+
+</Steps>
+
+## Other frameworks
+
+There is no Svelte, Vue, Solid or Astro entry. Those frameworks wire the same two calls into their
+own reactivity: `subscribe` says when, `getLocale` says what. `useLocale` in `loclizr/react` is
+that through `useSyncExternalStore`.
+
+Every message also takes the locale per call, `m.cart_items({ count }, { locale })`, which wins
+over the store for that one call. [Language switching](/guides/language-switching/) covers it and
+the resolution order; [Runtime API](/reference/runtime-api/) has every signature.

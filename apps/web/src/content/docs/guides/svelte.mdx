@@ -1,0 +1,243 @@
+---
+title: Svelte
+description: Svelte 5 runes over subscribe and getLocale, and the two ways to make markup follow a switch.
+---
+
+import { Aside, Steps } from '@astrojs/starlight/components'
+
+A Vite and Svelte 5 app whose markup follows `setLocale`, with a test that proves it. There is no
+`loclizr/svelte` entry: an eleven-line module over `subscribe` and `getLocale` is the whole binding.
+
+<Steps>
+
+1. ### Create the app
+
+   ```bash
+   npm create vite@latest app -- --template svelte-ts
+   cd app
+   npm i
+   npm i loclizr
+   npx loclizr init
+   ```
+
+   `init` wrote `locales/en.json` with the [Quickstart](/start/quickstart/) messages. Add German:
+
+   ```json title="locales/de.json"
+   {
+     "nav": {
+       "home": "Startseite",
+       "cart": "Warenkorb"
+     },
+     "cart": {
+       "greeting": "Hallo {name}, dein Warenkorb ist bereit",
+       "items": "{count, plural, =0 {Dein Warenkorb ist leer} one {# Artikel in deinem Warenkorb} other {# Artikel in deinem Warenkorb}}"
+     }
+   }
+   ```
+
+2. ### Add the scripts
+
+   ```json title="package.json"
+   "scripts": {
+     "predev": "loclizr build --no-fail",
+     "dev": "vite",
+     "prebuild": "loclizr build",
+     "build": "vite build",
+     "preview": "vite preview",
+     "pretypecheck": "loclizr build",
+     "typecheck": "svelte-check --tsconfig ./tsconfig.app.json && tsc -p tsconfig.node.json",
+     "pretest": "loclizr build",
+     "test": "vitest run"
+   }
+   ```
+
+   The template calls its type check `check`; renaming it `typecheck` lets `pretypecheck` run
+   first. `pretest` generates `src/loclizr` before the mount test in the last step.
+
+3. ### Scan `.svelte` files
+
+   ```ts title="loclizr.config.ts" {8}
+   import { defineConfig } from 'loclizr'
+
+   export default defineConfig({
+     sourceLocale: 'en',
+     catalogs: 'locales/{locale}.json',
+     outDir: 'src/loclizr',
+     severity: { 'ambiguous-source': 'error' },
+     scan: { include: ['src/**/*.{ts,js,svelte}'] },
+   })
+   ```
+
+   The default `scan.include` reads script extensions only. Without this line every message called
+   from a `.svelte` file has an empty `usage` in the context record.
+
+   <Aside type="caution">
+   A `.svelte` file is lexed as script. An apostrophe in markup text drops a usage later on the
+   same line: `<p>Don't forget: {m.nav_cart()}</p>` records nothing for `nav_cart`.
+   </Aside>
+
+4. ### Keep the type check off the generated JavaScript
+
+   ```json title="tsconfig.app.json" {2}
+     "include": ["src/**/*.ts", "src/**/*.js", "src/**/*.svelte"],
+     "exclude": ["src/loclizr"]
+   }
+   ```
+
+   The template sets `checkJs`, so `svelte-check` type-checks the generated `.js` files and fails
+   on `implicitly has an 'any' type`, twice per message. Excluded, imports still resolve to the
+   generated `.d.ts`, and a wrong argument or locale is still an error.
+
+5. ### Wrap the store in a rune
+
+   ```ts title="src/locale.svelte.ts"
+   import { createSubscriber } from 'svelte/reactivity'
+   import { getLocale, subscribe, type AppLocale } from './loclizr/messages'
+
+   const track = createSubscriber(subscribe)
+
+   export const locale = {
+     get current(): AppLocale {
+       track()
+       return getLocale()
+     },
+   }
+   ```
+
+   `createSubscriber` wants `(update) => cleanup`, which is the shape of loclizr's `subscribe`, so
+   it passes straight in. Any `$derived`, effect or markup that reads `locale.current` reruns on a
+   switch.
+
+6. ### Add a switcher
+
+   ```svelte title="src/Switcher.svelte"
+   <script lang="ts">
+     import * as m from './loclizr/messages'
+     import { locale } from './locale.svelte'
+   </script>
+
+   <div>
+     {#each m.locales as tag (tag)}
+       <button type="button" aria-pressed={tag === locale.current} onclick={() => m.setLocale(tag)}>
+         {tag}
+       </button>
+     {/each}
+   </div>
+   ```
+
+7. ### Make the markup follow
+
+   ```svelte title="src/App.svelte"
+   <script lang="ts">
+     import * as m from './loclizr/messages'
+     import { locale } from './locale.svelte'
+     import Cart from './Cart.svelte'
+     import Switcher from './Switcher.svelte'
+   </script>
+
+   <Switcher />
+   {#key locale.current}
+     <h1>{m.cart_greeting({ name: 'Ada' })}</h1>
+   {/key}
+   <Cart />
+   ```
+
+   ```svelte title="src/Cart.svelte"
+   <script lang="ts">
+     import * as m from './loclizr/messages'
+     import { locale } from './locale.svelte'
+
+     let count = $state(3)
+     const items = $derived(m.cart_items({ count }, { locale: locale.current }))
+   </script>
+
+   <p>{items}</p>
+   <button type="button" onclick={() => count++}>+1</button>
+   ```
+
+   A bare `{m.nav_cart()}` never reruns: the message reads the store, and the store is not a rune.
+   Pick one of the two forms:
+
+   | Form | On a switch |
+   | --- | --- |
+   | `{#key locale.current}` | remounts the block; component state inside it resets |
+   | `{ locale: locale.current }` per call | reruns that expression in place; state survives |
+
+8. ### Test the switch
+
+   ```bash
+   npm i -D vitest jsdom
+   ```
+
+   ```ts title="vite.config.ts"
+   import { svelte } from '@sveltejs/vite-plugin-svelte'
+   import { defineConfig } from 'vitest/config'
+
+   export default defineConfig({
+     plugins: [svelte()],
+     resolve: process.env.VITEST ? { conditions: ['browser'] } : undefined,
+     test: { environment: 'jsdom' },
+   })
+   ```
+
+   Without the `browser` condition vitest loads Svelte's server build and `mount` throws
+   `lifecycle_function_unavailable`.
+
+   ```ts title="src/App.test.ts"
+   import { afterEach, expect, test } from 'vitest'
+   import { flushSync, mount, unmount } from 'svelte'
+   import * as m from './loclizr/messages'
+   import App from './App.svelte'
+
+   let app: ReturnType<typeof mount> | undefined
+
+   afterEach(() => {
+     if (app) unmount(app)
+     m.setLocale('en')
+     flushSync()
+   })
+
+   test('a switch re-renders the heading and keeps the cart count', () => {
+     app = mount(App, { target: document.body })
+     document.querySelector<HTMLButtonElement>('p + button')?.click()
+     flushSync()
+     expect(document.querySelector('h1')?.textContent).toBe('Hi Ada, your cart is ready')
+     expect(document.querySelector('p')?.textContent).toBe('4 items in your cart')
+
+     m.setLocale('de')
+     flushSync()
+
+     expect(document.querySelector('h1')?.textContent).toBe('Hallo Ada, dein Warenkorb ist bereit')
+     expect(document.querySelector('p')?.textContent).toBe('4 Artikel in deinem Warenkorb')
+   })
+   ```
+
+   `setLocale` writes the cookie in jsdom too, so `afterEach` switches back; then run `npm test`:
+
+   ```txt frame="terminal" title="npm test"
+    Test Files  1 passed (1)
+         Tests  1 passed (1)
+   ```
+
+</Steps>
+
+## A store for `$locale`
+
+```ts title="src/locale-store.ts"
+import { readable } from 'svelte/store'
+import { getLocale, subscribe } from './loclizr/messages'
+
+export const localeStore = readable(getLocale(), (set) => {
+  set(getLocale())
+  return subscribe(() => set(getLocale()))
+})
+```
+
+The store contract calls a subscriber at once, which loclizr's `subscribe` does not, so `readable`
+supplies the first value and `set(getLocale())` refreshes it whenever the first subscriber
+arrives. Components then read `$localeStore`.
+
+SvelteKit server rendering is out of scope here; [Server rendering](/guides/server-rendering/)
+has the request-scoped shape. [Language switching](/guides/language-switching/) covers
+persistence and the per-call override, and [Runtime API](/reference/runtime-api/) lists every
+export.

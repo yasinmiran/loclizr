@@ -1,0 +1,272 @@
+---
+title: Solid
+description: A Solid signal over the locale store, so messages update on a switch.
+---
+
+import { Aside, Steps } from '@astrojs/starlight/components'
+
+A Vite and Solid app whose messages switch language in place, with a test that proves it. There
+is no `loclizr/solid` entry: one small file wires `subscribe` and `getLocale` into a signal.
+
+<Steps>
+
+1. ### Create the app
+
+   ```bash
+   npm create vite@latest app -- --template solid-ts --no-interactive
+   cd app
+   npm i
+   npm i loclizr
+   npx loclizr init
+   ```
+
+   `init` writes `loclizr.config.ts` and `locales/en.json`, and prints three scripts.
+   [Quickstart](/start/quickstart/) walks through its output.
+
+2. ### Add the scripts
+
+   ```json title="package.json"
+     "scripts": {
+       "predev": "loclizr build --no-fail",
+       "dev": "vite",
+       "prebuild": "loclizr build",
+       "build": "tsc -b && vite build",
+       "preview": "vite preview",
+       "pretypecheck": "loclizr build",
+       "typecheck": "tsc -b",
+       "test": "vitest run"
+     },
+   ```
+
+   `typecheck` is `tsc -b`: the template's `tsconfig.json` only lists project references, so
+   `tsc -p` checks nothing.
+
+3. ### Add a second locale
+
+   ```json title="locales/de.json"
+   {
+     "nav": {
+       "home": "Startseite",
+       "cart": "Warenkorb"
+     },
+     "cart": {
+       "greeting": "Hallo {name}, dein Warenkorb ist bereit",
+       "items": "{count, plural, =0 {Dein Warenkorb ist leer} one {# Artikel in deinem Warenkorb} other {# Artikel in deinem Warenkorb}}"
+     }
+   }
+   ```
+
+4. ### Wrap the store in a signal
+
+   ```ts title="src/locale.ts"
+   import { createSignal, onCleanup, type Accessor } from 'solid-js'
+   import * as m from './loclizr/messages'
+
+   export function createLocale(): Accessor<m.AppLocale> {
+     const [locale, setLocale] = createSignal(m.getLocale())
+     onCleanup(m.subscribe(() => setLocale(m.getLocale())))
+     return locale
+   }
+   ```
+
+   `subscribe` does not call the listener on attach, so the signal starts from `getLocale()`.
+   Call `createLocale()` inside a component: `onCleanup` removes the listener when it unmounts.
+
+5. ### Pass the locale per call
+
+   ```tsx title="src/App.tsx"
+   import { createLocale } from './locale'
+   import * as m from './loclizr/messages'
+   import { Cart } from './Cart'
+   import { Switcher } from './Switcher'
+
+   export default function App() {
+     const locale = createLocale()
+     return (
+       <>
+         <Switcher />
+         <h1>{m.cart_greeting({ name: 'Ada' }, { locale: locale() })}</h1>
+         <Cart count={3} />
+       </>
+     )
+   }
+   ```
+
+   ```tsx title="src/Cart.tsx"
+   import { createLocale } from './locale'
+   import * as m from './loclizr/messages'
+
+   export function Cart(props: { count: number }) {
+     const locale = createLocale()
+     return <p>{m.cart_items({ count: props.count }, { locale: locale() })}</p>
+   }
+   ```
+
+   ```tsx title="src/Switcher.tsx"
+   import { For } from 'solid-js'
+   import { createLocale } from './locale'
+   import * as m from './loclizr/messages'
+
+   export function Switcher() {
+     const locale = createLocale()
+     return (
+       <div>
+         <For each={m.locales}>
+           {(tag) => (
+             <button type="button" aria-pressed={tag === locale()} onClick={() => m.setLocale(tag)}>
+               {tag}
+             </button>
+           )}
+         </For>
+       </div>
+     )
+   }
+   ```
+
+   A Solid component runs once; only a JSX expression reruns, and only when it reads a signal.
+   `{ locale: locale() }` is that read, so the text updates in place and component state survives.
+
+6. ### Or key the root
+
+   ```tsx title="src/KeyedRoot.tsx"
+   import { Show } from 'solid-js'
+   import { createLocale } from './locale'
+   import * as m from './loclizr/messages'
+
+   function Greeting() {
+     return <h1>{m.cart_greeting({ name: 'Ada' })}</h1>
+   }
+
+   export function KeyedRoot() {
+     const locale = createLocale()
+     return (
+       <Show when={locale()} keyed>
+         <Greeting />
+       </Show>
+     )
+   }
+   ```
+
+   To make it the root instead, `src/index.tsx` becomes:
+
+   ```tsx title="src/index.tsx"
+   /* @refresh reload */
+   import { render } from 'solid-js/web'
+   import './index.css'
+   import { KeyedRoot } from './KeyedRoot'
+
+   const root = document.getElementById('root')
+
+   render(() => <KeyedRoot />, root!)
+   ```
+
+   `<Show keyed>` rebuilds its children whenever `locale()` changes, discarding their local state,
+   so calls below it need no option. The steps below keep `<App />` as the root, and the test
+   covers both.
+
+7. ### Build
+
+   ```txt frame="terminal" title="npm run build"
+   > app@0.0.0 prebuild
+   > loclizr build
+
+   wrote src/loclizr (11 files) and locales/loclizr.context.json
+   commit locales/loclizr.context.json; `loclizr check` compares it
+   4 messages, 2 locales (source en), 0 errors, 0 warnings
+
+   > app@0.0.0 build
+   > tsc -b && vite build
+
+   vite v8.3.2 building client environment for production...
+   transforming...
+   ✓ 18 modules transformed.
+   rendering chunks...
+   computing gzip size...
+   dist/index.html                  0.45 kB │ gzip: 0.29 kB
+   dist/assets/index-nqMpL4T3.css   1.78 kB │ gzip: 0.81 kB
+   dist/assets/index-BY-jzfPm.js   15.70 kB │ gzip: 6.36 kB
+
+   ✓ built in 494ms
+   ```
+
+   `prebuild` runs the compiler first, and `tsc -b` then checks every message call against its
+   arguments. Commit `locales/loclizr.context.json` as the output says.
+
+8. ### Test the switch
+
+   ```bash
+   npm i -D vitest jsdom @solidjs/testing-library
+   ```
+
+   ```ts title="vite.config.ts"
+   import { defineConfig } from 'vitest/config'
+   import solid from 'vite-plugin-solid'
+
+   export default defineConfig({
+     plugins: [solid()],
+     test: { environment: 'jsdom' },
+   })
+   ```
+
+   ```tsx title="src/App.test.tsx"
+   import { afterEach, expect, test } from 'vitest'
+   import { cleanup, fireEvent, render, screen } from '@solidjs/testing-library'
+   import * as m from './loclizr/messages'
+   import App from './App'
+   import { KeyedRoot } from './KeyedRoot'
+
+   afterEach(() => {
+     cleanup()
+     m.setLocale('en')
+   })
+
+   test('per-call locale updates in place', () => {
+     render(() => <App />)
+     expect(screen.getByRole('heading').textContent).toBe('Hi Ada, your cart is ready')
+     fireEvent.click(screen.getByRole('button', { name: 'de' }))
+     expect(screen.getByRole('heading').textContent).toBe('Hallo Ada, dein Warenkorb ist bereit')
+     expect(screen.getByText('3 Artikel in deinem Warenkorb')).toBeTruthy()
+   })
+
+   test('keyed root rebuilds on setLocale', () => {
+     render(() => <KeyedRoot />)
+     m.setLocale('de')
+     expect(screen.getByRole('heading').textContent).toBe('Hallo Ada, dein Warenkorb ist bereit')
+   })
+
+   test('a bare call reads no signal and stays stale', () => {
+     render(() => <h1>{m.cart_greeting({ name: 'Ada' })}</h1>)
+     m.setLocale('de')
+     expect(screen.getByRole('heading').textContent).toBe('Hi Ada, your cart is ready')
+   })
+   ```
+
+   ```txt frame="terminal" title="npx vitest run --reporter verbose"
+    RUN  v5.0.3 /path/to/app
+
+    ✓ src/App.test.tsx > per-call locale updates in place 125ms
+    ✓ src/App.test.tsx > keyed root rebuilds on setLocale 5ms
+    ✓ src/App.test.tsx > a bare call reads no signal and stays stale 5ms
+
+    Test Files  1 passed (1)
+         Tests  3 passed (3)
+      Start at  21:21:32
+      Duration  780ms (environment 54%, tests 19%, transform 18%, import 8%)
+   ```
+
+   The third test is the trap: a message called with no signal read renders once and stays in the
+   old language. `cleanup()` is explicit because the testing library only registers it itself when
+   vitest globals are on.
+
+</Steps>
+
+<Aside type="caution">
+A call outside JSX, such as `const title = m.nav_home({}, { locale: locale() })` in the
+component body, runs once and never updates: the body is not a tracking scope. Keep message calls
+in the JSX expression.
+</Aside>
+
+`setLocale` writes the `locale` cookie and `<html lang>`, so a reload keeps the choice; see
+[Language switching](/guides/language-switching/). SolidStart is not covered here: on the server,
+read the locale per request as [Server rendering](/guides/server-rendering/) shows.
+[Runtime API](/reference/runtime-api/) has every signature.

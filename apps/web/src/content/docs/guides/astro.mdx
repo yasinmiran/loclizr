@@ -1,0 +1,272 @@
+---
+title: Astro
+description: Prerendered pages per locale, or on-demand pages that follow Accept-Language, through one middleware.
+---
+
+import { Aside, Steps } from '@astrojs/starlight/components'
+
+An Astro app that prerenders `/de/` and `/en/`, then a variant that picks the language per
+request. There is no Astro entry: a middleware wraps each render in `runWithLocale` from
+`loclizr/server`.
+
+<Steps>
+
+1. ### Create the app
+
+   ```bash
+   npm create astro@latest app -- --template minimal --install --no-git --yes
+   cd app
+   npm i loclizr
+   npm i -D @astrojs/check typescript
+   npx loclizr init
+   ```
+
+   `init` seeds `locales/en.json`. Add the German catalog beside it:
+
+   ```json title="locales/de.json"
+   {
+     "nav": {
+       "home": "Startseite",
+       "cart": "Warenkorb"
+     },
+     "cart": {
+       "greeting": "Hallo {name}, dein Warenkorb ist bereit",
+       "items": "{count, plural, =0 {Dein Warenkorb ist leer} one {# Artikel in deinem Warenkorb} other {# Artikel in deinem Warenkorb}}"
+     }
+   }
+   ```
+
+2. ### Add the scripts
+
+   ```json title="package.json"
+   "scripts": {
+     "predev": "loclizr build --no-fail",
+     "dev": "astro dev",
+     "prebuild": "loclizr build",
+     "build": "astro build",
+     "preview": "astro preview",
+     "pretypecheck": "loclizr build",
+     "typecheck": "astro check",
+     "astro": "astro"
+   },
+   ```
+
+   The three hooks `init` printed, plus `typecheck` running `astro check`.
+
+3. ### Scan `.astro` files
+
+   ```ts title="loclizr.config.ts" {7}
+   import { defineConfig } from 'loclizr'
+
+   export default defineConfig({
+     sourceLocale: 'en',
+     catalogs: 'locales/{locale}.json',
+     outDir: 'src/loclizr',
+     scan: { include: ['src/**/*.{ts,tsx,js,jsx,mts,mjs,astro}'] },
+     severity: { 'ambiguous-source': 'error' },
+   })
+   ```
+
+   ```json title="tsconfig.json" {4}
+   {
+     "extends": "astro/tsconfigs/strict",
+     "include": [".astro/types.d.ts", "**/*"],
+     "exclude": ["dist", "src/loclizr/**/*.js"]
+   }
+   ```
+
+   The default globs skip `.astro`, so the build warns `LZ5004 scan-found-nothing`. The exclude
+   stops `astro check` hinting about unused `args` in the generated `.js`.
+
+4. ### Add a route per locale
+
+   ```astro title="src/pages/[lang]/index.astro"
+   ---
+   import * as m from '../../loclizr/messages'
+   import CartBadge from '../../components/CartBadge.astro'
+
+   export function getStaticPaths() {
+     return m.locales.map((lang) => ({ params: { lang } }))
+   }
+   ---
+
+   <html lang={m.getLocale()}>
+     <head>
+       <meta charset="utf-8" />
+       <title>{m.nav_cart()}</title>
+     </head>
+     <body>
+       <h1>{m.cart_greeting({ name: 'Ada' })}</h1>
+       <CartBadge count={3} />
+     </body>
+   </html>
+   ```
+
+   ```astro title="src/components/CartBadge.astro"
+   ---
+   import * as m from '../loclizr/messages'
+
+   const { count } = Astro.props
+   ---
+
+   <p>{m.cart_items({ count })}</p>
+   ```
+
+5. ### Scope each render with middleware
+
+   ```ts title="src/middleware.ts"
+   import { defineMiddleware } from 'astro:middleware'
+   import { runWithLocale } from 'loclizr/server'
+
+   export const onRequest = defineMiddleware((context, next) => {
+     const { lang } = context.params
+     return lang === undefined ? next() : runWithLocale(lang, next)
+   })
+   ```
+
+   Middleware runs for every prerendered page at build time, and its scope covers each child
+   component. `npm run build` writes:
+
+   ```html title="dist/de/index.html"
+   <!DOCTYPE html><html lang="de"><head><meta charset="utf-8"><title>Warenkorb</title></head><body><h1>Hallo Ada, dein Warenkorb ist bereit</h1><p>3 Artikel in deinem Warenkorb</p></body></html>
+   ```
+
+   ```html title="dist/en/index.html"
+   <!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><title>Cart</title></head><body><h1>Hi Ada, your cart is ready</h1><p>3 items in your cart</p></body></html>
+   ```
+
+</Steps>
+
+<Aside type="caution">
+Passing `{ locale: Astro.params.lang }` per call instead also typechecks, but a call that misses it
+renders the source language and the build still passes.
+</Aside>
+
+<Aside type="caution">
+Never call `setLocale` in frontmatter: outside a scope it sets one process-wide locale that
+pages built in parallel share, and inside the middleware it throws.
+</Aside>
+
+## On-demand rendering
+
+This replaces the static setup: one page at `/` picks the language per request. Step 2 replaces
+`src/middleware.ts` and step 3 deletes `src/pages/[lang]/`.
+
+<Steps>
+
+1. ### Add the Node adapter
+
+   ```bash
+   npx astro add node --yes
+   ```
+
+   `astro add` writes the adapter; add `output: 'server'` yourself.
+
+   ```js title="astro.config.mjs" {8}
+   // @ts-check
+   import { defineConfig } from 'astro/config';
+
+   import node from '@astrojs/node';
+
+   // https://astro.build/config
+   export default defineConfig({
+     output: 'server',
+     adapter: node({
+       mode: 'standalone'
+     })
+   });
+   ```
+
+2. ### Replace the middleware
+
+   ```ts title="src/middleware.ts"
+   import { defineMiddleware } from 'astro:middleware'
+   import { localeFromRequest, runWithLocale } from 'loclizr/server'
+   import * as m from './loclizr/messages'
+
+   const options = { locales: m.locales, sourceLocale: m.sourceLocale }
+
+   export const onRequest = defineMiddleware(async (context, next) => {
+     const locale = localeFromRequest(context.request, options)
+     const response = await runWithLocale(locale, next)
+     response.headers.set('Content-Language', locale)
+     response.headers.append('Vary', 'Accept-Language')
+     return response
+   })
+   ```
+
+   `localeFromRequest` reads the `locale` cookie, then `Accept-Language`, then the source locale.
+
+3. ### Serve the page from `/`
+
+   Delete `src/pages/[lang]/`, then replace `src/pages/index.astro` with the same page minus
+   `getStaticPaths`:
+
+   ```astro title="src/pages/index.astro"
+   ---
+   import * as m from '../loclizr/messages'
+   import CartBadge from '../components/CartBadge.astro'
+   ---
+
+   <html lang={m.getLocale()}>
+     <head>
+       <meta charset="utf-8" />
+       <title>{m.nav_cart()}</title>
+     </head>
+     <body>
+       <h1>{m.cart_greeting({ name: 'Ada' })}</h1>
+       <CartBadge count={3} />
+     </body>
+   </html>
+   ```
+
+4. ### Build and run
+
+   ```bash
+   npm run build
+   PORT=8080 node dist/server/entry.mjs
+   ```
+
+   `PORT` overrides the adapter's default of 4321.
+
+   ```txt frame="terminal" title="curl -si -H 'Accept-Language: de-CH,de;q=0.9' http://localhost:8080/"
+   HTTP/1.1 200 OK
+   content-language: de
+   content-type: text/html
+   vary: Accept-Language
+   Date: Sat, 03 Oct 2026 19:48:20 GMT
+   Connection: keep-alive
+   Keep-Alive: timeout=5
+   Transfer-Encoding: chunked
+
+   <!DOCTYPE html><html lang="de"><head><meta charset="utf-8"><title>Warenkorb</title></head><body><h1>Hallo Ada, dein Warenkorb ist bereit</h1><p>3 Artikel in deinem Warenkorb</p></body></html>
+   ```
+
+   ```txt frame="terminal" title="curl -si -H 'Accept-Language: en-US' -H 'Cookie: locale=de' http://localhost:8080/"
+   HTTP/1.1 200 OK
+   content-language: de
+   content-type: text/html
+   vary: Accept-Language
+   Date: Sat, 03 Oct 2026 19:48:20 GMT
+   Connection: keep-alive
+   Keep-Alive: timeout=5
+   Transfer-Encoding: chunked
+
+   <!DOCTYPE html><html lang="de"><head><meta charset="utf-8"><title>Warenkorb</title></head><body><h1>Hallo Ada, dein Warenkorb ist bereit</h1><p>3 Artikel in deinem Warenkorb</p></body></html>
+   ```
+
+   The cookie beats `Accept-Language`. Keep cookie-driven responses out of shared caches, as
+   [Server rendering](/guides/server-rendering/) explains.
+
+</Steps>
+
+<Aside type="note">
+`loclizr/server` imports `node:async_hooks`, so the middleware loads only where the runtime has
+it: Node, Bun, Deno, or Cloudflare with the `nodejs_als` flag. This page covers the Node adapter.
+</Aside>
+
+## Islands
+
+Render `<html lang>` from `m.getLocale()`, as above: the client store reads it, so an island
+hydrates in the server's language. Wire the island like any client app:
+[React](/guides/react/), [Svelte](/guides/svelte/), [Vue](/guides/vue/) or [Solid](/guides/solid/).

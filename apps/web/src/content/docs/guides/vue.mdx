@@ -1,0 +1,250 @@
+---
+title: Vue
+description: A Vue 3 composable over subscribe and getLocale, and the two ways to make templates follow a switch.
+---
+
+import { Aside, Steps } from '@astrojs/starlight/components'
+
+A Vite and Vue 3 app whose templates follow `setLocale`, with a test that proves it. There is no
+`loclizr/vue` entry: an eleven-line composable over `subscribe` and `getLocale` is the whole
+binding.
+
+<Steps>
+
+1. ### Create the app
+
+   ```bash
+   npm create vite@latest app -- --template vue-ts
+   cd app
+   npm i
+   npm i loclizr
+   npx loclizr init
+   ```
+
+   `init` writes `locales/en.json`, the same catalog as the [Quickstart](/start/quickstart/). Add
+   the German one:
+
+   ```json title="locales/de.json"
+   {
+     "nav": {
+       "home": "Startseite",
+       "cart": "Warenkorb"
+     },
+     "cart": {
+       "greeting": "Hallo {name}, dein Warenkorb ist bereit",
+       "items": "{count, plural, =0 {Dein Warenkorb ist leer} one {# Artikel in deinem Warenkorb} other {# Artikel in deinem Warenkorb}}"
+     }
+   }
+   ```
+
+2. ### Add the scripts
+
+   ```json title="package.json"
+   "scripts": {
+     "predev": "loclizr build --no-fail",
+     "dev": "vite",
+     "prebuild": "loclizr build",
+     "build": "vue-tsc -b && vite build",
+     "preview": "vite preview",
+     "pretypecheck": "loclizr build",
+     "typecheck": "vue-tsc -b",
+     "pretest": "loclizr build",
+     "test": "vitest run"
+   }
+   ```
+
+   `typecheck` is `vue-tsc -b`, as in the template's own `build`. The root `tsconfig.json` has
+   `"files": []`, so `npx vue-tsc --noEmit` there exits 0 on a broken template.
+
+3. ### Scan `.vue` files
+
+   ```ts title="loclizr.config.ts" {8}
+   import { defineConfig } from 'loclizr'
+
+   export default defineConfig({
+     sourceLocale: 'en',
+     catalogs: 'locales/{locale}.json',
+     outDir: 'src/loclizr',
+     severity: { 'ambiguous-source': 'error' },
+     scan: { include: ['src/**/*.{ts,vue}'] },
+   })
+   ```
+
+   The default `scan.include` reads script extensions only. Without this line every message called
+   from a `.vue` file has an empty `usage` in the context record.
+
+   <Aside type="caution">
+   A `.vue` file is lexed as script. An apostrophe in template text drops a usage later on the same
+   line: `<p>Don't forget: {{ m.nav_cart() }}</p>` records nothing for `nav_cart`.
+   </Aside>
+
+4. ### Write the composable
+
+   ```ts title="src/useLocale.ts"
+   import { onScopeDispose, shallowRef, type ShallowRef } from 'vue'
+   import * as m from './loclizr/messages'
+
+   export function useLocale(): ShallowRef<m.AppLocale> {
+     const locale = shallowRef(m.getLocale())
+     const off = m.subscribe(() => {
+       locale.value = m.getLocale()
+     })
+     onScopeDispose(off)
+     return locale
+   }
+   ```
+
+   `subscribe` calls its listener with no argument and never on attach, so the ref starts from
+   `getLocale()`. `onScopeDispose` removes the listener when the component unmounts.
+
+   `./loclizr/messages` resolves once a build has run: `npm run dev`, `npm test` or
+   `npx loclizr build` writes it.
+
+5. ### Read the ref where you call a message
+
+   ```vue title="src/App.vue"
+   <script setup lang="ts">
+   import { computed } from 'vue'
+   import Cart from './components/Cart.vue'
+   import * as m from './loclizr/messages'
+   import { useLocale } from './useLocale'
+
+   const locale = useLocale()
+   const greeting = computed(() => m.cart_greeting({ name: 'Ada' }, { locale: locale.value }))
+   </script>
+
+   <template>
+     <nav>
+       <button
+         v-for="tag in m.locales"
+         :key="tag"
+         type="button"
+         :aria-pressed="tag === locale"
+         @click="m.setLocale(tag)"
+       >
+         {{ tag }}
+       </button>
+     </nav>
+     <h1>{{ greeting }}</h1>
+     <Cart :count="3" />
+   </template>
+   ```
+
+   Passing `{ locale: locale.value }` is what makes the `computed` depend on the ref. A message call
+   reads the store, which Vue does not track: `computed(() => m.nav_home())` stays `Home` after a switch.
+
+   ```vue title="src/components/Cart.vue"
+   <script setup lang="ts">
+   import * as m from '../loclizr/messages'
+
+   defineProps<{ count: number }>()
+   </script>
+
+   <template>
+     <p>{{ m.cart_items({ count }) }}</p>
+   </template>
+   ```
+
+   `Cart` reads no ref and its prop does not change, so after a switch it still says
+   `3 items in your cart`.
+
+6. ### Key the root on the locale
+
+   ```vue title="src/Root.vue"
+   <script setup lang="ts">
+   import App from './App.vue'
+   import { useLocale } from './useLocale'
+
+   const locale = useLocale()
+   </script>
+
+   <template>
+     <App :key="locale" />
+   </template>
+   ```
+
+   ```ts title="src/main.ts" {3,5}
+   import { createApp } from 'vue'
+   import './style.css'
+   import Root from './Root.vue'
+
+   createApp(Root).mount('#app')
+   ```
+
+   The key remounts `App` on a switch, so `Cart` renders German too. A remount drops component
+   state below the key; keep what must survive above it, or use step 5's `computed` form.
+
+7. ### Test it
+
+   ```bash
+   npm i -D vitest @vue/test-utils jsdom
+   ```
+
+   ```ts title="src/locale.test.ts"
+   // @vitest-environment jsdom
+   import { mount } from '@vue/test-utils'
+   import { computed, defineComponent, effectScope, h, nextTick } from 'vue'
+   import { setLocale } from 'loclizr'
+   import { beforeEach, expect, test } from 'vitest'
+   import App from './App.vue'
+   import Root from './Root.vue'
+   import * as m from './loclizr/messages'
+   import { useLocale } from './useLocale'
+
+   beforeEach(() => {
+     setLocale('en', { persist: false })
+   })
+
+   test('a computed that reads the ref updates; a child that does not stays stale', async () => {
+     const wrapper = mount(App)
+     setLocale('de', { persist: false })
+     await nextTick()
+     expect(wrapper.get('h1').text()).toBe('Hallo Ada, dein Warenkorb ist bereit')
+     expect(wrapper.get('p').text()).toBe('3 items in your cart')
+   })
+
+   test('a key on the root re-renders every message', async () => {
+     const wrapper = mount(Root)
+     setLocale('de', { persist: false })
+     await nextTick()
+     expect(wrapper.get('h1').text()).toBe('Hallo Ada, dein Warenkorb ist bereit')
+     expect(wrapper.get('p').text()).toBe('3 Artikel in deinem Warenkorb')
+   })
+
+   test('a computed that never reads the ref is cached', async () => {
+     const Home = defineComponent(() => {
+       const label = computed(() => m.nav_home())
+       return () => h('span', label.value)
+     })
+     const wrapper = mount(Home)
+     setLocale('de', { persist: false })
+     await nextTick()
+     expect(wrapper.text()).toBe('Home')
+   })
+
+   test('the subscription ends with its scope', () => {
+     const scope = effectScope()
+     const locale = scope.run(() => useLocale())!
+     scope.stop()
+     setLocale('de', { persist: false })
+     expect(locale.value).toBe('en')
+   })
+   ```
+
+   ```txt frame="terminal" title="npm test"
+   wrote src/loclizr (11 files) and locales/loclizr.context.json
+   commit locales/loclizr.context.json; `loclizr check` compares it
+   4 messages, 2 locales (source en), 0 errors, 0 warnings
+
+    Test Files  1 passed (1)
+         Tests  4 passed (4)
+   ```
+
+   The first three lines come from `pretest`: the build runs before Vitest, so a fresh clone
+   tests without a manual build.
+
+</Steps>
+
+In the browser, `setLocale` also writes the `locale` cookie and `<html lang>`; see
+[Language switching](/guides/language-switching/) and the [Runtime API](/reference/runtime-api/).
+This page is a client-rendered app; Nuxt is out of scope for v0.1.
