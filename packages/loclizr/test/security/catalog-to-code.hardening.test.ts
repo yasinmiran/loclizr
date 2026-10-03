@@ -138,7 +138,7 @@ describe('catalog text reaches generated code only as text', () => {
     const inner = line.slice('/** '.length, -' */'.length)
     expect(line.endsWith(' */')).toBe(true)
     expect(inner).not.toContain('*/')
-    expect(inner).not.toMatch(/[\r\n]/u)
+    expect(inner).not.toMatch(/[\r\n\u2028\u2029]/u)
   })
 
   test('returns a 1 MiB value intact', () => {
