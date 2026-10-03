@@ -147,6 +147,21 @@ async function syncFiles(input: OutputInput, run: Run): Promise<boolean> {
     }
     const path = posixJoin(input.outDir, file.path)
     const absolute = join(input.root, path)
+    // The containment at the top bounds outDir itself. A link committed one
+    // level down, `outDir/messages -> elsewhere`, leaves the same way: the
+    // sweep refuses to follow it, and this stops the read as well as the
+    // write, so a file outside the project never decides LZ5002.
+    if (await escapesRoot(run.realRoot, dirname(absolute))) {
+      run.diagnostics.push(outsideRoot(path, notSynced(input.mode)))
+      return false
+    }
+    // A link at the emitted path itself stays inside by the check above, but
+    // reading through it lets its target decide LZ5002, and the rename would
+    // replace a committed link the build did not create.
+    if (await isLink(absolute)) {
+      run.diagnostics.push(linkedFile(path, occupiedBy(input.mode)))
+      continue
+    }
     const existing = await readIfPresent(absolute)
     if (existing !== null) await remember(absolute, run)
     if (existing !== null && !isGenerated(existing)) {
@@ -160,18 +175,15 @@ async function syncFiles(input: OutputInput, run: Run): Promise<boolean> {
       continue
     }
     if (existing !== null && unchanged(existing, file.contents)) continue
-    // The containment at the top bounds outDir itself. A link committed one
-    // level down, `outDir/messages -> elsewhere`, leaves the same way: the
-    // sweep refuses to follow it, and this is what stops the write.
-    if (await escapesRoot(run.realRoot, dirname(absolute))) {
-      run.diagnostics.push(outsideRoot(path, 'it was not written'))
-      return false
-    }
     if (!(await write(absolute, path, file.contents, run))) return false
     await remember(absolute, run)
     run.written.push(path)
   }
   return true
+}
+
+function notSynced(mode: 'build' | 'check'): string {
+  return mode === 'check' ? 'it was not compared' : 'it was not written'
 }
 
 function occupiedBy(mode: 'build' | 'check'): string {
@@ -246,11 +258,14 @@ async function write(absolute: string, path: string, contents: string, run: Run)
   const temporary = `${absolute}.loclizr${process.pid.toString(36)}${sequence.toString(36)}.tmp`
   try {
     await mkdir(dirname(absolute), { recursive: true })
-    await writeFile(temporary, contents, 'utf8')
+    // Exclusive, because the name is predictable: a link planted there would
+    // otherwise be followed and its target truncated. EEXIST means the name is
+    // someone else's, so it is not ours to remove.
+    await writeFile(temporary, contents, { encoding: 'utf8', flag: 'wx' })
     await rename(temporary, absolute)
     return true
   } catch (error) {
-    await rm(temporary, { force: true }).catch(() => undefined)
+    if (codeOf(error) !== 'EEXIST') await rm(temporary, { force: true }).catch(() => undefined)
     run.diagnostics.push(unwritable(path, error))
     return false
   }
@@ -322,13 +337,17 @@ function isGenerated(contents: string): boolean {
 }
 
 const CONFLICT_MARKER = /^<{7}(?: |$)/m
+// Conflicted text does not parse, so the match is textual: a line holding only
+// the schema key, as the record prints it, which a nested key, a string that
+// quotes it, or `1.5` does not satisfy.
+const RECORD_SCHEMA = /^[ \t]*"schema"[ \t]*:[ \t]*1[ \t]*,?[ \t]*\r?$/m
 
 // The record path may point at a catalog, a tsconfig or a source file, and
 // writing over one of those destroys work. So only text recognisable as a
-// record is replaced: a schema 1 object, or one a merge left conflict markers
-// in, which is how a conflicted record heals under LZ5007.
+// record is replaced: a schema 1 object, or a schema 1 record a merge left
+// conflict markers in, which is how a conflicted record heals under LZ5007.
 function isRecordText(contents: string): boolean {
-  if (CONFLICT_MARKER.test(contents)) return true
+  if (CONFLICT_MARKER.test(contents)) return RECORD_SCHEMA.test(contents)
   let parsed: unknown
   try {
     parsed = JSON.parse(contents.replace(/^\uFEFF/, ''))
@@ -359,6 +378,14 @@ function foreignFile(path: string, consequence: string): Diagnostic {
   return diag('outdir-foreign-file', {
     message: `\`${path}\` does not carry the generated header, ${consequence}.`,
     hint: 'the build deletes and overwrites only what it can prove it wrote. Move the file outside outDir, or delete it if it is a generated file whose header was stripped.',
+    file: path,
+  })
+}
+
+function linkedFile(path: string, consequence: string): Diagnostic {
+  return diag('outdir-foreign-file', {
+    message: `\`${path}\` is a symbolic link, ${consequence}.`,
+    hint: 'the build never reads or replaces a link under outDir, because the header cannot prove we wrote whatever it points at. Delete the link and run `loclizr build` to write the generated file in its place.',
     file: path,
   })
 }
@@ -439,6 +466,12 @@ function unwritable(path: string, error: unknown): Diagnostic {
     hint: 'check that the path is writable and that nothing else holds it open.',
     file: path,
   })
+}
+
+function codeOf(error: unknown): string | null {
+  if (typeof error !== 'object' || error === null) return null
+  const code: unknown = (error as { code?: unknown }).code
+  return typeof code === 'string' ? code : null
 }
 
 function reasonOf(error: unknown): string {
