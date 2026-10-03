@@ -47,26 +47,25 @@ produced that way and pasted, not typed.
    wrote loclizr.config.ts
    wrote locales/en.json
 
-   Install loclizr, which loclizr.config.ts imports:
+   Install loclizr, which loclizr.config.ts and the generated code import:
 
-     npm i -D loclizr
+     npm i loclizr
 
    Add these scripts to package.json:
 
-     "prepare": "loclizr build --no-fail",
      "predev": "loclizr build --no-fail",
      "prebuild": "loclizr build",
      "pretypecheck": "loclizr build"
 
-   Add this step to CI:
+   Add this step to CI, before any step that runs loclizr build:
 
      # loclizr check compares the committed context record against this tree.
      # loclizr build would rewrite that record in the CI workspace and pass.
      - run: npx loclizr check
    ```
 
-   The note says `-D`, but the generated functions import the locale store from `loclizr` at run
-   time, so install it as a regular dependency: a Vite SPA bundles it either way, and a Node
+   The note names a regular dependency, not a dev one, because the generated functions import
+   the locale store from `loclizr` at run time: a Vite SPA bundles it either way, and a Node
    server needs it installed. The note prints whether or not the package is installed.
 
    `init` never overwrites a file that exists, and it prints the scripts rather than editing
@@ -94,8 +93,8 @@ produced that way and pasted, not typed.
 
 3. ### Add the scripts
 
-   The template's `scripts` block with three of the four printed hooks added, plus a `typecheck`
-   script to hang the third one on:
+   The template's `scripts` block with the three printed hooks added, plus a `typecheck` script
+   to hang the third one on:
 
    ```json title="package.json"
    "scripts": {
@@ -114,7 +113,7 @@ produced that way and pasted, not typed.
      dev server. `prebuild` runs before `npm run build` and takes the real exit code.
    - `typecheck` is `tsc -b` because the template's `tsconfig.json` is a list of project
      references with no files of its own; `tsc -p tsconfig.json` would check nothing.
-   - `prepare` is left out. It runs on `npm ci`, so in CI it would rewrite the record before
+   - There is no `prepare`. It would run on `npm ci`, so in CI it would rewrite the record before
      `check` compares it. The cost is editor squiggles under `./loclizr/messages` on a fresh
      clone until the first `npm run dev` or `npm run build`.
 
@@ -443,10 +442,10 @@ produced that way and pasted, not typed.
    - run: npx loclizr check
    ```
 
-   With `prepare` out of `package.json`, a plain `npm ci` runs nothing of loclizr's and the
-   record `check` compares is the committed one. A team that keeps `prepare` installs with
-   `npm ci --ignore-scripts` instead. [Continuous integration](/guides/continuous-integration/)
-   has the whole workflow.
+   None of the three scripts runs on install, so a plain `npm ci` runs nothing of loclizr's and
+   the record `check` compares is the committed one. A `prepare` hook of your own that ran
+   `loclizr build` would reintroduce the problem, since `prepare` runs on `npm ci`.
+   [Continuous integration](/guides/continuous-integration/) has the whole workflow.
 
 </Steps>
 

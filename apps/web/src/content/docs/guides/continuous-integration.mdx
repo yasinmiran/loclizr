@@ -5,10 +5,9 @@ description: Put loclizr check in the pipeline; build stays in the scripts.
 
 import { Aside } from '@astrojs/starlight/components'
 
-`loclizr init` prints four scripts and one CI step. The split between them is the whole design.
+`loclizr init` prints three scripts and one CI step. The split between them is the whole design.
 
 ```json title="package.json"
-"prepare": "loclizr build --no-fail",
 "predev": "loclizr build --no-fail",
 "prebuild": "loclizr build",
 "pretypecheck": "loclizr build"
@@ -22,7 +21,6 @@ import { Aside } from '@astrojs/starlight/components'
 
 | Hook | Runs | Why |
 | --- | --- | --- |
-| `prepare` | `build --no-fail` | Printed by `init`; remove it. It runs on `npm ci`, so a plain install rewrites the record before `check` can compare it. |
 | `predev` | `build --no-fail` | A working tree has to exist; one untranslated key must not stop `vite dev`. |
 | `prebuild`, `pretypecheck` | `build` | Fails on an error. |
 | CI | `check` | Compares the committed record instead of rewriting it. |
@@ -30,12 +28,11 @@ import { Aside } from '@astrojs/starlight/components'
 ## A complete workflow
 
 <Aside type="caution">
-`check` has to run before anything that runs `loclizr build`, and `prepare` runs on `npm ci`.
-Remove `prepare` from `package.json`: `init` prints it, but `predev`, `prebuild` and
-`pretypecheck` already cover every command a developer runs, and the only cost is editor squiggles
-on a fresh clone until the first `dev` or `build`. A plain `npm ci` then installs without touching
-the record. A team that keeps `prepare` installs with `npm ci --ignore-scripts` instead, which also
-skips every other package's install script.
+`check` has to run before any step that runs `loclizr build`. The three scripts `init` prints hang
+on `dev`, `build` and `typecheck`, none of which an install runs, so a plain `npm ci` installs
+without touching the record. A `prepare` hook of your own that ran `loclizr build` would
+reintroduce the problem: `prepare` runs on `npm ci`, and the install would rewrite the record
+before `check` compared it.
 </Aside>
 
 The step `init` printed is the whole of loclizr's part. A complete job around it, with the install
@@ -51,7 +48,7 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: 22
-      # A plain install assumes prepare is gone from package.json; see the note above.
+      # No loclizr script runs on install; see the note above.
       - run: npm ci
       # The gate. Only this step is loclizr's; the rest prove the tree against the app.
       - run: npx loclizr check

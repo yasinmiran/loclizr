@@ -69,7 +69,7 @@ export declare function cart_updated(args: { at: Date | number }, opts?: Message
 ```js title="src/loclizr/messages/_root.js (en arm)"
 if (n0 === 0) return `Nobody is coming`
 if (n0 === 1) return `Only you`
-switch ($plural1(l, n0 - 1, false)) {
+switch ($plural1('en', n0 - 1, false)) {
   case 'one':
     return `You and ${$number1(l, n0 - 1, $f44136fa355b3678a)} other`
   default:
@@ -80,6 +80,11 @@ switch ($plural1(l, n0 - 1, false)) {
 Exact branches are tested first, against the value as passed. Then `Intl.PluralRules` picks a
 keyword category and `#` renders the number through `Intl.NumberFormat`. With an `offset`, the
 category and `#` use the value minus the offset; `=0` and `=1` still see the original.
+
+The category follows the language of the body, so every `$plural1` call names the locale whose
+text that arm prints, as a literal; the number inside it follows the visitor, through `l`. A
+locale that falls back to the source renders the English branches with English categories and
+its own digit grouping.
 
 - `other` is required. A plural without it is `LZ2004`, a select without it `LZ2005`, and the
   message is dropped from the output rather than guessed at.

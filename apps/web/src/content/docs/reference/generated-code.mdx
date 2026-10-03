@@ -6,7 +6,8 @@ description: The generated tree, one message of each kind, and what tree-shakes.
 import { Aside, FileTree, Steps, Tabs, TabItem } from '@astrojs/starlight/components'
 
 Everything here was written by `loclizr build` over the example app's catalogs, with
-`groups: { errors: 'errors' }` in the config. Files are quoted as written, header included.
+`groups: { errors: 'errors' }` in the config, except one fallback block that names the catalog it
+came from. Files are quoted as written, header included.
 
 ## The tree
 
@@ -259,7 +260,7 @@ export function cart_items(args, opts) {
       return `${args.count} Artikel im Einkaufswagerl`
     default:
       if (n0 === 0) return `Your cart is empty`
-      switch ($plural1(l, n0, false)) {
+      switch ($plural1('en', n0, false)) {
         case 'one':
           return `${$number1(l, n0, $f44136fa355b3678a)} item in your cart`
         default:
@@ -277,11 +278,45 @@ export declare function cart_items(args: { count: number }, opts?: MessageOption
 - Exact branches are tested before the category lookup. `Intl.PluralRules` is consulted only when
   a keyword branch renders differently from `other`: the German `one` and `other` bodies are
   identical, so that arm never calls `$plural1`.
-- `#` goes through `$number1` with the empty option set, so `m.cart_items({ count: 1234 })`
-  renders `1,234 items in your cart`.
+- The category follows the body's language and the number follows the visitor's locale. Every
+  `$plural1` call names the locale whose text the arm prints, as a literal (`'en'` above); `#`
+  goes through `$number1` with the requesting `l` and the empty option set, so
+  `m.cart_items({ count: 1234 })` renders `1,234 items in your cart`.
 - The `de-AT` arm was `{{count}} Artikel im Einkaufswagerl` in an i18next file. i18next
   stringifies placeholders unformatted, so the conversion keeps `${args.count}` raw rather than
   turning `1000 Artikel` into `1.000 Artikel` on import day.
+
+The literal matters on a fallback arm. A second tree, `locales: ['en', 'fr', 'ja']` with
+`{count, plural, one {# active session} other {# active sessions}}` in `en.json` and no
+`sessions` in `fr.json` or `ja.json`, prints the English body once. An arm identical to the source arm gets no
+`case` of its own, so `fr` and `ja` land in `default:` and their only trace is the `locales`
+list in `_locale.js`.
+
+```js title="src/loclizr/messages/_root.js"
+export function sessions(args, opts) {
+  const l = $l(opts)
+  const n0 = args.count
+  switch (l) {
+    default:
+      switch ($plural1('en', n0, false)) {
+        case 'one':
+          return `${$number1(l, n0, $f44136fa355b3678a)} active session`
+        default:
+          return `${$number1(l, n0, $f44136fa355b3678a)} active sessions`
+      }
+  }
+}
+```
+
+| Call | Renders |
+| --- | --- |
+| `m.sessions({ count: 0 }, { locale: 'fr' })` | `0 active sessions` |
+| `m.sessions({ count: 1 }, { locale: 'ja' })` | `1 active session` |
+| `m.sessions({ count: 1234 }, { locale: 'fr' })` | `1 234 active sessions` |
+
+French selects `one` for zero and Japanese selects `other` for everything, so a call that picked
+the category with `l` would print `0 active session` and `1 active sessions` against English
+text. The grouping in the last row is French, from `$number1(l, ...)`.
 
 </TabItem>
 <TabItem label="Select">

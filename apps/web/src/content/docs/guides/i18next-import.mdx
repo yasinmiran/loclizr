@@ -22,21 +22,22 @@ from `common.json` is prefixed with `common.`.
 Converts with zero edits:
 
 - a clean JSON v4 catalog, one file per locale or the `{ns}` layout
-- `{{name}}` placeholders
+- `{{name}}` placeholders, and `{{- name}}`: the unescape prefix has no job here, since nothing
+  loclizr renders is HTML-escaped
 - `_one` and `_other` plural suffixes, and `_zero`
 
-Needs a catalog rewrite before the message is right:
+Needs a catalog rewrite before the message is right. Every message function still exists, so the
+page never goes blank while you fix them:
 
 - `$t()` nesting and `{{x, fmt}}` inline formatters: `LZ1012` and `LZ1013` at `error`, the
-  message still emitted and rendering the literal text or the raw value
-- `{{- x}}` (the unescaped prefix) and `{{a.b}}` (nested access): the value raises
-  `LZ2001 icu-syntax` and the message is dropped from the generated tree, so a JavaScript app
-  throws `m.cart_raw is not a function` at render and a TypeScript app fails typecheck with
-  `TS2339`
+  message rendering the literal text or the raw value
+- `{{a.b}}` (nested access), or any placeholder name ICU cannot read: `LZ1013` at `error`, the
+  placeholder kept as the literal characters and the hint naming the flat name to write
 - context suffixes (`friend_male`): `LZ1017` at `warn`, every suffix emitted as its own message
 - a JSON v3 `X` and `X_plural` pair: `LZ1014` at `warn`, both emitted as ordinary keys
 - `<b>` and `<a>` left in values by `Trans`: `LZ1016` at `warn`, rendered as the characters
-  until `i18nextMarkup: 'tags'`
+  until `i18nextMarkup: 'tags'`; under `'tags'`, a value holding a tag the parser rejects, such
+  as a numbered `<1>`, stays text as a whole under the same rule code
 
 Each is shown below with the diagnostic it prints.
 
@@ -63,19 +64,22 @@ side by side.
 | i18next | ICU | Notes |
 | --- | --- | --- |
 | `{{name}}` | `{name}` | Whitespace inside the braces trimmed; typed `string \| number`. |
+| `{{- name}}` | `{name}` | The unescape prefix is dropped with no diagnostic. loclizr never HTML-escapes an argument, so the two spellings are one message. |
 | `{{count}}` | `{count}` | Stays a plain argument: never rewritten to `#`, never passed through `Intl.NumberFormat`, since i18next printed it unformatted and `1000 items` becoming `1,000 items` on import day would be a silent change. As a folded plural's selector it narrows to `number`. |
 | `items_one`, `items_other` | `items`, one ICU plural | Selector always `count`; branches ordered `=0, zero, one, two, few, many, other`. |
 | `X_ordinal_one` | `selectordinal` | |
 | `items_zero` | `=0` or `zero`, by locale | The compiler knows the locale. German never selects `zero`, so the exact branch `=0`; Latvian selects it for 10, 20 and 11 through 19, so the keyword branch stays. |
 
-Same three keys in both files, two different arms:
+Same three keys in both files, two different arms. The Latvian arm names `'lv'` in its
+`$plural1` call because the category follows the language of the body, not the visitor's locale;
+the German arm needs no call, since its `one` and `other` bodies are the same text:
 
 ```js title="src/loclizr/messages/_root.js"
 case 'de':
   if (n0 === 0) return `Dein Warenkorb ist leer`
   return `${args.count} Artikel in deinem Warenkorb`
 case 'lv':
-  switch ($plural1(l, n0, false)) {
+  switch ($plural1('lv', n0, false)) {
     case 'zero':
       return `Jūsu grozs ir tukšs`
     case 'one':
@@ -138,38 +142,44 @@ contains `{{` puts ICU syntax into a file read as i18next, and the run renders a
 | --- | --- | --- |
 | `$t(nav.home)` nesting | `LZ1012`, error | No ICU equivalent. |
 | `{{amount, currency}}` inline formatter | `LZ1013`, error | No place in ICU to carry the format. |
-| `{{- name}}` unescaped prefix | `LZ2001 icu-syntax`, error | The converter does not strip the `-`, so the ICU parser sees a malformed argument and the message is dropped. |
-| `{{user.name}}` nested access | `LZ2001 icu-syntax`, error | A dot is not an ICU argument name; the message is dropped. |
+| `{{user.name}}` nested access | `LZ1013`, error | A dot is not an ICU argument name. The characters stay literal text, the function exists, and the hint names the flat name to write. |
 | An array value | `LZ1010 catalog-shape-invalid` | |
 | ICU syntax in an i18next file | `LZ1020`, warn | The one mistake auto detection could otherwise make invisible. |
 
-The two `LZ2001` rows come out of a four-key catalog (`cart.greeting`, `cart.raw`,
-`cart.nested`, `nav.home`) as two messages:
+A four-key catalog, `Hi {{name}}, your cart is ready`, `Welcome back, {{- name}}`,
+`Logged in as {{user.name}}` and a plain `nav.home`, builds as four messages:
 
 ```text
-error  LZ2001  icu-syntax  locales/en.json:5:16  en  cart.nested
+error  LZ1013  i18next-format-unsupported  locales/en.json:5:16  en  cart.nested
 
-  ICU syntax error: MALFORMED_ARGUMENT.
+  The placeholder {{user.name}} names "user.name", which ICU cannot read as an argument. It renders as literal text.
 
-  fix  This value was rewritten from i18next before parsing, so the position names the catalog entry rather than the character. Parser error: MALFORMED_ARGUMENT.
-
-error  LZ2001  icu-syntax  locales/en.json:4:13  en  cart.raw
-
-  ICU syntax error: MALFORMED_ARGUMENT.
-
-  fix  This value was rewritten from i18next before parsing, so the position names the catalog entry rather than the character. Parser error: MALFORMED_ARGUMENT.
+  fix  give the argument one plain name: write {{userName}} here and pass userName at the call site.
 
 wrote src/loclizr (11 files) and locales/loclizr.context.json
 commit locales/loclizr.context.json; `loclizr check` compares it
-2 messages, 1 locale (source en), 2 errors, 0 warnings
+4 messages, 1 locale (source en), 1 error, 0 warnings
 ```
 
-`cart.d.ts` declares `cart_greeting` and nothing else. Rewrite `{{- name}}` as `{{name}}` (the
-generated code never HTML-escapes, so the prefix has no job) and `{{user.name}}` as a flat
-`{{userName}}` passed from the call site.
+```ts title="src/loclizr/messages/cart.d.ts"
+// @generated by loclizr abi=1. Do not edit; run `loclizr build`.
+import type { EmptyArgs, MessageOptions } from 'loclizr'
+/** en: "Hi {name}, your cart is ready" */
+export declare function cart_greeting(args: { name: string | number }, opts?: MessageOptions): string
+/** en: "Logged in as '{{'user.name'}}'" */
+export declare function cart_nested(args?: EmptyArgs, opts?: MessageOptions): string
+/** en: "Welcome back, {name}" */
+export declare function cart_raw(args: { name: string | number }, opts?: MessageOptions): string
+```
 
-The two `LZ1012` and `LZ1013` errors still emit and render as the raw text or the raw value, so
-the page does not go blank while you fix them:
+`cart_raw` takes `name` exactly as `cart_greeting` does. `cart_nested` takes nothing:
+`m.cart_nested()` renders `Logged in as {{user.name}}`, the text i18next printed for a missing
+interpolation value, and its doc comment carries those braces quoted, as canonical ICU writes
+literal text. The build exits `1` until the catalog says `{{userName}}` and the call site passes
+`userName`.
+
+The `LZ1012` and formatter `LZ1013` errors print the same way, the message rendering the
+literal text or the raw value:
 
 ```text
 error  LZ1012  i18next-nesting-unsupported  locales/en.json:8:16  en  cart.footer
@@ -200,7 +210,7 @@ i18next catalogs are full of `<b>` and `<a>` because `Trans` put them there.
 | `i18nextMarkup` | Effect |
 | --- | --- |
 | `'literal'`, the default | Tag-shaped text is escaped and rendered as the characters, what i18next itself rendered. Each such value raises `LZ1016 i18next-markup-literal` once so the choice is visible. `Read our <b>terms</b> before you continue.` stays a plain `string`. |
-| `'tags'` | The same value lowers to a markup argument: `LZ1016` goes quiet, `b` becomes a required handler, and the return type changes at every call site, which is why it is a whole-catalog setting and not the default. |
+| `'tags'` | The same value lowers to a markup argument: `LZ1016` goes quiet for it, `b` becomes a required handler, and the return type changes at every call site, which is why it is a whole-catalog setting and not the default. |
 
 ```ts title="src/loclizr/messages/_root.d.ts"
 /** en: "Read our <b>terms</b> before you continue." */
@@ -209,6 +219,33 @@ export declare function terms<T>(
   opts?: MessageOptions,
 ): readonly (string | T)[]
 ```
+
+A tag the parser rejects never lowers: a numbered `<1>` from `Trans`, a tag with attributes, an
+unclosed or mismatched tag, or a name cut by a placeholder. Under `'tags'` such a value is
+escaped to text as a whole and raises `LZ1016` with a different message, so its return type stays
+`string` and one stray tag never changes a signature. The same two values, `terms` above and
+`"accept": "I accept the <1>terms of service</1>"`, under each mode:
+
+```text title="i18nextMarkup: 'literal'"
+warn  LZ1016  i18next-markup-literal  locales/en.json:2:13  en  terms
+
+  Tag-shaped text in this value was escaped to literal text, which is what i18next itself rendered.
+
+  fix  set i18nextMarkup: 'tags' to lower these tags to markup arguments instead.
+```
+
+```text title="i18nextMarkup: 'tags'"
+warn  LZ1016  i18next-markup-literal  locales/en.json:3:14  en  accept
+
+  The tag </1> cannot lower to a markup argument, so every tag in this value was escaped to literal text, which is what i18next's t() rendered.
+
+  fix  a tag lowers when its name starts with a letter, it carries no attributes and it is closed, <link>...</link> or <br/>: name a numbered tag and move attributes to the call site.
+```
+
+`m.accept()` renders `I accept the <1>terms of service</1>` under both modes. The default mode
+says nothing about it, because the parser never reads `<1>` as a tag and the value needed no
+escaping. The fix is a named tag, `<link>terms of service</link>`, which lowers to a handler the
+way `<b>` does.
 
 ## The first build
 
@@ -253,7 +290,8 @@ both libraries stay installed until the last one is gone.
 1. Point `catalogs` at the existing files, leave `catalogFormat` at `'auto'`, and run
    `npx loclizr build --reporter json`.
 2. Group the diagnostics by `file` and `code`. Fix every `LZ1012` and `LZ1013` in the catalog:
-   inline the nested text, name the number style in `formats` and write the ICU form.
+   inline the nested text, name the number style in `formats` and write the ICU form, flatten a
+   dotted placeholder to one name.
 3. Pick `i18nextMarkup`: `'tags'` if the app used `Trans`, otherwise leave the default.
 4. Convert the files that need ICU (a select, a formatted number, a context suffix) one at a
    time. A converted file sits beside files still in i18next form.

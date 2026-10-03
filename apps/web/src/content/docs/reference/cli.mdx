@@ -46,18 +46,17 @@ in them. Where a sample shows an error, the edit that produced it is named.
 wrote loclizr.config.ts
 wrote locales/en.json
 
-Install loclizr, which loclizr.config.ts imports:
+Install loclizr, which loclizr.config.ts and the generated code import:
 
-  npm i -D loclizr
+  npm i loclizr
 
 Add these scripts to package.json:
 
-  "prepare": "loclizr build --no-fail",
   "predev": "loclizr build --no-fail",
   "prebuild": "loclizr build",
   "pretypecheck": "loclizr build"
 
-Add this step to CI:
+Add this step to CI, before any step that runs loclizr build:
 
   # loclizr check compares the committed context record against this tree.
   # loclizr build would rewrite that record in the CI workspace and pass.
@@ -69,8 +68,8 @@ Add this step to CI:
 - Prints an install note, the scripts and a CI step rather than editing `package.json`.
 - Takes `--cwd` and `--config`. `--no-fail` is a usage error.
 
-Install loclizr as a regular dependency, `npm i loclizr`, whatever the note says: the generated
-tree imports the locale store from it at run time.
+The install note names a regular dependency, not a dev one: the generated tree imports the locale
+store from `loclizr` at run time.
 
 Before writing, `init` looks for catalogs on disk and reports them
 (`found 3 locales at locales/{locale}.json: de, de-AT, en`). What it finds decides the config:
@@ -257,8 +256,8 @@ One code moves, and only downward:
   command uncovers.
 - A write-if-changed run that wrote zero bytes still reached the write step, so a clean rebuild
   is 0.
-- The gate never takes it: [the scripts below](#the-scripts-init-prints) put it on `predev`, and
-  on the `prepare` line this page says to drop.
+- The gate never takes it: [the scripts below](#the-scripts-init-prints) put it on `predev`
+  alone.
 - A 2000-key, 10-locale catalog builds in about half a second on a laptop, so the loop is a full
   rebuild every time rather than a watcher.
 
@@ -399,22 +398,21 @@ Every field is present on every diagnostic, `null` where it does not apply:
 ## The scripts `init` prints
 
 ```json title="package.json"
-"prepare": "loclizr build --no-fail",
 "predev": "loclizr build --no-fail",
 "prebuild": "loclizr build",
 "pretypecheck": "loclizr build"
 ```
 
-`prepare` runs on install and `predev` before `vite dev`. Their job is to make a generated tree
-exist on a fresh clone and at the start of every dev session, and one untranslated key must not
-stop the dev server, so they carry `--no-fail`. `prebuild` and `pretypecheck` run in front of the
-commands that ship and take the real exit code. Neither is the gate, though.
+`predev` runs before `vite dev`. Its job is to make a generated tree exist at the start of every
+dev session, and one untranslated key must not stop the dev server, so it carries `--no-fail`.
+`prebuild` and `pretypecheck` run in front of the commands that ship and take the real exit code.
+Neither is the gate, though.
 
-Remove `prepare` and keep the three `pre*` scripts. It runs on `npm ci`, so in CI it rewrites the
-record before `check` can compare it, and `check` then passes on a stale record. The cost is a
-fresh clone with no generated tree until the first `dev`, `build` or `typecheck`, which shows as
-editor errors under `./loclizr/messages` until then. A team that keeps `prepare` installs in CI
-with `npm ci --ignore-scripts` instead.
+There is no `prepare`. It would run on `npm ci`, so in CI it would rewrite the record before
+`check` can compare it, and `check` would pass on a stale record. The cost is a fresh clone with
+no generated tree until the first `dev`, `build` or `typecheck`, which shows as editor errors
+under `./loclizr/messages` until then. For the same reason the CI step `init` prints says to run
+`check` before any step that runs `build`.
 
 ```yaml title=".github/workflows/ci.yml"
 # loclizr check compares the committed context record against this tree.
