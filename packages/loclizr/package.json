@@ -1,8 +1,17 @@
 {
   "name": "loclizr",
-  "version": "0.0.0",
+  "version": "0.1.0",
   "description": "Typed message functions and default-on catalog checks, generated from your translation files.",
   "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/yasinmiran/loclizr.git",
+    "directory": "packages/loclizr"
+  },
+  "homepage": "https://github.com/yasinmiran/loclizr#readme",
+  "bugs": {
+    "url": "https://github.com/yasinmiran/loclizr/issues"
+  },
   "keywords": [
     "i18n",
     "icu",
