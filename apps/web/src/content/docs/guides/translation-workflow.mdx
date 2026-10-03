@@ -123,8 +123,8 @@ error  LZ3010  markup-mismatch  locales/de.json:38:16  de  terms.accept
 
 ## A deleted source key
 
-Deleting a key from `en.json`, or setting it to `null`, changes the contract: `LZ5003` until the
-record is rebuilt and committed. Target catalogs still holding the key warn `LZ3003`:
+Deleting a key from `en.json` changes the contract: `LZ5003` until the record is rebuilt and
+committed. Target catalogs still holding the key warn `LZ3003`:
 
 ```txt frame="terminal" title="npx loclizr check, nav.home deleted from en.json"
 error  LZ5003  record-stale  locales/loclizr.context.json
@@ -141,6 +141,9 @@ warn  LZ3003  extra-translation  locales/de.json:20:14  de  nav.home
 
 25 messages, 3 locales (source en), 1 error, 1 warning
 ```
+
+Setting the key to `null` in `en.json` drops it the same way and adds `LZ1010 catalog-shape-invalid`
+at `error`: the source locale has nothing to fall back to.
 
 ## While translations lag
 

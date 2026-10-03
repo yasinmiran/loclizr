@@ -17,14 +17,14 @@ Every file the build may delete starts with that line. Each claim names the enfo
 | Catalogs | the `catalogs` pattern, `locales/{locale}.json` by default | Parsed as JSON. Never written. |
 | Translator notes | `meta`, `locales/en.meta.json` by default | Parsed as JSON. |
 | The config | `loclizr.config.ts` or `--config` | Executed in-process by `jiti` (`src/config/index.ts`), imports included. Review it like a `vite.config.ts`. |
-| Your sources | `scan.include`, `src/**/*.{ts,tsx,js,jsx,mts,mjs}` by default | Scanned for usage (`src/scan/index.ts`). Never written or executed. |
+| Your sources | `scan.include`, `src/**/*.{ts,tsx,js,jsx,mts,mjs,svelte,vue,astro}` by default | Scanned for usage (`src/scan/index.ts`). Never written or executed. |
 | The existing tree and record | `outDir` and `record` | Compared byte for byte: unchanged files are skipped, `check` reports staleness. |
 
 ## What it writes and deletes
 
 | Command | Writes |
 | --- | --- |
-| `build` | Files carrying the header under `outDir`, a `.gitignore` there only when absent, and the record (`locales/loclizr.context.json` by default). Each lands in a temporary file, then is renamed into place (`src/compiler/output.ts`). |
+| `build` | Files carrying the header under `outDir`, a `.gitignore` there only when the build creates `outDir`, and the record (`locales/loclizr.context.json` by default), never over a file it cannot tell is a record (`LZ5001`). Each lands in a temporary file, then is renamed into place (`src/compiler/output.ts`). |
 | `init` | `loclizr.config.ts` and `locales/en.json` with the `wx` flag, never overwriting (`src/cli/init.ts`). |
 | `check` | Nothing. |
 

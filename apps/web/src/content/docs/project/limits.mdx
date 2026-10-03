@@ -122,7 +122,8 @@ its `intl` build, a one-line project setting.
 
 <Aside type="caution">
 The runtime reads `process.env.NODE_ENV` on warning paths. Bundlers and Node define it; a plain
-`<script type="module">` page does not, and throws on the first warning path.
+`<script type="module">` page or an isolate without Node compatibility does not, and there the
+runtime skips its warnings instead of throwing.
 </Aside>
 
 ## `0.x`, no track record

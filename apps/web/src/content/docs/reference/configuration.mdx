@@ -18,7 +18,8 @@ export default defineConfig({
 
 Optional: the defaults below apply without one. Groups and format styles need a file.
 
-- `defineConfig` only adds the type. Export the object, not a promise.
+- `defineConfig` only adds the type. Export the object, not a promise. A missing, `null` or
+  `undefined` default export is `LZ1001`.
 - Discovery takes the first of `loclizr.config.ts`, `.mts`, `.js`, `.mjs` at the project root,
   unless `--config` names one. TypeScript loads through `jiti`.
 - Fields are re-checked at load time: a failure is `LZ1001 config-invalid`, exit 2, hint a
@@ -62,7 +63,7 @@ Optional: the defaults below apply without one. Groups and format styles need a 
 
 | Field | Type | Default | Meaning |
 | --- | --- | --- | --- |
-| `scan.include` | `string[]` | `['src/**/*.{ts,tsx,js,jsx,mts,mjs}']` | Globs for the usage scan. |
+| `scan.include` | `string[]` | `['src/**/*.{ts,tsx,js,jsx,mts,mjs,svelte,vue,astro}']` | Globs for the usage scan. |
 | `scan.exclude` | `string[]` | `['**/node_modules/**', '**/dist/**']` | Skipped globs; `outDir` always added. |
 | `severity` | `Partial<Record<RuleName, Severity>>` | `{}` | Rule name to `'off'`, `'warn'` or `'error'`. |
 
@@ -76,7 +77,7 @@ Optional: the defaults below apply without one. Groups and format styles need a 
 | Tag `Intl.getCanonicalLocales` rejects | `LZ1002 locale-tag-invalid`, build stops |
 | Declared, no catalog | `LZ1005 catalog-missing`, an error that still emits; the locale falls back to source text |
 | Catalog, undeclared | `LZ1006 catalog-undeclared` at warn, file ignored |
-| `sourceLocale` unset, no `en.json`, not exactly one locale | `LZ1004 source-catalog-missing`; the hint is a `locales` block to paste, one line per discovered locale and file |
+| `sourceLocale` unset, no `en.json`, not exactly one locale | `LZ1004 source-catalog-missing`; the hint is a config file to paste, its `locales` one line per discovered locale and file |
 | `sourceLocale` not in `locales` | `LZ1001` |
 | A region tag whose base is undeclared (`de-AT` without `de`) | `LZ1018 locale-base-missing` at warn: runtime matching truncates subtags, so `Accept-Language: de` would silently get English |
 
@@ -85,8 +86,10 @@ Optional: the defaults below apply without one. Groups and format styles need a 
 Exactly one `{locale}`, at most one `{ns}`, no `{sourceLocale}`, no glob characters. Anything else
 is `LZ1001`, the hint naming the character.
 
-- A token matches one path segment or basename stem, never crossing `/` or `.`, so `en.meta.json`,
-  `loclizr.context.json` and the resolved `meta` and `record` paths stay out of the locale set.
+- A token matches one path segment or basename stem, never crossing `/` or `.`, so `en.meta.json`
+  and `loclizr.context.json` stay out of the locale set.
+- A resolved `meta` or `record` path the pattern matches is `LZ1001`: `record: 'locales/context.json'`
+  would read as locale `context`.
 - `'public/locales/{locale}/{ns}.json'` is the `i18next-fs-backend`, `i18next-http-backend` and
   `next-i18next` default. Keys gain the namespace: `nav.home` in `common.json` is `common.nav.home`.
 
@@ -129,16 +132,30 @@ Flat-key JSON, per key a `description` and `placeholders` map. The path takes `{
 
 ## `outDir`
 
-- Inside the project root (`LZ1007 outdir-unsafe`), rechecked through symlinks on write
-  (`LZ5001 output-unwritable`). Pruning deletes header-carrying files it did not produce, so give
-  it its own directory.
-- May not contain the `catalogs`, `meta` or `record` path (`LZ1001`): the tree's self-ignoring
-  `.gitignore` would keep them out of commits.
+- Inside the project root and not the root itself (`LZ1007 outdir-unsafe`), rechecked through
+  symlinks on write (`LZ5001 output-unwritable`). Pruning deletes header-carrying files it did not
+  produce, so give it its own directory.
+- May not be, or sit above, a directory that holds catalogs (`locales` under the default), nor
+  hold the resolved `meta` or `record` path (`LZ1001`): the tree's self-ignoring `.gitignore` would
+  keep them out of commits. Paths compare without case, so `outDir: 'Locales'` is refused too.
 
 ## `record`
 
 The path takes `{sourceLocale}`. `false` writes no record and skips `LZ5003 record-stale` and
 `LZ5007 record-rewritten`.
+
+- A path the `catalogs` pattern matches is `LZ1001`:
+
+  ```txt title="record: 'locales/context.json'"
+  error  LZ1001  config-invalid  loclizr.config.ts
+
+    `record` is `locales/context.json`, which the `catalogs` pattern `locales/{locale}.json` also matches.
+
+    fix  a file the pattern matches is either a catalog or the record file, never both. Name one it cannot match, such as 'locales/loclizr.context.json'.
+  ```
+
+- `build` writes over an existing file there only when it parses to an object with `schema: 1`, or
+  carries merge conflict markers. Anything else is `LZ5001 output-unwritable`, and the file is kept.
 
 ## `cookie`
 
@@ -174,6 +191,8 @@ Prefixes match on a dot boundary: `err` does not capture `errors.forbidden`.
 | No key matches | `LZ4004 group-empty` |
 | Members with differing argument sets | `LZ4006 group-args-heterogeneous`: a dynamic call must pass the union |
 | Two groups sharing a name or its PascalCased types (`ErrorsKey`, `ErrorsArgs`) | `LZ4001 identifier-collision` |
+| A group id equal to a grouped message's id | `LZ4001 identifier-collision` |
+| `Object` as a group id or grouped message id | `LZ4002 identifier-reserved` |
 
 ## `identifiers`
 
@@ -183,8 +202,11 @@ identifiers: { 'nav.home': 'navHome' }
 
 Replaces the mangled identifier: fixes a collision without renaming a key i18next still reads.
 
-- Must start with an identifier character and avoid reserved words, `default`, `then`, the `$`
-  namespace and the barrel's exports (`locales`, `sourceLocale`, `getLocale`, `setLocale`, `subscribe`).
+- Passes [mangling](/reference/generated-code/#identifiers) steps 2 to 4: an illegal character
+  becomes `_`, and a leading digit, reserved word, `default` or `then` gains a `$` prefix.
+- `LZ4002` refuses an override that starts with `$` and a lowercase letter, names a barrel export
+  (`locales`, `sourceLocale`, `getLocale`, `setLocale`, `subscribe`) or is `__proto__`,
+  `constructor` or `prototype`.
 - Fixes a top-level segment that mangles to `_locale`, `_formats` or `_root`, or two that differ
   only by case (a case-insensitive filesystem merges them).
 
@@ -220,7 +242,8 @@ Named styles beyond ICU's own, used as `{views, number, compact}` or `{when, dat
 undefined style is `LZ2002 icu-style-unknown`.
 
 Option sets are checked at load time against `Intl` with a fixed probe locale, so every machine
-agrees. A rejected set is `LZ1001`, hint from `Intl`, not a throw in the browser.
+agrees. A rejected set is `LZ1001`, hint from `Intl`, not a throw in the browser. So is a
+non-finite number (`NaN`, `Infinity`) as an option value.
 
 ### `timeZone`
 
@@ -257,7 +280,9 @@ of the three fixed rules, also the only ones that exit 2:
 | `LZ5001 output-unwritable` | Nothing downstream can act on a tree that is not there. |
 
 - Applied once, at the end: it never changes what is emitted.
-- A fatal rule at `warn` prints as a warning, still writes no tree and exits 1.
+- A fatal rule at `warn` or `off` still writes no tree and exits 1. It prints as a warning, except
+  a rule raised before the config resolves (`LZ1003` with no catalogs on disk), which prints as an
+  error.
 - Only `LZ3012` reads it, to name in its hint the severity it is not running at.
 
 ### Sharing a config across projects

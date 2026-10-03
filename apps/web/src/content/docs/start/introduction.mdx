@@ -33,7 +33,7 @@ writes typed ESM message functions into your source tree.
 
 Checking is part of `build`, not a step you wire up. It catches missing and blank
 translations, ICU syntax errors, arguments that differ between locales, plural categories a locale
-can never select, and keys differing only by a homoglyph. A missing translation renders the
+can never select, and keys differing only by a homoglyph or an invisible joiner. A missing translation renders the
 source text and is reported.
 
 No timestamps or line numbers: the record moves when the contract moves, in the string edit's pull

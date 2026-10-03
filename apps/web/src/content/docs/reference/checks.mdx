@@ -47,8 +47,8 @@ export default defineConfig({
 })
 ```
 
-`severity` is applied once, at the end: `off` drops the rule, any other level rewrites its
-diagnostics. No analysis reads it, so re-levelling never changes what was emitted.
+`severity` is applied once, at the end: `off` drops the rule, except a diagnostic that blocks
+output, which prints as a warning; any other level rewrites its diagnostics. No analysis reads it, so re-levelling never changes what was emitted.
 
 `LZ1001 config-invalid`, `LZ1007 outdir-unsafe` and `LZ5001 output-unwritable` are off the dial.
 Turning them down would let the tool quietly do what it never should, such as write outside the
@@ -57,7 +57,9 @@ project root and exit 0. Naming one in `severity` is itself `LZ1001`.
 <Aside type="caution">
 Re-levelling moves the printed severity, not the fatal scope. `identifier-collision: 'warn'` with
 two colliding keys prints a warning, writes no tree, and still exits 1: a run that produced no
-output never exits 0. The JSON reporter shows `"severity": "warn", "fatal": true`.
+output never exits 0. The JSON reporter shows `"severity": "warn", "fatal": true`. `off` behaves the
+same way for a diagnostic that blocks output: it prints at `warn`, since a run that wrote nothing
+has to say why.
 </Aside>
 
 ## Exit codes
@@ -75,26 +77,26 @@ output never exits 0. The JSON reporter shows `"severity": "warn", "fatal": true
 
 | Code | Rule | Default | Fatal | Fires when | Fix |
 | --- | --- | --- | --- | --- | --- |
-| `LZ1001` | `config-invalid` | error | always, exit 2 | The config threw, has no default export, or is missing at `--config`; a field failed validation; `sourceLocale` is not in `locales`; `outDir` holds the catalogs, meta or record path; `severity` names an unknown rule or a fixed one. | Paste the printed line for the field, such as `locales: ['en', 'de']`. |
+| `LZ1001` | `config-invalid` | error | always, exit 2 | The config threw, has no default export, or is missing at `--config`; a field failed validation; `sourceLocale` is not in `locales`; `outDir` holds the catalogs, meta or record path, compared without case; the `catalogs` pattern matches the `meta` or `record` path; `severity` names an unknown rule or a fixed one. | Paste the printed line for the field, such as `locales: ['en', 'de']`. |
 | `LZ1002` | `locale-tag-invalid` | error | always | `Intl.getCanonicalLocales` rejects a tag in `locales` or `sourceLocale`. | Correct the tag: no formatter can be built for it. |
 | `LZ1003` | `no-catalogs-found` | error | always | The `catalogs` pattern matched no file. | Write `locales/en.json`, or point `catalogs` at your layout, such as `'public/locales/{locale}/{ns}.json'`. |
-| `LZ1004` | `source-catalog-missing` | error | always | No catalog for the source locale, or no `en` catalog and several locales to choose from. | Paste the printed `locales` block: one line per discovered locale, with its file. |
+| `LZ1004` | `source-catalog-missing` | error | always | No catalog for the source locale, or no `en` catalog and several locales to choose from. | Paste the printed config as `loclizr.config.ts`, or copy its `locales` and `sourceLocale` into the config you have: one line per discovered locale, with its file. |
 | `LZ1005` | `catalog-missing` | error | never | A declared locale has no catalog file. Every message falls back to the source. | Write the catalog, or drop the locale. |
 | `LZ1006` | `catalog-undeclared` | warn | never | A catalog file that is not a declared locale. Cases below the table. | Add the locale to `locales`, or move the file off the pattern. |
-| `LZ1007` | `outdir-unsafe` | error | always, exit 2 | `outDir` resolves outside the project root. | Name a directory inside the project, such as `'src/loclizr'`. The build prunes everything under it that the emit did not produce. |
+| `LZ1007` | `outdir-unsafe` | error | always, exit 2 | `outDir` resolves outside the project root, or to the root itself. | Name a directory inside the project, such as `'src/loclizr'`. The build prunes everything under it that the emit did not produce. |
 | `LZ1008` | `catalog-unreadable` | error | if source | A catalog or the meta sidecar is unreadable. The sidecar is never fatal. | Check the path in `catalogs` and the file permissions. For the sidecar, check the path in `meta`, or set `meta: false` to switch descriptions off. |
-| `LZ1009` | `catalog-json-syntax` | error | if source | Not valid JSON. The span points at the offending character. | Plain JSON: double-quoted keys, no trailing comma, no comments. |
-| `LZ1010` | `catalog-shape-invalid` | error | never | A non-object root; an array or other non-string leaf; a sidecar entry, description or placeholder note of the wrong shape. A `null` leaf is a missing translation, not this. | Quote the value, or write `null` for an untranslated unit. Give each array item its own key: arrays need `format()`, deferred past v0.1. |
+| `LZ1009` | `catalog-json-syntax` | error | if source | Not valid JSON. The span points at the offending character. | Plain JSON: double-quoted keys, no trailing comma, no comments. Save as UTF-8 without a byte order mark. |
+| `LZ1010` | `catalog-shape-invalid` | error | never | A non-object root; an array or other non-string leaf; a sidecar entry, description or placeholder note of the wrong shape. A `null` leaf in a target catalog is a missing translation, not this; in the source catalog it is this. | Quote the value, or write `null` for an untranslated target unit. Give a `null` source leaf its text, or delete the key from every catalog. Give each array item its own key: arrays need `format()`, deferred past v0.1. |
 | `LZ1011` | `duplicate-key` | error | never | One flat key from a nested and a dotted form, a duplicate JSON key, two namespace files of one locale, or a bare `X` beside the folded plural of `X_*`. `JSON.parse` keeps the last: a translation vanishes with no diff. | Delete or rename one of the two. |
 | `LZ1012` | `i18next-nesting-unsupported` | error | never | An i18next value contains `$t(`. | Inline the nested text, or split the sentence into two messages. |
-| `LZ1013` | `i18next-format-unsupported` | error | never | An inline formatter, `{{val, fmt}}`. It renders the raw value. | Name the style in `formats.number` or `formats.dateTime`, convert the file to ICU, and write `{val, number, yourStyle}`. |
+| `LZ1013` | `i18next-format-unsupported` | error | never | An inline formatter, `{{val, fmt}}`. It renders the raw value. | Convert the file to ICU and write `{val, number, yourStyle}` with the style in `formats.number`, or `{val, date, yourStyle}` with the style in `formats.dateTime` for a `datetime` formatter. |
 | `LZ1014` | `plural-suffix-orphan` | warn | never | A CLDR-suffixed key with no `_other` sibling, or `X_plural` beside a bare `X` (i18next JSON v3). Both stay ordinary keys. | Add `X_other`, rename a key that was never a plural, or run i18next's JSON v3 to v4 converter. |
 | `LZ1015` | `meta-orphan` | warn | never | A sidecar entry for a key the source catalog lacks. | Address entries by the post-fold, post-prefix key every diagnostic prints. |
-| `LZ1016` | `i18next-markup-literal` | warn | never | Tag-shaped text in an i18next value was escaped to literal text, as i18next rendered it. | Set `i18nextMarkup: 'tags'` to lower the tags to markup arguments. |
+| `LZ1016` | `i18next-markup-literal` | warn | never | Tag-shaped text in an i18next value was escaped to literal text, as i18next rendered it. | Once every tag in the value lowers (its name starts with an ASCII letter, it carries no attributes, it is closed), set `i18nextMarkup: 'tags'` to lower the tags to markup arguments. Until then the warning names the tag that cannot lower: name a numbered tag and move attributes to the call site. |
 | `LZ1017` | `i18next-context-detected` | warn | never | `X_suffix` keys beside a bare `X`, once selected by `t('X', { context })` and now by nothing. | Convert the file to ICU, then use the printed `{context, select, ...}` message. |
 | `LZ1018` | `locale-base-missing` | warn | never | A declared region tag whose base tag is not declared. | Add the base, such as `'de'`, or expect `Accept-Language: de` to fall back to the source. |
 | `LZ1019` | `icu-data-incomplete` | warn | never | A startup probe finds small ICU (`Intl.PluralRules('ru')` under four categories), which silently answers unknown locales with English data; or a declared locale has no plural data and `Intl` answered for the host locale instead. | Run a Node with full ICU, or set `NODE_ICU_DATA` to a full data file. Until then `LZ3007` and `LZ3013` are off for the run (or that locale): no claim beats a wrong one. |
-| `LZ1020` | `icu-in-i18next-file` | warn | never | A file read as i18next holds a single-brace run shaped like a typed ICU argument, which renders as literal text. | Convert the file to ICU, or pin `catalogFormat` if literal text was meant. The hint names the `{{` or suffixed key that made `'auto'` pick i18next. |
+| `LZ1020` | `icu-in-i18next-file` | warn | never | A file read as i18next holds a single-brace run shaped like a typed ICU argument, which renders as literal text. | Convert the file to ICU, or set `severity: { 'icu-in-i18next-file': 'off' }` if literal text was meant. The hint names the `{{` or suffixed key that made `'auto'` pick i18next. |
 | `LZ1021` | `outdir-foreign-file` | warn | never | A file under `outDir` lacks the generated header, so it was neither overwritten nor pruned; or a headered orphan could not be deleted. | Move it outside `outDir`, or delete it if it is generated output whose header was stripped. |
 
 `LZ1006` fires for:
@@ -104,21 +106,20 @@ output never exits 0. The JSON reporter shows `"severity": "warn", "fatal": true
 - a file under the catalog directory off the pattern;
 - with `locales` unset, a five to eight letter name with no BCP 47 subtag.
 
-For a name that is not a tag, rename it to a BCP 47 tag, or set `locales` explicitly so the
-pattern stops reaching it.
+For a name that is not a tag, rename it to a BCP 47 tag, or move it out of the catalog pattern.
 
 ## LZ2xxx: message syntax
 
 | Code | Rule | Default | Fatal | Fires when | Fix |
 | --- | --- | --- | --- | --- | --- |
-| `LZ2001` | `icu-syntax` | error | message | The ICU parser rejected the value, other than for a missing `other` branch. | By parser error, below the table. |
+| `LZ2001` | `icu-syntax` | error | message | The ICU parser rejected the value, other than for a missing `other` branch, or a select has two options equal under NFC. | By parser error, below the table. |
 | `LZ2002` | `icu-style-unknown` | error | never | A named style neither built in nor in `formats`. | Define it, such as `formats.number.compact`, or use an ICU skeleton. ICU carries no currency code: define `formats.number.currency`, or write `::currency/USD`. |
 | `LZ2003` | `icu-skeleton-invalid` | error | never | A `::` skeleton the parser cannot resolve or `Intl` cannot build. Falls back to the bare number format. | Fix the skeleton, or use a named style from `formats`. |
 | `LZ2004` | `plural-other-missing` | error | message | A plural or selectordinal with no `other` branch. | Add `other {...}` as the last branch. |
 | `LZ2005` | `select-other-missing` | error | message | A select with no `other` branch. | Add `other {...}` as the last branch. |
 | `LZ2006` | `plural-category-unknown` | error | never | A branch keyword that is neither a CLDR category nor `=N`. | Use `zero`, `one`, `two`, `few`, `many` or `other`, or an exact branch such as `=0`. |
 | `LZ2007` | `arg-name-invalid` | error | never | An argument name that is not a JavaScript identifier after NFC normalization, or is `__proto__`. | Rename the argument. |
-| `LZ2008` | `pound-literal` | warn | never | A literal `#` inside a plural body, rendering the character rather than the count. | Move the `#` out of the nested select, or write `{count, number}`. |
+| `LZ2008` | `pound-literal` | warn | never | A literal `#` inside a plural body, rendering the character rather than the count. | Inside a nested select, move the `#` out or write `{count, number}`. For a quoted `'#'`, drop the quotes. In an i18next file, write `{{count}}`. |
 | `LZ2009` | `arg-type-conflict-local` | error | message | One name at two irreconcilable types in one value, `{x, number} of {x, date}`. | Use one type, or split it into two arguments. |
 
 `LZ2001` fixes:
@@ -128,6 +129,7 @@ pattern stops reaching it.
 | Unclosed `{` | Add the matching `}`. |
 | Unclosed tag | Tag-shaped text lowers to markup in an ICU file. Close the tag, or quote it as `'<br>'` to keep it literal. |
 | Malformed name, `{user.name}` | Names take letters, digits and `_`. Write `{name}`, not `{{name}}`; rename an argument carrying a dot, a dash or a `$`. |
+| Two select options equal under NFC | Delete one branch: the options differ only in how an accented letter is encoded. |
 | Anything else | Look for an unbalanced brace, an unclosed `'`, or a `<` read as a tag. |
 
 In a file read as i18next, the span names the catalog entry, not the character, and the hint
@@ -135,7 +137,9 @@ carries the parser's error.
 
 ## LZ3xxx: the cross-locale contract
 
-These rules compare a translation against the source locale.
+These rules compare a translation against the source locale. Hints speak the syntax of the file
+they point at: `{name}` and `few {...}` in an ICU catalog, `{{name}}` and an `item_few` key in an
+i18next one.
 
 <Aside type="caution">
 None of them reads the words. A target value byte-identical to the source passes every rule and is
@@ -190,9 +194,9 @@ gate` with `'error'`.
 
 | Code | Rule | Default | Fatal | Fires when | Fix |
 | --- | --- | --- | --- | --- | --- |
-| `LZ4001` | `identifier-collision` | error | always | Two keys mangle to one identifier; two top-level segments name modules a case-insensitive filesystem cannot tell apart; two groups share an export id or type base; two keys become one member of a group. Never auto-numbered: a counter shifts when a key is inserted. | Rename a key or group, or map it: `identifiers: { 'nav_home': 'nav_home2' }`. |
-| `LZ4002` | `identifier-reserved` | error | always | A reserved name, listed below the table. | Rename the key, or map it in `identifiers`. |
-| `LZ4003` | `confusable-key` | error | never | Two keys differ but fold to one skeleton after NFKC and a Cyrillic and Greek to Latin fold. Pairwise, so a wholly Cyrillic key alone never fires. | Retype the key carrying the homoglyph in Latin. |
+| `LZ4001` | `identifier-collision` | error | always | Two keys mangle to one identifier; two top-level segments name modules a case-insensitive filesystem cannot tell apart; two groups share an export id or type base; a group id equals the id of a grouped message; two keys become one member of a group. Never auto-numbered: a counter shifts when a key is inserted. | Rename a key or group, or map it: `identifiers: { 'nav_home': 'nav_home2' }`. |
+| `LZ4002` | `identifier-reserved` | error | always | A reserved name, listed below the table. | Rename the key or group, or map the key in `identifiers`. |
+| `LZ4003` | `confusable-key` | error | never | Two keys differ but fold to one skeleton after NFKC, removing invisible joiners (U+200C, U+200D, U+2060, U+FEFF), and a Cyrillic and Greek to Latin fold. Pairwise, so a wholly Cyrillic key alone never fires. | Retype the key carrying the homoglyph in Latin, or delete the invisible character. |
 | `LZ4004` | `group-empty` | error | never | A group prefix matched no keys. | Check the prefix: it matches on a dot boundary, so `err` captures `err.forbidden`, never `errforbidden`. |
 | `LZ4005` | `nondeterministic-output` | error | always | A second emit over a reversed program produced different bytes. | A compiler bug: report it with the printed path and the catalogs. |
 | `LZ4006` | `group-args-heterogeneous` | warn | never | Group members differ in arguments, so every dynamic call must pass the union. Related rows list each member's. | Split the group by argument shape, or give the odd members bare `{x}` arguments. |
@@ -202,21 +206,24 @@ gate` with `'error'`.
 - identifiers in the `$` namespace, and `__proto__`, `constructor`, `prototype`, `locales`,
   `sourceLocale`, `getLocale`, `setLocale`, `subscribe`;
 - top-level segments naming `_locale`, `_formats` or `_root`;
-- group members named `__proto__`.
+- group members named `__proto__`;
+- `Object` as a group id or as the id of a grouped message, since the groups module calls
+  `Object.freeze`.
 
-The generated barrel already exports names such as `locales`, and a star export loses to it
-silently. Map the key, such as `identifiers: { 'locales': 'localesMessage' }`.
+`__proto__`, `constructor` and `prototype` are built-in properties of every JavaScript object. The
+generated barrel already exports names such as `locales`, and a star export loses to it silently.
+Map the key, such as `identifiers: { 'locales': 'localesMessage' }`.
 
 ## LZ5xxx: output, record and scan
 
 | Code | Rule | Default | Fatal | Fires when | Fix |
 | --- | --- | --- | --- | --- | --- |
-| `LZ5001` | `output-unwritable` | error | always, exit 2 | A generated file or the record could not be written, or a write path escapes the project root through a symlink. | Make the path writable and check nothing else holds it open. |
+| `LZ5001` | `output-unwritable` | error | always, exit 2 | A generated file or the record could not be written, a write path escapes the project root through a symlink, or the record path holds a file that is not a record. | Make the path writable and check nothing else holds it open. For a file that is not a record, point `record` at a path of its own. |
 | `LZ5002` | `output-stale` | error | never | `check` only. A generated file on disk differs from what `build` would write, or is a headered orphan this emit did not produce. Only files that exist. | Run `loclizr build`, which prunes orphans; commit the result if the tree has no self-ignoring `.gitignore`. |
 | `LZ5003` | `record-stale` | error | never | `check` only. The committed context record's contract differs from what these catalogs produce, or the record does not exist. | Run `loclizr build` and commit the record with the string change. |
 | `LZ5004` | `scan-found-nothing` | warn | never | The scan read files but found no import of the generated tree. | Check `scan.include`. Usage is found through an import such as `import * as m from './loclizr/messages'`. |
 | `LZ5005` | `unused-message` | off | never | No scanned file references the message. Suppressed while the scan found no generated import, so a wrong glob costs one warning, not four hundred. | Delete the key, or widen `scan.include` to reach the call site. |
-| `LZ5006` | `missing-description` | off | never | A message with arguments or markup and no description. | Paste the printed entry into the meta sidecar, or set `meta` to switch the sidecar on. |
+| `LZ5006` | `missing-description` | off | never | A message with arguments or markup and no description; a blank one counts as none. | Paste the printed entry into the meta sidecar, or set `meta` to switch the sidecar on. |
 | `LZ5007` | `record-rewritten` | warn | never | `build` only. The record was rewritten because the committed contract differed. | Commit the rewritten record with the string change. |
 
 `LZ5007` is the `LZ5003` comparison on `build`, for a pipeline that only runs `pnpm build`. Both

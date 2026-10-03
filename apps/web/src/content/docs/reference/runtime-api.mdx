@@ -51,12 +51,17 @@ Returns a registered locale, reading in order:
 
 Then it matches by exact tag and subtag truncation, falling back to the source locale.
 
+- A locale read from the cookie is also written to `<html lang>`, matched against the list the
+  first generated tree registers. Once `setLocale` has run, that write is skipped.
 - `m.getLocale()`, typed as `AppLocale`, is the usual import.
 - The first generated `_locale.js` to load registers the list. Called before any message module
   loads, it returns the stored tag or `'en'` and warns once outside production, naming the missing
   import.
 - On a server outside a request scope it returns the source locale and warns once, so a prerender
   gets source text, not a 500.
+- Warnings sit behind `process.env.NODE_ENV`. Where there is no `process` global and no bundler
+  define (a plain `<script type="module">` page, a Worker without Node compatibility), they are
+  skipped, never thrown.
 
 ### `setLocale`
 
@@ -159,8 +164,8 @@ resubscribe per render and the snapshot is a primitive string. It is the only su
 component calling messages without it re-renders only with its parent.
 
 Outside production it compares `<html lang>` with the resolved locale, warns once when they differ
-(naming the `Content-Language` header `withLocale` sets) or when the attribute is missing, and
-assigns it. See [React](/guides/react/).
+by more than letter case (naming the `Content-Language` header `withLocale` sets) or when the
+attribute is missing, and assigns it. See [React](/guides/react/).
 
 ### `useSetLocale`
 
@@ -246,7 +251,7 @@ response.headers.get('vary')                 // 'Accept-Language'
 ```
 
 Wraps a Fetch handler: negotiates, runs it inside `runWithLocale`, sets `Content-Language` and
-`Vary: Accept-Language`.
+adds `Accept-Language` to `Vary`. A `Response.error()` passes through untouched.
 
 <Aside type="caution">
 Most CDNs ignore `Vary` outside `Accept-Encoding`. A cookie-localized response needs
@@ -313,7 +318,7 @@ adds the `LZ5002` and `LZ5003` gates. Neither prints; reporters belong to the CL
 | `cwd` | `process.cwd()` | project root |
 | `configPath` | discovery | config file relative to `cwd` |
 | `emit` | `true` | `false` writes nothing, even on `build`; `files` and `record` are still filled |
-| `maxWarnings` | no cap | `--max-warnings` |
+| `maxWarnings` | no cap; any negative value is also no cap | `--max-warnings` |
 | `failOnError` | `true` | `false` is `build --no-fail`; `check` ignores it |
 
 ```ts

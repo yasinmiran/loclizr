@@ -1,6 +1,6 @@
 ---
 title: CLI
-description: Three commands, seven options, two reporters, three exit codes.
+description: Three commands, eight options, two reporters, three exit codes.
 ---
 
 import { Aside, Steps, Tabs, TabItem } from '@astrojs/starlight/components'
@@ -26,11 +26,12 @@ Options
                           were dropped
   --no-fail               build only: report everything, exit 0 once output
                           was written
+  -v, --version           print the installed loclizr version
   -h, --help              print this
 ```
 
 Run it as `npx loclizr` or from a `package.json` script. One help text serves every command
-(`loclizr build --help` prints it too); there is no `--version`.
+(`loclizr build --help` prints it too); `loclizr --version` (or `-v`) prints the installed version.
 
 Samples are runs against `examples/vite-react` (`en.json`, `en.meta.json`, `de.json`, a sparse
 `de-AT.json`), whose config sets `groups: { errors: 'errors' }` and turns `group-args-heterogeneous` off (hence no `LZ4006`). Error samples name the edit behind them.
@@ -71,6 +72,7 @@ Add this step to CI, before any step that runs loclizr build:
 | Existing catalogs | the same line, commented out |
 | A generated tree (`messages.js` with the header, outside `node_modules`, `dist`, `build` and `outDir`) | `augmentLocale: false`, since two trees augmenting the registry in one program is TS2717 |
 | Another layout, such as `public/locales/{locale}/{ns}.json` | that `catalogs` pattern and no seed file, which would otherwise hide the real catalogs |
+| Catalogs under a directory `catalogs` cannot spell, such as `app/(marketing)/locales/` | the default pattern, the gate commented out and no seed file; the output names the directory and says to move it |
 
 <Tabs>
 <TabItem label="Greenfield">
@@ -180,6 +182,7 @@ Global, after the command. `--max-warnings 0` and `--max-warnings=0` are equival
 | `--max-warnings <n>` | no cap (also any negative `n`) | Exit 1 above `n` warnings. Non-integer: usage error. |
 | `--quiet` | off | Errors only; the summary stays when warnings were hidden. No effect on JSON. |
 | `--no-fail` | off | `build` only; [below](#--no-fail). |
+| `-v`, `--version` | | The installed version, exit 0, with or without a command. |
 | `-h`, `--help` | | Usage block, exit 0, with or without a command. |
 
 Colour only when stdout is a TTY and `NO_COLOR` is unset.

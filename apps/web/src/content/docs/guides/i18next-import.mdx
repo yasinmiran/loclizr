@@ -222,7 +222,7 @@ error  LZ1013  i18next-format-unsupported  locales/en.json:7:15  en  cart.total
 
   The placeholder {{amount, currency}} carries an i18next formatter, which has no ICU equivalent. It renders as the raw value.
 
-  fix  name the style in formats.number or formats.dateTime, convert this file to ICU, and write {amount, number, yourStyle}.
+  fix  name the style in formats.number, convert this file to ICU, and write {amount, number, yourStyle}.
 ```
 
 ICU syntax in a file read as i18next is the one mistake auto detection could hide, so it warns:
@@ -232,7 +232,7 @@ warn  LZ1020  icu-in-i18next-file  locales/en.json:15:14  en  status
 
   "{state, select" is ICU argument syntax, and this file is read as i18next, so the whole run renders as literal text.
 
-  fix  this file classified as i18next on "Hi {{name}}, your cart is ready". Convert the file to ICU, or pin catalogFormat if the literal text is what you meant.
+  fix  this file classified as i18next on "Hi {{name}}, your cart is ready". Convert the file to ICU, or set severity: { 'icu-in-i18next-file': 'off' } if the literal text is what you meant.
 ```
 
 ## HTML in values
@@ -267,7 +267,7 @@ warn  LZ1016  i18next-markup-literal  locales/en.json:3:14  en  accept
 
   The tag </1> cannot lower to a markup argument, so every tag in this value was escaped to literal text, which is what i18next's t() rendered.
 
-  fix  a tag lowers when its name starts with a letter, it carries no attributes and it is closed, <link>...</link> or <br/>: name a numbered tag and move attributes to the call site.
+  fix  a tag lowers when its name starts with an ASCII letter, it carries no attributes and it is closed, <link>...</link> or <br/>: name a numbered tag and move attributes to the call site.
 ```
 
 `m.accept()` renders `I accept the <1>terms of service</1>` in both modes; `'literal'` stays

@@ -222,7 +222,7 @@ Three of the example app's twenty-six messages: a plural, a select and a markup 
 | `module` | `string` | Generated module that exports it, relative to `outDir`. |
 | `kind` | `"text"` or `"markup"` | Returns a string, or an array of parts. |
 | `source` | `string` | Canonical ICU source text, identical for i18next and ICU catalogs with the same meaning. |
-| `sourceHash` | `string` | SHA-256 of `source`, first sixteen hex characters. |
+| `sourceHash` | `string` | SHA-256 of `source` as UTF-8 (an unpaired surrogate as its three-byte WTF-8 form, not U+FFFD), first sixteen hex characters. |
 | `description` | `string` or `null` | From the meta sidecar. |
 | `args` | array | Arguments, in first-appearance order. |
 | `variants` | array | Every plural, selectordinal and select, with its branches. |
@@ -321,6 +321,8 @@ missing or fails to parse counts as differing.
 - `translations` moves with every translator commit or TMS sync, which is not a contract change.
 - Copy edits, added or removed messages and argument changes all stay in the comparison.
 - `build` still writes the whole file on any byte difference; only the rule compares the projection.
+- `build` replaces only a file it can tell is a record: an object with `schema: 1`, or one a merge
+  left conflict markers in. Anything else at the path is `LZ5001 output-unwritable` and stays.
 
 The record has no translation text or hashes, so the gettext fuzzy signal is a two-file diff: a
 copy edit changes `sourceHash` and not `de.json`; a translation changes `de.json` and not the

@@ -254,13 +254,13 @@ test that proves both.
 ## The `<html lang>` warning
 
 Outside production `useLocale` compares `<html lang>` with the resolved locale, assigns it when
-they differ or the attribute is missing, and warns once in the console. A server-rendered page
-avoids it by rendering `lang` from the `Content-Language` header
-([Server rendering](/guides/server-rendering/)).
+they differ or the attribute is missing, and warns once in the console unless the two differ only
+in letter case. A server-rendered page avoids it by rendering `lang` from the `Content-Language`
+header ([Server rendering](/guides/server-rendering/)).
 
-A client-only app sees the `disagrees with the resolved locale` warning once, after a reload that
-follows a switch: `index.html` says `lang="en"`, the cookie says `de`. The hook has already fixed
-`lang` by then, so there is nothing to do.
+A client-only app never sees the `disagrees with the resolved locale` warning after a reload that
+follows a switch: when the store reads the `de` cookie it sets `lang` to match, whatever
+`index.html` says.
 
 ## React Compiler
 

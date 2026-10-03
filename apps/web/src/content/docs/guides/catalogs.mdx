@@ -28,7 +28,7 @@ One file per locale at `locales/{locale}.json`. The compiler reads it and never 
 | Object | A level. |
 | String | A message: `nav.home` becomes `m.nav_home()` in module `nav`. |
 | Dotted key, `"nav.home"` | Same path as the nested form; both together are `LZ1011 duplicate-key`. |
-| `null` | Missing translation; takes the fallback chain. In the source locale it drops the message, no diagnostic today; a target still carrying the key gets `LZ3003 extra-translation`. |
+| `null` | Missing translation; takes the fallback chain. In the source locale it drops the message and is `LZ1010 catalog-shape-invalid`, since the source has nothing to fall back to; a target still carrying the key gets `LZ3003 extra-translation`. |
 | Array | `LZ1010 catalog-shape-invalid`: flattening would yield one message per item. |
 
 A file with `{{` anywhere, or a key with a CLDR plural suffix, is i18next, converted in memory
