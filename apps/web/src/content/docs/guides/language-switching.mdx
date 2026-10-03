@@ -3,7 +3,7 @@ title: Language switching
 description: The locale is read at call time, so a switch needs no reload.
 ---
 
-import { Aside, Steps } from '@astrojs/starlight/components'
+import { Aside } from '@astrojs/starlight/components'
 
 ```ts title="src/loclizr/messages.d.ts"
 export type AppLocale = 'de' | 'de-AT' | 'en'
@@ -14,9 +14,8 @@ export declare function subscribe(listener: () => void): () => void
 export { locales, sourceLocale } from './messages/_locale.js'
 ```
 
-One store, in `loclizr`; the generated barrel re-exports its three functions narrowed to your
-declared locales. `subscribe` takes a plain listener and returns its remover; `useLocale` is built
-on it, and outside React you call it directly.
+The barrel re-exports the one store in `loclizr`, narrowed to your locales. Outside React, use
+`subscribe` directly; it returns its remover.
 
 ```tsx title="src/Switcher.tsx"
 import { useLocale } from 'loclizr/react'
@@ -39,29 +38,23 @@ export function Switcher() {
 }
 ```
 
-`m.locales` is the frozen tuple `['de', 'de-AT', 'en']` and `m.sourceLocale` is `'en'`; a switcher
-needs nothing else.
+`m.locales` is the frozen tuple `['de', 'de-AT', 'en']`; `m.sourceLocale` is `'en'`.
 
 ## How the locale is resolved
 
 First match wins:
 
-<Steps>
-
 1. An active server request scope.
 2. What `setLocale` stored.
-3. Where a DOM exists, a lazily detected initial value: the cookie, then `<html lang>`, nothing
-   else.
+3. With a DOM, detected once: the cookie, then `<html lang>`.
 4. The source locale.
 
-</Steps>
-
-Matching is exact, then by cutting subtags: `de-CH` resolves to `de`. An unknown tag falls to the
-source locale, so a cookie edited to `sp` renders English, never `undefined`.
+Matching is exact, then by cutting subtags (`de-CH` to `de`). An unknown tag, such as a cookie
+edited to `sp`, renders the source locale, never `undefined`.
 
 <Aside type="note">
-Detection never reads `navigator.languages` or `localStorage`: a server sees neither, and the
-page would hydrate in a language it was not rendered in.
+Detection never reads `navigator.languages` or `localStorage`: a server sees neither, so hydration
+would switch language.
 </Aside>
 
 ### First visit on a static site
@@ -88,48 +81,44 @@ function pickFirstLocale(): void {
 pickFirstLocale()
 ```
 
-With no server, the first visit renders the source locale: there is no cookie yet, `<html lang>`
-is whatever `index.html` says, and nothing reads `navigator.languages`. A German visitor sees
-English until they use the switcher. That is a gap in v0.1, and closing it is yours.
+With no server, a first visit renders the source locale. v0.1 leaves that gap to you; this helper
+closes it:
 
-The helper above does it, placed before the first render in the example's `main.tsx`: match the
-browser's languages against `m.locales`, exact tag first
-(`de-AT`), then the language subtag (`de-CH` to `de`), and call `setLocale` only when no cookie is
-set. `locale=` is the default cookie name; read the one your `cookie` setting names. `setLocale(match)`
-persists the tag, so a later change of browser language is not re-detected; `{ persist: false }`
-detects on every visit until the visitor picks.
+- Call it before the first render.
+- It picks the first browser language in `m.locales`: exact tag (`de-AT`), then language subtag
+  (`de-CH` to `de`).
+- It does nothing once a cookie is set. `locale=` is the default name; match your `cookie` setting.
+- `setLocale(match)` persists, so a later browser language change is not re-detected.
+  `{ persist: false }` re-detects each visit until the visitor picks.
 
 <Aside type="caution">
-Do not reach for `negotiate` here. It lives in `loclizr/server`, which imports `node:async_hooks`,
-and that entry does not bundle for the browser.
+Not `negotiate`: `loclizr/server` imports `node:async_hooks` and does not bundle for the browser.
 </Aside>
 
 ## Persistence
 
-`setLocale('de')`, in order:
+`setLocale('de')` writes the cookie (`cookie` in `loclizr.config.ts`, default `locale`), sets
+`document.documentElement.lang`, then notifies subscribers. The cookie is the only persistence,
+since a server reads it back.
 
-- writes a cookie named `locale` (`path=/`, one year, `SameSite=Lax`), the name following `cookie`
-  in `loclizr.config.ts`
-- sets `document.documentElement.lang`
-- notifies subscribers
+| Case | Effect |
+| --- | --- |
+| `{ persist: false }` | this page load only |
+| No `document`, React Native included | memory only, subscribers still notified |
 
-The cookie is the only channel a server can read back, hence the only persistence.
-`{ persist: false }` changes the language for this page load only. With no `document`, React
-Native included, the store updates in memory and notifies subscribers; nothing persists.
+Cookie attributes are fixed in v0.1: `path=/`, `max-age` one year, `SameSite=Lax`, no `Domain`, no
+`Secure`. No `Domain` means host-scoped: `shop.example.com` and `help.example.com` do not share a
+choice.
 
-The attributes are fixed in v0.1: `path=/`, `max-age` of one year, `SameSite=Lax`, no `Domain` and
-no `Secure`. Without `Domain` the cookie is host-scoped, so `shop.example.com` and
-`help.example.com` do not share a choice. `setLocale` sets `lang` on `<html>` and never `dir`; an
-RTL locale sets `dir` itself, from `useLocale()` or a `subscribe` listener.
+`setLocale` never sets `dir`; for an RTL locale set it yourself from `useLocale()` or a `subscribe`
+listener.
 
-After a reload that follows a persisted switch, a client-only app prints one warning outside
-production, `<html lang="en"> disagrees with the resolved locale "de"`: the cookie says `de`,
-`index.html` still says `en`, and the hook has already assigned `lang` by the time it warns, so
-there is nothing to do. [React](/guides/react/) has the text and the server-side fix.
+After a reload following a persisted switch, a client-only app warns once outside production:
+`<html lang="en"> disagrees with the resolved locale "de"`. The hook already fixed `lang`, so ignore
+it; [React](/guides/react/) has the server-side fix.
 
 <Aside type="caution">
-Inside a server request scope `setLocale` throws: changing a process-wide locale in the middle of
-somebody's request has no correct meaning.
+`setLocale` throws inside a server request scope:
 
 ```text
 loclizr: setLocale() cannot run inside a request scope. Pass { locale } per call instead.
@@ -144,20 +133,25 @@ loclizr: setLocale() cannot run inside a request scope. Pass { locale } per call
 m.cart_items({ count: 3 }, { locale: 'de' })   // "3 Artikel in deinem Warenkorb"
 ```
 
-Every message function takes an options object second, and `{ locale }` there wins over the store
-for that one call.
+A second-argument `{ locale }` beats the store for that call.
 
 ## What re-renders, and what does not
 
 <figure class="diagram">
 
-![setLocale writes the locale store, which persists to the cookie and notifies useLocale subscribers. The root keyed on the locale remounts its tree; a component that passes the locale per call re-renders in place. Message functions read the store at call time either way.](../../../assets/diagrams/language-switch.svg)
+![setLocale writes the store, which sets the cookie and notifies useLocale subscribers. A root keyed on the locale remounts; a component passing the locale per call re-renders in place. Message functions read the store at call time either way.](../../../assets/diagrams/language-switch.svg)
 
 </figure>
 
-`m.nav_home()` subscribes a component to nothing; generated code imports nothing from React. After
-`setLocale('de')` a component that only calls messages shows German the next time its parent
-happens to render it.
+Generated code imports nothing from React, so a component that only calls messages updates when its
+parent next renders:
+
+| Pattern | On a switch | Local state |
+| --- | --- | --- |
+| Key the root on the locale | subtree remounts, every string recomputed | lost below the key |
+| Pass `{ locale }` per call | component re-renders in place | kept |
+
+Combine them: key the root for the bulk, pass per call where state must survive.
 
 ### Key the root on the locale
 
@@ -174,9 +168,8 @@ function Shop() {
 }
 ```
 
-`Shop` subscribes through `useLocale`; the `key` changes on a switch and `App` remounts with every
-string recomputed. A remount discards local state below the key, so the cart lives above it in
-`Shop`; anything in `App`'s own `useState` would be gone.
+`cart` survives the remount because it lives above the key, in `Shop`; `App`'s own `useState`
+would not.
 
 ### Pass the locale per call
 
@@ -194,8 +187,5 @@ export function CourierNote() {
 }
 ```
 
-`CourierNote`, outside the keyed subtree, subscribes itself and passes the locale into every call:
-it re-renders in place and the note you were typing survives the switch.
-
-The example app runs both on one page: keyed root for the bulk, per-call where state must survive.
-[React](/guides/react/) has the React Compiler reason the second form exists at all.
+`CourierNote`, outside the key, re-renders in place and keeps the typed note. [React](/guides/react/)
+has the React Compiler reason for this form.

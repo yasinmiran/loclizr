@@ -3,40 +3,44 @@ title: Continuous integration
 description: Put loclizr check in the pipeline; build stays in the scripts.
 ---
 
-import { Aside } from '@astrojs/starlight/components'
+import { Aside, Steps } from '@astrojs/starlight/components'
 
-`loclizr init` prints three scripts and one CI step. The split between them is the whole design.
+`loclizr init` prints three scripts and one CI step. The scripts build; CI checks.
 
-```json title="package.json"
-"predev": "loclizr build --no-fail",
-"prebuild": "loclizr build",
-"pretypecheck": "loclizr build"
-```
+<Steps>
 
-```yaml title=".github/workflows/ci.yml"
-# loclizr check compares the committed context record against this tree.
-# loclizr build would rewrite that record in the CI workspace and pass.
-- run: npx loclizr check
-```
+1. ### Add the scripts
+
+   ```json title="package.json"
+   "predev": "loclizr build --no-fail",
+   "prebuild": "loclizr build",
+   "pretypecheck": "loclizr build"
+   ```
+
+2. ### Add the gate
+
+   Run `check` before any step that runs `loclizr build`.
+
+   ```yaml title=".github/workflows/ci.yml"
+   # loclizr check compares the committed context record against this tree.
+   # loclizr build would rewrite that record in the CI workspace and pass.
+   - run: npx loclizr check
+   ```
+
+</Steps>
 
 | Hook | Runs | Why |
 | --- | --- | --- |
-| `predev` | `build --no-fail` | A working tree has to exist; one untranslated key must not stop `vite dev`. |
+| `predev` | `build --no-fail` | A tree has to exist; one untranslated key must not stop `vite dev`. |
 | `prebuild`, `pretypecheck` | `build` | Fails on an error. |
 | CI | `check` | Compares the committed record instead of rewriting it. |
 
 ## A complete workflow
 
 <Aside type="caution">
-`check` has to run before any step that runs `loclizr build`. The three scripts `init` prints hang
-on `dev`, `build` and `typecheck`, none of which an install runs, so a plain `npm ci` installs
-without touching the record. A `prepare` hook of your own that ran `loclizr build` would
-reintroduce the problem: `prepare` runs on `npm ci`, and the install would rewrite the record
-before `check` compared it.
+No script `init` prints runs on install. Do not add a `prepare` hook that runs `loclizr build`:
+`npm ci` runs `prepare`, which would rewrite the record before `check` compares it.
 </Aside>
-
-The step `init` printed is the whole of loclizr's part. A complete job around it, with the install
-step `init` leaves to you:
 
 ```yaml title=".github/workflows/loclizr.yml"
 on: [push, pull_request]
@@ -58,19 +62,20 @@ jobs:
       - run: npm test
 ```
 
-The transcripts on this page come from `examples/vite-react` in the loclizr repository: 26
-messages, 3 locales, no warnings. The two that show a warning come from a copy of the example with
-the `'group-args-heterogeneous': 'off'` line removed from `loclizr.config.ts`, and say so.
+Transcripts come from `examples/vite-react` (26 messages, 3 locales). The two warning transcripts
+drop its `'group-args-heterogeneous': 'off'` line from `loclizr.config.ts`, so that rule warns.
 
 ## `build --no-fail`
 
-The flag changes the exit code and nothing else. Every diagnostic is still produced, printed and
-counted.
+Changes the exit code and nothing else: every diagnostic is still printed and counted.
 
-- Reached the write step: exits 0 instead of 1.
-- Wrote no output: still exits 1, since the next command would fail on a missing module anyway.
-- Exit 2 is untouched: a build that could not run produced nothing to keep working with.
-- `check` does not accept the flag. `check` is the gate.
+| Run | Exit |
+| --- | --- |
+| reached the write step | 0 instead of 1 |
+| wrote no output | still 1: the next command would fail anyway |
+| could not run | still 2 |
+
+`check` refuses the flag. [CLI](/reference/cli/#--no-fail) shows both runs.
 
 ## What check does
 
@@ -81,16 +86,16 @@ Everything `build` does, with no writes, plus two rules.
 | `LZ5002 output-stale` | A generated file on disk differs from what this run would write. |
 | `LZ5003 record-stale` | The committed `locales/loclizr.context.json` differs from the one this tree produces. |
 
-Whether the generated tree is committed decides what the first rule gates. It is a trade a team
-picks deliberately, and the default picks the first row:
+To commit the generated tree, delete the self-ignoring `.gitignore` inside `outDir`. That choice
+decides what `LZ5002` gates:
 
 | Generated tree | What CI gates | A translator's pull request |
 | --- | --- | --- |
-| ignored, the default | The catalogs and the record. The tree is rebuilt on every clone, so `LZ5002` has nothing to compare and never fires in CI; on a developer machine a stale tree is not caught but rebuilt, by `pretypecheck` before `tsc` runs. | Passes `check`. |
+| ignored, the default | Catalogs and record. `check` runs before the tree exists, so `LZ5002` has nothing to compare and never fires in CI. | Passes `check`. |
 | committed | The tree too: an edit to `de.json` changes `messages/nav.js` on disk. | Fails `check` until someone reruns `build` and commits the result. |
 
-A fresh clone with the generated tree gitignored gives `LZ5002` nothing to compare, so `check`
-needs no prior `build`:
+With the tree ignored, `pretypecheck` rebuilds a stale local tree before `tsc` runs instead of
+reporting it. A fresh clone gives `LZ5002` nothing to compare, so `check` needs no prior `build`:
 
 ```text
 26 messages, 3 locales (source en), 0 errors, 0 warnings
@@ -98,10 +103,9 @@ needs no prior `build`:
 
 ## The committed record
 
-The record is a pure function of the catalogs, the meta sidecar, the scanned sources and the
-config; it never reads its own previous value. Editing a source string changes that message's
-`source` and `sourceHash`, and `check` fails until `build` has run and the rewritten record is
-committed with the string change:
+The record is a pure function of catalogs, meta sidecar, scanned sources and config; it never
+reads its previous value. Editing a source string changes that message's `source` and
+`sourceHash`, so `check` fails until `build` reruns and the record is committed with it:
 
 ```text
 error  LZ5003  record-stale  locales/loclizr.context.json
@@ -111,8 +115,8 @@ error  LZ5003  record-stale  locales/loclizr.context.json
   fix  run `loclizr build` and commit the record with the string change.
 ```
 
-`build` runs the same comparison at `warn`, so a `prebuild` hook that quietly rewrote the record
-still says so:
+`build` runs the same comparison at `warn`, so a `prebuild` that quietly rewrote the record still
+says so:
 
 ```text
 warn  LZ5007  record-rewritten  locales/loclizr.context.json
@@ -125,43 +129,26 @@ warn  LZ5007  record-rewritten  locales/loclizr.context.json
 ### What the gate compares
 
 The contract: keys, ids, modules, kinds, source text and hash, descriptions, argument names and
-types, plural and select shapes, markup tags. Add or remove a key, rename a placeholder, change a
-description, and `check` fails.
+types, plural and select shapes, markup tags.
 
-Two fields are projected out of both sides first, each tried against the `examples/vite-react`
-catalogs with the generated tree absent, which is the CI state.
+Two fields are projected out of both sides first:
 
-- **Translator pull requests.** A German string edited in `de.json`, then a key deleted from it:
-  neither raised `LZ5003`. The deletion raised `LZ3001 missing-translation` for the two locales
-  that now fall back, the right error for it. With the generated tree still on disk the string
-  edit also raises `LZ5002`, which the table above covers. Per-locale status is the record's
-  `translations` array, outside the gate, because a batch of translations landing is not a change
-  to the contract. [Translation workflow](/guides/translation-workflow/) follows one such batch
-  from the record to the merge.
-- **Usage churn.** A component calling `m.nav_home()` renamed and its file moved to another
-  directory: `check` exited 0. The `usage` entries, file plus enclosing scope, sit outside the
-  gate too; the next `build` rewrote them.
+| Field | Why | Tried on the example, tree absent |
+| --- | --- | --- |
+| `translations`, per-locale status | A translation batch is not a contract change. | German string edited in `de.json`: no `LZ5003` (with the tree on disk, `LZ5002`). German key deleted: no `LZ5003` either, but `LZ3001 missing-translation` for the two locales that fall back, the right error. |
+| `usage`, file plus enclosing scope | Outside the gate; the next `build` rewrites them. | Component calling `m.nav_home()` renamed, file moved: `check` exits 0. |
 
-`build` still writes the whole file whenever any byte differs, so the committed record keeps its
-coverage and render sites for whoever reads it, while the rule only ever compares the projection.
+`build` still rewrites the whole record on any byte change; only the gate ignores these fields.
 
-<Aside type="note">
-Committing the generated tree, by deleting the self-ignoring `.gitignore` inside `outDir`, opts
-`LZ5002` in: a translator's edit to `de.json` now changes `messages/nav.js` on disk in CI, and
-that pull request fails `check` until someone reruns `build`. With the tree ignored, it passes.
-</Aside>
+[Translation workflow](/guides/translation-workflow/) follows a translation batch to the merge.
 
 ## Warnings, and machine output
 
 | Flag | Effect |
 | --- | --- |
-| `--max-warnings` | No cap by default, so warnings alone never fail a run. `--max-warnings 0` turns the one warning below into exit 1 on `check`; `build --no-fail` prints the same and still exits 0. |
+| `--max-warnings` | No cap by default, so warnings alone never fail. `--max-warnings 0` makes the warning below exit 1 on `check`; `build --no-fail` prints the same and still exits 0. |
 | `--quiet` | Errors only, plus a summary line when warnings were dropped. |
 | `--reporter json` | One object: diagnostics sorted by severity, code, file, locale, key and offset, summary last. |
-
-Both transcripts below come from a copy of the example with the `'group-args-heterogeneous': 'off'`
-line removed from `loclizr.config.ts`, so the `errors` group reports its mixed argument sets at the
-rule's default severity. The example itself turns the rule off and prints no warning.
 
 ```text
 warn  LZ4006  group-args-heterogeneous
@@ -229,8 +216,7 @@ That is `check --max-warnings 0`, exit 1. The same run through `--reporter json`
 }
 ```
 
-`file` is always POSIX and relative to the project root, on every machine, so the sort order
-matches between a laptop and a runner.
+`file` is always POSIX and relative to the project root, so sort order matches on every machine.
 
 ## Exit codes
 

@@ -3,7 +3,7 @@ title: Introduction
 description: What loclizr is, what it refuses to do, and who it is for.
 ---
 
-import { Aside, Steps } from '@astrojs/starlight/components'
+import { Steps } from '@astrojs/starlight/components'
 
 ```ts title="src/Cart.tsx"
 import * as m from './loclizr/messages'
@@ -13,106 +13,86 @@ m.cart_items({ count: 3 })         // "3 items in your cart"
 m.cart_items({ count: '3' })       // type error: count is a number
 ```
 
-loclizr is a command line compiler. `loclizr build` reads the JSON catalogs you keep under
-`locales/` and writes typed ESM message functions into your source tree. Your app calls them like
-any other function.
+loclizr is a command line compiler. `loclizr build` reads JSON catalogs under `locales/` and
+writes typed ESM message functions into your source tree.
 
-- No bundler plugin, no AST pass, nothing rewrites application code: no transform ordering for a
-  framework's next compiler release to break.
+- No bundler plugin, no AST pass: nothing rewrites application code, so a framework's next
+  compiler release has no transform order to break.
 - One output runs in a Vite SPA, a server render, React Native and plain Node.
-- ICU MessageFormat, the syntax inside a catalog value for arguments, plurals and selects
-  ([Catalogs](/guides/catalogs/)), is parsed at build time; the browser ships no parser.
+- ICU MessageFormat, the catalog syntax for arguments and plurals ([Catalogs](/guides/catalogs/)),
+  is parsed at build time; the browser ships no parser.
 - The locale is read at call time, so switching language needs no reload.
-
-<Aside type="caution">
-Nothing is published to npm yet. v0.1 is in development, and these pages describe the contract it
-is being built against.
-</Aside>
 
 ## What one build produces
 
-### Message modules
+| Output | What it gives you |
+| --- | --- |
+| Message modules | One module per top-level key segment. A function's first parameter is exactly its ICU argument set, so a renamed placeholder, or a plural argument handed a string, fails typecheck at the call site instead of rendering `undefined`. |
+| Diagnostics | Fifty-six rules with stable codes, on from the first build; an error exits 1. All but three re-level to `off`, `warn` or `error` in config. |
+| Context record | `locales/loclizr.context.json`, committed. Per message: canonical source text and its hash, argument names and types, plural or select shape, the file and function that use it, per-locale status, and your description if you wrote one. |
 
-One module per top-level key segment, each message a function whose first parameter is exactly
-its ICU argument set. A renamed placeholder, or a plural argument handed a string, fails your
-typecheck at the call site rather than rendering `undefined` to somebody.
+Checking is part of `build`, not a step you wire up. It catches missing and blank
+translations, ICU syntax errors, arguments that differ between locales, plural categories a locale
+can never select, and keys differing only by a homoglyph. A missing translation renders the
+source text and is reported.
 
-### Diagnostics, from the same pass
-
-Checking is part of `build`, on from the first run, and an error exits 1. Missing and blank
-translations, reported rather than quietly falling back (a locale with no value for a key renders
-the source locale's text), ICU syntax errors, arguments that differ between two locales, plural
-categories a locale can never select, keys that differ only by a homoglyph.
-
-Fifty-six rules, each with a stable code; all but three re-level to `off`, `warn` or `error` from
-one line of config. Other tools check catalogs too, usually as a step you remember to wire up,
-where here it is the default.
-
-### A context record
-
-Written to `locales/loclizr.context.json`, meant to be committed. Per message: the canonical
-source text and a hash of it, argument names and types, the plural or select shape, the file and
-enclosing function where the message is used, per-locale translation status, and your description
-if you wrote one.
-
-No timestamps and no line numbers, so it moves when the contract moves, in the same pull request
-as the string edit. Whoever translates next reads it: a person, a model or a TMS.
+No timestamps or line numbers: the record moves when the contract moves, in the string edit's pull
+request, for whoever translates next (a person, a model or a TMS).
 
 ## Who it is for
 
-A new app is the easy case: catalogs from the first commit, a hard gate from the first commit,
-nothing to unlearn. The more common case is an app whose strings are still English literals
-sitting in JSX, where the thing you are replacing is not another library.
+A new app gets a hard gate from its first commit; an app with English literals in JSX retrofits
+by hand, below.
 
-Already on i18next, the most widely used JavaScript translation library? Point `catalogs` at the
-files you have. Nothing is written back, so i18next keeps serving the app while you read the
-diagnostics. The format is decided per file, not per project: `{{name}}` interpolation or `_one`
-and `_other` keys mark a file as i18next, the interpolation becomes an ICU argument and the
-suffixed keys fold into one plural, all in memory, beside any ICU-native file.
+On i18next? Point `catalogs` at your files ([Importing i18next catalogs](/guides/i18next-import/)).
+Format is decided per file, so i18next and ICU files mix, and nothing is written back: i18next
+keeps serving the app while you read the diagnostics.
 
-### Retrofitting by hand
+## Retrofitting by hand
 
-There is no extractor. Nothing reads your components looking for strings, so the retrofit is
-yours, and the loop is short enough to run a screen at a time.
+No extractor: run this loop one screen at a time.
 
 <Steps>
 
-1. Pick one literal and a key for it, `checkout.title` for the heading of the checkout screen.
+1. ### Pick a literal and a key
 
-2. Move the string into `locales/en.json` under that key.
+   `checkout.title` for the checkout heading. One top-level segment per screen is one
+   module (`messages/checkout.js`), so a deleted screen takes its module with it.
 
-3. Replace the literal with `m.checkout_title()`, or `m.checkout_items({ count })` once the
-   string carries a plural.
+2. ### Move the string
 
-4. `loclizr build`, typecheck, next literal.
+   Put it in `locales/en.json` under that key.
+
+3. ### Call the function
+
+   Replace the literal with `m.checkout_title()`, or `m.checkout_items({ count })` for a plural.
+
+4. ### Build and typecheck
+
+   `loclizr build`, typecheck, next literal.
+
+5. ### Turn on `unused-message`
+
+   When the last literal is gone, raise `LZ5005`, which ships `off`.
+
+   ```ts title="loclizr.config.ts"
+   severity: { 'unused-message': 'warn' }
+   ```
+
+   It lists keys with no call found, and fires only once the scan finds a generated import, so a
+   wrong glob costs one warning, not one per key.
 
 </Steps>
-
-Give each screen its own top-level segment, `checkout.*`, `account.*`. A segment is one generated
-module, `messages/checkout.js`, so a key's module says which screen owns it and a screen that
-goes away takes its module with it.
-
-When the last literal is gone, turn on `unused-message` (`LZ5005`), which ships `off`:
-
-```ts title="loclizr.config.ts"
-severity: { 'unused-message': 'warn' }
-```
-
-It lists every key the usage scan found no call for, which after a retrofit is the strings you
-moved into the catalog and never called. It fires only once the scan has found a generated import,
-so a wrong glob costs one warning rather than one per key.
 
 ## What it deliberately does not do
 
 | Not in v0.1 | What that means |
 | --- | --- |
-| Per-locale delivery | Every declared locale of every used message is inlined into that function; bundle size grows with locale count. Paraglide is built around shipping one locale's strings per request. |
-| Extraction, codemod | Nothing reads your components looking for strings or rewrites one. Catalogs are authored or imported; the retrofit work is yours. |
-| A second framework | React with Vite is the tested example; the message layer itself is framework free. Server rendering covers Web Fetch handlers through `withLocale`, and plain header strings (Express, Fastify) through `localeFromHeaders` plus `runWithLocale`. Next.js is not a first-class target; next-intl is built for that stack. |
-| Runtime catalogs | A translation fix is a commit and a deploy. A TMS that opens pull requests is fine; a dashboard where somebody fixes a production typo at 4pm is not what this is. |
-| `--watch` | The dev loop is `loclizr build --no-fail` in `predev`, plus the inline Vite plugin the example ships in its own `vite.config.ts` for catalog edits to reach the running app. |
-| A track record | Day zero: no published release, no promise about stability. |
+| Per-locale delivery | Every locale is inlined into each used message function; bundle size grows with locale count. Paraglide ships one locale per request. |
+| Extraction, codemod | Nothing reads or rewrites your components; catalogs are authored or imported. |
+| A second framework | React with Vite is the tested example; the message layer is framework free. Next.js is not first-class; next-intl is built for it. Servers: [Server rendering](/guides/server-rendering/). |
+| Runtime catalogs or `format()` | A translation fix is a commit and a deploy. A TMS that opens pull requests fits; a dashboard for fixing a production typo live does not. |
+| `--watch` | `loclizr build --no-fail` in `predev`, plus a few inline lines in the example's own `vite.config.ts` that rebuild on catalog edits ([How it works](/start/how-it-works/)). |
+| Stability | `0.x`: a minor release may break. |
 
-[Quickstart](/start/quickstart/) is one command and one import. [Honest
-limits](/project/limits/) is the same list with the reasoning attached, and
-[Comparison](/project/comparison/) puts loclizr beside the tools it is nearest to.
+Next: [Quickstart](/start/quickstart/). [Honest limits](/project/limits/) explains each row; [Comparison](/project/comparison/) sets loclizr beside its nearest tools.

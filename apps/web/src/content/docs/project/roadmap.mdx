@@ -6,78 +6,74 @@ description: What is deferred past v0.1, and why each item was deferred.
 import { Aside } from '@astrojs/starlight/components'
 
 <Aside type="caution">
-No dates on this page and no order of arrival. Each deferred item carries the reason it was left
-out, so you can judge for yourself whether it blocks you. Nothing here is a promise.
+No dates, no order, no promises. Each item gives its reason; judge whether it blocks you.
 </Aside>
 
 ## What v0.1 ships
 
-- A command line compiler with three commands: `init`, `build` and `check`.
-- JSON catalogs in, in ICU form or in i18next form converted at read time, and plain typed ESM
-  message functions out, one module per top-level key.
-- The full rule set runs inside every build, with stable codes and per-rule severity.
-- A context record per message is written beside the catalogs and compared by `check`.
-- Typed lookup groups for keys chosen at run time.
-- A locale store with cookie persistence, React bindings, and server request scoping through
-  `AsyncLocalStorage` for Web Fetch handlers, with a header primitive for Express and Fastify.
-- One example app, React on Vite, is the reference implementation and the only one that is
-  tested.
+- CLI commands `init`, `build` and `check`.
+- JSON catalogs in (ICU, or i18next converted at read time); typed ESM functions out, one module
+  per top-level key.
+- Every rule in every build, with stable codes and per-rule severity.
+- A per-message context record, compared by `check`.
+- Typed lookup groups for run-time keys.
+- A locale store with cookie persistence, React bindings, `AsyncLocalStorage` request scoping for
+  Web Fetch handlers, and a header primitive for Express and Fastify.
+- One example app, React on Vite: the reference implementation and the only one tested.
 
 ## Deferred, and why
 
-**`format()` for content unknown at build time.** A runtime formatter needs a runtime ICU parser,
-and the generated code's first invariant is that the browser never ships one. When it comes it
-would be a separate entry, so the invariant keeps holding for everyone who does not import it.
+### Runtime `format()`
 
-Until then, content that does not exist at build time is not a message. [Dynamic
-keys](/guides/dynamic-keys/) covers the run-time-chosen case that is in scope.
+For content unknown at build time. It needs a runtime ICU parser, which the browser must never
+ship; a separate entry would keep that true for anyone not importing it. Until then, such content is not
+a message. Run-time keys: [Dynamic keys](/guides/dynamic-keys/).
 
-**`--watch`.** A watcher is a second code path through the compiler, with platform-dependent
-recursive `fs.watch` behaviour and its own severity semantics to defend, and nothing else in v0.1
-depends on it.
+### `--watch`
 
-The edit loop today is `loclizr build --no-fail` in `predev`, plus either
-`nodemon -w locales -x 'loclizr build --no-fail'` or the small Vite plugin the example app keeps
-inside its own `vite.config.ts`, which reruns `build` when a catalog changes. A 2000-key,
-10-locale catalog builds in about half a second on a laptop, which is why the `predev` loop is a
-full rebuild. A watcher would be reconsidered only if the build's measured cost on a large
-catalog made those two loops too slow to live with.
+A second compiler code path, with platform-dependent recursive `fs.watch` and its own
+severity semantics, that nothing in v0.1 needs.
 
-**Glossary hits in the record.** The cheapest of the deferred context fields and deterministic,
-so it is the first candidate. The number that motivates it, how much terminology retrieval
-improves machine translation, is single-vendor and unreproduced, and a claim like that does not
-gate a first release.
+The loop today is `loclizr build --no-fail` in `predev`, plus either
+`nodemon -w locales -x 'loclizr build --no-fail'` or the small Vite plugin in the example app's
+`vite.config.ts`, which reruns `build` when a catalog changes. A 2000-key, 10-locale catalog builds
+in about half a second on a laptop, so each loop is a full rebuild; a watcher would be reconsidered
+only if large catalogs make that too slow.
 
-**Surrounding copy in the record.** The record carries the file and enclosing scope of each usage.
-Attaching the text around a call site means reading the component, and the usage scan is a
-tokenizer, not a parser.
+### Context record fields
 
-**Element role in the record.** Whether a string is a button label, a heading or a tooltip is a
-question about the JSX tree, and again the scan cannot read one. The record says where a string is
-used and never what it is.
+The record says where a string is used, never what it is.
 
-**Extraction and instrumentation.** v0.1 never reads your components looking for string literals
-and never rewrites one into a message call. Doing that from unmodified source is a bundler AST
-pass, which is the exact tax this project exists to avoid. Any retrofit path would be a separate
-opt-in command, run once, never part of the build.
+| Field | Why not yet |
+| --- | --- |
+| Glossary hits | Cheap, deterministic, first in line. Its motivating number (terminology retrieval gains in machine translation) is single-vendor and unreproduced, so it does not gate a first release. |
+| Surrounding copy | The record has each usage's file and enclosing scope. Nearby text means reading the component, and the scan is a tokenizer, not a parser. |
+| Element role | Button, heading or tooltip is a JSX tree question the scan cannot answer. |
 
-**Next.js App Router server rendering.** Middleware runs in a different runtime and cannot wrap a
-render, and the right entry point from a root layout is an open question.
+### Extraction and instrumentation
 
-There is no test and no example, so there is no claim. The message layer itself runs anywhere,
-and the Pages Router can already reach `runWithLocale` through `localeFromHeaders`.
+v0.1 never finds string literals in components or rewrites them into message calls: that needs a
+bundler AST pass, the tax this project avoids. A retrofit would be a separate opt-in command, run
+once, outside the build.
 
-**URL-prefix locale routing.** The hydration agreement holds because the locale comes from a cookie
-or from `Accept-Language` and never from the path. Supporting `/de/cart` means a second locale
-channel and a second agreement to keep, and it is the part of i18n that belongs to the router.
+### Next.js App Router server rendering
 
-**Per-locale delivery.** Every declared locale of every used message is inlined into that
-message's function, so bundle size grows with locale count. Shipping one locale's strings per
-request needs the metaframework's build, and the projects that do it own that build, which is
-precisely the thing this compiler stays out of.
+Middleware runs in another runtime and cannot wrap a render; the root layout entry point is open.
+No test, no example, no claim. The message layer runs anywhere; the Pages Router reaches
+`runWithLocale` through `localeFromHeaders`.
+
+### URL-prefix locale routing
+
+Hydration agrees because the locale comes from a cookie or `Accept-Language`, never the path.
+A `/de/cart` prefix is a second channel to keep in agreement: the router's job.
+
+### Per-locale delivery
+
+Every locale is inlined into each message function, so bundle size grows with locale count. One
+locale per request needs the metaframework's build, which this compiler stays out of. Sizes are on
+[Limits](/project/limits/).
 
 ## What would change the order
 
-Bug reports against the example app, and catalogs large enough to make `build` slow. The
-[Continuity](/project/continuity/) page says how the project is run and what is published about
-it.
+Bug reports against the example app, and catalogs large enough to make `build` slow. [Continuity](/project/continuity/)
+covers how the project is run.

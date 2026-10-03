@@ -5,14 +5,11 @@ description: A fresh Vite app to typed messages, catalog checks, a language swit
 
 import { Aside, FileTree, Steps } from '@astrojs/starlight/components'
 
-Every transcript on this page comes from a real run and was pasted, not typed.
+Every transcript on this page is pasted from a real run.
 
 <Steps>
 
 1. ### Create the app
-
-   loclizr needs Node 20.19 or newer. The CLI loads its `.ts` config itself, so nothing else is
-   required.
 
    ```bash
    npm create vite@latest my-shop -- --template react-ts
@@ -20,8 +17,8 @@ Every transcript on this page comes from a real run and was pasted, not typed.
    npm i
    ```
 
-   The template is the only part of this page that is Vite-specific. The generated messages are
-   plain ESM and run under Node, a bundler or React Native alike.
+   Needs Node 20.19 or newer and nothing else: the CLI loads its `.ts` config itself. Only the
+   template is Vite-specific; the generated messages are plain ESM for Node, a bundler or React Native.
 
 2. ### Install, then initialise
 
@@ -51,13 +48,6 @@ Every transcript on this page comes from a real run and was pasted, not typed.
      - run: npx loclizr check
    ```
 
-   The note names a regular dependency, not a dev one, because the generated functions import
-   the locale store from `loclizr` at run time: a Vite SPA bundles it either way, and a Node
-   server needs it installed. The note prints whether or not the package is installed.
-
-   `init` never overwrites a file that exists, and it prints the scripts rather than editing
-   `package.json` for you. The config it writes has four options:
-
    ```ts title="loclizr.config.ts"
    import { defineConfig } from 'loclizr'
 
@@ -69,19 +59,12 @@ Every transcript on this page comes from a real run and was pasted, not typed.
    })
    ```
 
-   The install comes first because that file imports `loclizr`. Run `build` before it and the
-   config fails to load: `LZ1001 config-invalid`, exit 2. Every diagnostic has a code like that,
-   and [Checks](/reference/checks/) lists all fifty-six.
-
-   The `severity` line is the one decision `init` makes for you. `ambiguous-source` fires when
-   two keys share one source text and one of them has no description. It ships at `warn`; with
-   no catalog yet, `init` writes it at `error`, because a hard gate costs nothing before the
-   first string exists.
+   - `loclizr` is a regular dependency: generated code imports its locale store at run time, so a Node server needs it installed (the note prints either way).
+   - Install before building: the config imports `loclizr`, and without it `build` fails with `LZ1001 config-invalid`, exit 2 ([all fifty-six codes](/reference/checks/)).
+   - `init` never overwrites a file and never edits `package.json`; it prints the scripts.
+   - `ambiguous-source` (two keys share a source text, one has no description) ships at `warn`; `init` raises it to `error`, since a hard gate is free before the first string exists.
 
 3. ### Add the scripts
-
-   The template's `scripts` block with the three printed hooks added, plus a `typecheck` script
-   to hang the third one on:
 
    ```json title="package.json"
    "scripts": {
@@ -96,13 +79,15 @@ Every transcript on this page comes from a real run and was pasted, not typed.
    }
    ```
 
-   - `predev` runs before `npm run dev`, with `--no-fail` so one untranslated key never stops the
-     dev server. `prebuild` runs before `npm run build` and takes the real exit code.
-   - `typecheck` is `tsc -b` because the template's `tsconfig.json` is a list of project
-     references with no files of its own; `tsc -p tsconfig.json` would check nothing.
-   - There is no `prepare`. It would run on `npm ci`, so in CI it would rewrite the record before
-     `check` compares it. The cost is editor squiggles under `./loclizr/messages` on a fresh
-     clone until the first `npm run dev` or `npm run build`.
+   | Script | Runs before | Why |
+   | --- | --- | --- |
+   | `predev` | `npm run dev` | `--no-fail`: one untranslated key never stops the dev server |
+   | `prebuild` | `npm run build` | takes the real exit code |
+   | `pretypecheck` | `npm run typecheck` | `typecheck` is `tsc -b`: the template's `tsconfig.json` only lists project references, so `tsc -p` checks nothing |
+   | no `prepare` | `npm ci` | would rewrite the record before CI's `check` compares it |
+
+   The cost of no `prepare`: on a fresh clone `./loclizr/messages` is red in the editor until
+   `npx loclizr build`, `npm run dev` or `npm run build` runs.
 
 4. ### Write a catalog
 
@@ -119,17 +104,13 @@ Every transcript on this page comes from a real run and was pasted, not typed.
    }
    ```
 
-   A catalog is nested JSON whose values are ICU MessageFormat, the syntax inside the strings:
-   `{name}` is a placeholder, `{count, plural, ...}` picks a form by number, and `#` inside it is
-   the number. `init` seeds this one; [Catalogs](/guides/catalogs/) has the rest of the syntax.
+   `init` seeds this file. Values are ICU MessageFormat ([Catalogs](/guides/catalogs/)): `{name}`
+   is a placeholder, `{count, plural, ...}` picks a form by number, `#` is the number. Under the
+   default `catalogFormat: 'auto'`, an [i18next file](/guides/i18next-import/) can sit beside it.
 
-   The format is decided per file: `catalogFormat` defaults to `'auto'`, under which a file whose
-   values carry `{{var}}` or whose keys carry `_one` and `_other` suffixes is read as i18next and
-   converted to ICU in memory. That is why `init` writes no `catalogFormat` line: an imported
-   i18next file can sit beside this one and both read correctly.
-
-   Translator notes go in a sidecar, a second file beside the catalog. `init` does not write this
-   one, and the build runs the same with or without it:
+   Optional translator notes go in a sidecar you create; `init` does not write it. A TMS (the
+   translation management system translators work in, such as Crowdin, Lokalise or Phrase) would
+   ship a description written into `en.json` as copy.
 
    ```json title="locales/en.meta.json"
    {
@@ -141,11 +122,6 @@ Every transcript on this page comes from a real run and was pasted, not typed.
      }
    }
    ```
-
-   The notes live beside the catalog rather than inside it because a TMS (a translation
-   management system, the web app translators work in, such as Crowdin, Lokalise or Phrase)
-   imports your JSON and shows each string to a translator; a description written into `en.json`
-   would ship as copy.
 
 5. ### Build
 
@@ -165,9 +141,8 @@ Every transcript on this page comes from a real run and was pasted, not typed.
    4 messages, 1 locale (source en), 0 errors, 1 warning
    ```
 
-   One pass wrote the generated tree, ran the whole rule set and wrote the context record. The
-   warning is right: the template's `App.tsx` and `main.tsx` import nothing from the tree yet.
-   The next step adds the import, and the build after it is clean.
+   One pass emits code, runs every rule and writes the context record. The warning is expected:
+   nothing imports the messages yet.
 
    <FileTree>
    - locales
@@ -191,11 +166,8 @@ Every transcript on this page comes from a real run and was pasted, not typed.
          - nav.d.ts
    </FileTree>
 
-   The generated tree ignores itself through the `.gitignore` written inside it, so nothing in
-   your root ignore file changes. The record is not ignored, because the record is the artifact
-   that belongs in the pull request: per message, the source text, the argument types, the plural
-   shape, where it is used and your description, for whoever translates next.
-   [Context record](/reference/context-record/) has the schema.
+   Your root `.gitignore` stays as is. [Context record](/reference/context-record/) has the
+   schema of the committed file.
 
    ```ts title="src/loclizr/messages/cart.d.ts"
    // @generated by loclizr abi=1. Do not edit; run `loclizr build`.
@@ -206,8 +178,7 @@ Every transcript on this page comes from a real run and was pasted, not typed.
    export declare function cart_items(args: { count: number }, opts?: MessageOptions): string
    ```
 
-   Declarations are printed as text, one module per top-level key segment. `abi=1` in the header
-   is the version of the four helpers the generated code imports from `loclizr`.
+   One module per top-level key segment; `abi=1` versions the four helpers it imports from `loclizr`.
 
 6. ### Use the messages
 
@@ -219,18 +190,10 @@ Every transcript on this page comes from a real run and was pasted, not typed.
    }
    ```
 
-   <Aside type="tip">
-   If `./loclizr/messages` is red in the editor, the tree has not been generated yet: run
-   `npx loclizr build`. `predev` and `prebuild` from the scripts step run it for you.
-   </Aside>
-
-   Under Vite the import is extensionless. Under Node's own resolver write
-   `./loclizr/messages.js`, and `package.json` needs `"type": "module"`, which the Vite template
-   already has.
-
-   The file sits under `src/` because the usage scan, which reads your source to note where each
-   message is called, covers `src/**/*.{ts,tsx,js,jsx,mts,mjs}` by default (`scan.include` in the
-   config). Rebuild:
+   Keep it under `src/`: the usage scan, which notes where each message is called, reads
+   `src/**/*.{ts,tsx,js,jsx,mts,mjs}` by default (`scan.include`). Vite takes the extensionless
+   import; Node's own resolver needs `./loclizr/messages.js` and `"type": "module"` (the template
+   has it).
 
    ```txt frame="terminal" title="npx loclizr build"
    wrote locales/loclizr.context.json
@@ -247,11 +210,7 @@ Every transcript on this page comes from a real run and was pasted, not typed.
    ]
    ```
 
-   Rebuilding changes one thing. The record gains a usage entry for `cart.items`, the file and
-   the enclosing function, the scan warning is gone, and nothing else moves.
-
-   Change the call to `m.cart_items({ count: String(count) })` and the type the declaration
-   printed holds:
+   The warning is gone; `cart.items` gains this usage entry. Now pass `{ count: String(count) }`:
 
    ```txt frame="terminal" title="npm run typecheck"
    > my-shop@0.0.0 pretypecheck
@@ -265,12 +224,11 @@ Every transcript on this page comes from a real run and was pasted, not typed.
    src/Cart.tsx(4,29): error TS2322: Type 'string' is not assignable to type 'number'.
    ```
 
-   A literal `{ count: '3' }` fails the same way, with a second line from the template's
-   `noUnusedLocals` about the prop it no longer reads. Put the call back.
+   A literal `{ count: '3' }` fails too (plus `noUnusedLocals` for the unread prop). Put the call back.
 
 7. ### Add a locale
 
-   Drop a `de.json` beside the source catalog and leave `cart.items` out:
+   Add `de.json` without `cart.items`:
 
    ```json title="locales/de.json"
    {
@@ -302,17 +260,12 @@ Every transcript on this page comes from a real run and was pasted, not typed.
    fell back to source text: de 1
    ```
 
-   The build names the key on the first run, and the output still exists: `messages/cart.js` now
-   carries a `de` arm for `cart_greeting`, while `cart_items` keeps its single `default` arm and
-   renders English, and the exit code is 1. A locale with no value for a key renders the source
-   locale's text; that is the fallback the summary line counts.
+   The error exits 1 with output still written: `cart_items` renders English in `de`, the fallback
+   the summary counts. `LZ5007` fires because the locale list, part of the record's
+   [contract](/guides/continuous-integration/#what-the-gate-compares), grew against the committed
+   record (the last build's; in a repo, the checked-in one).
 
-   The warning is the record noticing that the locale list grew, a change to the contract the
-   committed file describes: keys, source text, argument types, plural shapes. Committed here
-   means the file the previous build left on disk; in a repository it is the one you checked in.
-   [What the gate compares](/guides/continuous-integration/#what-the-gate-compares) lists it.
-
-   Add `cart.items` to `de.json` and both go quiet:
+   Add the key and both go quiet:
 
    ```json title="locales/de.json" {3}
    "cart": {
@@ -383,20 +336,18 @@ Every transcript on this page comes from a real run and was pasted, not typed.
    )
    ```
 
-   A message call reads the locale when it is called, so nothing subscribes on its own. The `key`
-   makes React call every message under `App` again on a switch.
+   Messages read the locale when called and subscribe to nothing, so the `key` re-renders `App`
+   ([Language switching](/guides/language-switching/) keeps component state instead).
 
-   `npm run dev`, and the page shows two buttons, `de` and `en`, in the order of `m.locales`.
-   Click `de`: the heading reads `Hallo Ada, dein Warenkorb ist bereit`, the paragraph
-   `3 Artikel in deinem Warenkorb`, and a reload keeps German, since `setLocale` wrote a cookie.
-   [Language switching](/guides/language-switching/) has the pattern that keeps component state
-   across the switch.
+   `npm run dev` shows `de` and `en` buttons in `m.locales` order. Click `de` for
+   `Hallo Ada, dein Warenkorb ist bereit` and `3 Artikel in deinem Warenkorb`; a reload stays German
+   because `setLocale` wrote a cookie.
 
 9. ### Gate the build
 
-   Put the step `init` printed into CI, and use `check` rather than `build` there. `check` does
-   everything `build` does, writes nothing, and compares the tree on disk with what it would
-   have written. Reword `cart.greeting` in `en.json` and run `check` without rebuilding:
+   In CI run `check`, never `build`: it runs every rule `build` does (so `LZ3001` still fails),
+   writes nothing, and fails when the tree or record on disk is stale. Reword `cart.greeting` in
+   `en.json` without rebuilding:
 
    ```txt frame="terminal" title="npx loclizr check"
    error  LZ5002  output-stale  src/loclizr/messages/cart.d.ts
@@ -420,30 +371,24 @@ Every transcript on this page comes from a real run and was pasted, not typed.
    4 messages, 2 locales (source en), 3 errors, 0 warnings
    ```
 
-   `build` in that same tree would rewrite the record, print `LZ5007` as a warning, and exit 0,
-   exactly the outcome a CI workspace must not have. `check` is the only loclizr command that
-   belongs in the pipeline, and it has to run before anything that runs `build`:
+   `build` here would rewrite the record, warn `LZ5007` and exit 0. So `check` goes before any step
+   that runs `build`:
 
    ```yaml title=".github/workflows/ci.yml"
    - run: npm ci
    - run: npx loclizr check
    ```
 
-   None of the three scripts runs on install, so a plain `npm ci` runs nothing of loclizr's and
-   the record `check` compares is the committed one. A `prepare` hook of your own that ran
-   `loclizr build` would reintroduce the problem, since `prepare` runs on `npm ci`.
-   [Continuous integration](/guides/continuous-integration/) has the whole workflow.
+   No loclizr script runs on install, so `check` sees the committed record.
+   [Continuous integration](/guides/continuous-integration/) has the full workflow.
 
 </Steps>
 
 <Aside type="note">
-There is no `--watch`. The dev loop is `loclizr build --no-fail` in `predev`, which reports every
-diagnostic and exits 0 once output was written, so one untranslated key never stops `vite dev`.
-The example app adds a small plugin in its own `vite.config.ts` that reruns the compiler when a
-file under `locales/` changes; [How it works](/start/how-it-works/) shows it.
+There is no `--watch`. The example app reruns the compiler on `locales/` changes with a small
+plugin in its `vite.config.ts`; [How it works](/start/how-it-works/) shows it.
 </Aside>
 
 Next: [Catalogs](/guides/catalogs/) for dates, prices and plurals, [React](/guides/react/) for a
-link inside a sentence, [Language switching](/guides/language-switching/) for the switcher,
-[Continuous integration](/guides/continuous-integration/) for the gate, or
-[Importing i18next catalogs](/guides/i18next-import/) if you already have translations.
+link inside a sentence, [Continuous integration](/guides/continuous-integration/) for the gate, or
+[Importing i18next catalogs](/guides/i18next-import/) for existing translations.

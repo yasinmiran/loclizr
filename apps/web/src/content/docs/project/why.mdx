@@ -3,96 +3,81 @@ title: Why loclizr
 description: The argument this project is built on, and where the claim stops.
 ---
 
-import { Aside } from '@astrojs/starlight/components'
+i18next, next-intl, Paraglide, Lingui, FormatJS and Intlayer are good libraries; the
+[comparison](/project/comparison/) says when to choose each. loclizr wants two things none of them
+is built for, in this order:
 
-The libraries most teams pick between are good. i18next, next-intl, Paraglide, Lingui, FormatJS,
-Intlayer: each one works, each has users, and the [comparison](/project/comparison/) says when to
-choose it.
-
-loclizr wants two things none of them is built for. Catalog checks that are on by default inside
-the build that generates the messages, and a per-message context record that is a deterministic
-build output. This page is the argument for those two, and for the order they come in.
+1. Catalog checks, on by default, inside the build that generates the messages.
+2. A per-message context record that is a deterministic build output.
 
 ## The runtime is solved
 
-Bundle size, typed keys, hooks against plain functions, server components. Each generation of
-libraries fixed something real: Lingui removed the runtime parser, next-intl made request-scoped
-locale work in the App Router, Paraglide turned messages into typed ESM exports the bundler can
-shake. Typed message functions are table stakes now, which is why this project claims them as
-parity and never as the headline.
+Lingui removed the runtime parser, next-intl made request-scoped locale work in the App Router, and
+Paraglide turned messages into typed ESM exports the bundler can shake. Typed message functions are
+table stakes, so loclizr claims them as parity, never as the headline.
 
-What none of them owned is the contract between the code and the translations. Two halves of it.
-Whether the catalogs are correct before the build ships them, and whether the person or model
-translating a string knows what it is for.
+What none of them owns is the contract between code and translations: are the catalogs correct
+before the build ships them, and does whoever translates a string know what it is for?
 
 ## Checks exist, as sidecars
 
-It would be easy to say nothing checks catalogs, and it would be false.
+| Tool | Check |
+| --- | --- |
+| `i18next-cli` | exits non-zero on missing keys |
+| Intlayer | gates pull requests on missing content |
+| `@lingual/i18n-check` | validates ICU across locales, with a GitHub Action |
+| TMS vendors | placeholder and terminology QA, for a decade |
 
-- `i18next-cli` exits non-zero on missing keys.
-- Intlayer gates pull requests on missing content.
-- `@lingual/i18n-check` validates ICU across locales and ships a GitHub Action for it.
-- TMS vendors have run placeholder and terminology QA for a decade.
+Each is a step somebody wires into CI, and it gets skipped, even by the tools' authors: one
+extractor has returned 0 on failure since 2023, the issue still open.
 
-Every one of those is a command somebody wires into CI, and that step gets skipped, even by the
-people who build the tools: one extractor has returned 0 on failure since 2023, with the issue
-still open. So the claim here is narrow. Checking was already possible; here it is the default,
-and there is no configuration of loclizr in which your messages got generated and your catalogs
-went unchecked, because they are one pass reading one representation.
+The claim here is narrow: checking is the default. No configuration of loclizr generates your
+messages and leaves your catalogs unchecked, because both are one pass over one representation.
 
 ## Context exists, as discipline
 
-The same honesty applies to the other half.
+| Tool | Context field |
+| --- | --- |
+| gettext | `msgctxt` |
+| FormatJS | `description` |
+| Lingui PO catalogs | `file:line` and placeholder names |
 
-- gettext has `msgctxt`.
-- FormatJS has `description`.
-- Lingui's PO catalogs carry `file:line` and placeholder names.
+All optional, so in practice unused, since making them mandatory worsens the quickstart. Since mid
+2026 a TMS can also point an agent at your repository to write a sentence or two of
+context per string, per run.
 
-Every one of them is optional, which in practice means unused, because making it mandatory makes
-the quickstart worse and nobody ships that. And since mid 2026 a TMS can point an agent at your
-repository and have it write a sentence or two of context per string, per run.
+The difference is shape, and the record is the smaller claim:
 
-Capability is the same across all of those. Where they differ is shape. The record loclizr
-writes is a pure function of the tree: same catalogs, same sources, same bytes.
+| Shape | loclizr's record | Generated context |
+| --- | --- | --- |
+| Produced by | a pure function of the tree: same inputs, same bytes | re-derived each run |
+| Cost | nothing per run | billed per run |
+| Lands | in the pull request, beside the changed string | in a database, after review is over |
 
-It costs nothing per run, it lands in the pull request beside the string that changed, and it
-travels to a human, a model or a vendor without anyone holding an account. An agent's context is
-re-derived each time, billed each time, and arrives in a database after review is over. Different
-artifacts, and the record is the smaller claim of the two.
+The record travels to a human, a model or a vendor without anyone holding an account.
 
-How much richer context improves machine translation is a number this site does not quote. The
-only published figure comes from one vendor writing about its own product, and nobody has
-reproduced it.
+This site quotes no number for how much richer context improves machine translation. The only
+published figure is one vendor's, about its own product, and nobody has reproduced it.
 
-## Why nobody built it, and what that means for the pitch
+## Why the gate leads
 
-Translators complain about context loss, and so do the people who build translation tools.
-Developers rarely do. They react to type safety, tree-shaking and framework breakage, and they
-are the ones who run `npm install`.
+Translators and translation-tool builders complain about context loss; developers rarely do. They
+run `npm install` and react to type safety, tree-shaking and framework breakage. The payoff lands downstream of whoever picks the library, which is why no library
+owned it, and why a pitch leading with context would lose the room.
 
-That is why no library owned it: the payoff accrues to someone downstream of the developer
-choosing the library. It also says, plainly, that a landing page leading with context would lose
-the room.
+So the build gate leads, felt on the first red run, and the record ships underneath in the same
+pass.
 
-So the order here is deliberate. The build gate is what a developer feels on the first red run,
-and the context record is the payload that ships underneath it, in the same pass, whether or not
-anyone asked for it.
-
-<Aside type="note">
-Timing matters here too. A human translator reading forty lines of metadata per string gets
-slower, which is why the optional fields stayed optional, and a model reading them does not. That
-consumer is new, and it is the reason this is worth building now rather than a decade ago.
-</Aside>
+Why now: a human translator reading forty lines of metadata per string gets slower, which is why
+those fields stayed optional. A model reading them does not, and that consumer is new.
 
 ## What this is not
 
-- Not "i18n is broken". It is not, and the line belongs to other people.
-- Not a replacement for i18next: the one real displacement in this category happened when a
-  framework seat opened and the incumbent in it stalled, and there is no such seat here.
-- Not per-locale delivery, which needs to own the metaframework's build and which the project
-  makes no claim about.
-- Not stable, in the sense a day-zero project cannot promise.
+- Not "i18n is broken". It is not.
+- Not an i18next replacement. The one real displacement in this category came when a framework
+  seat opened and its incumbent stalled; there is no such seat here.
+- Not per-locale delivery, which needs to own the metaframework's build.
+- Not stable: it is `0.x`, and a minor may break.
 
-The [limits page](/project/limits/) has each of those with its reasoning, and
-[continuity](/project/continuity/) has the maintainer situation written down, because no library
-in this category has died of its design.
+[Honest limits](/project/limits/) gives the reasoning for each, and
+[Continuity](/project/continuity/) covers the maintainer situation.

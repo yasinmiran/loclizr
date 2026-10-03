@@ -3,67 +3,36 @@ title: Continuity
 description: Maintainer count, release cadence, versioning, and what happens if this stalls.
 ---
 
-import { Aside } from '@astrojs/starlight/components'
+import { Steps } from '@astrojs/starlight/components'
 
-## Why this page exists
-
-Libraries in this category rarely die of design. They die when the one person who understood the
-code stops answering, when a stable release goes two years without a successor while the framework
-underneath keeps moving, when a dependency graph rots quietly until a compiler upgrade breaks the
-types and nobody has the commit bit to fix them. The users of such a library find out from a
-failing build, months after the fact, and the migration they then face is the one they chose the
-library to avoid.
-
-A compiler that can fail your CI is a higher-trust dependency than a runtime that reads JSON. It
-earns that trust by saying in advance how it is run, or it does not earn it. So this page is part of
-the product, and it is kept current the way the changelog is.
+A compiler that can fail your CI is a higher-trust dependency than a runtime that reads JSON. This
+page says in advance how it is run, and changes in the same commit as anything it describes.
 
 ## What is published
 
-Version `0.1.0` is on npm and the repository is public. What follows is true today and changes
-here in the same commit it changes anywhere.
+Version `0.1.0` is on npm and the repository is public.
 
-**Maintainer count.** One person holds commit rights and publish rights. Whether anyone is paid to
-work on this is not decided.
-
-**Cadence.** No cadence is promised yet, for patches or minors. The one rule that exists: while
-the version is `0.x`, a minor may break an invariant and the changelog says so; at `1.0` the
-invariants in the specification become the semver contract.
-
-**Succession.** No successor is named. If that is still true the day the maintainer stops, the
-last release is marked as such on npm and the repository is archived rather than left to look
-alive.
-
-**Where to look.** Open issues and their age, the date of the last release, and the number of
-distinct committers in the last year are all public on the repository. Read them before you depend
-on this, and read them again a year in.
+| Topic | Today |
+| --- | --- |
+| Maintainers | One person holds commit and publish rights. Whether anyone is paid is not decided. |
+| Cadence | None promised, for patches or minors. |
+| Succession | No successor named. If that holds when the maintainer stops, the last release is marked as such on npm and the repository is archived, not left to look alive. |
+| Where to look | Open issues and their age, the last release date, and distinct committers in the last year, all public on the repository. Read them before you depend on this, and again a year in. |
 
 ## What keeps working if the project stops
 
-The design is shaped so that the answer is "almost everything".
+Everything but the checks: a missing translation is again something a person must notice.
 
-Your catalogs are plain JSON in ICU MessageFormat, or in the i18next form you already had. Nothing
-in them refers to this tool. Any library or TMS that reads ICU reads them, and an i18next catalog
-that was only ever converted in memory has not been touched at all.
-
-A catalog you did convert to ICU has a way back too: it loads into i18next through `i18next-icu`,
-into FormatJS as it is, and into any TMS that speaks ICU. Conversion is not a one-way door either.
-
-The generated tree is plain ESM with hand-printed `.d.ts` files. It imports a handful of runtime
-helpers from `loclizr`, the locale store and the plural and Intl wrappers, and nothing else.
-Delete the self-ignoring `.gitignore` inside `outDir`, commit the tree, pin the last published
-version, and the app builds and typechecks for as long as `Intl` exists in your runtime, with no
-compiler in the loop.
-
-The context record is JSON with a `schema` field and no tool version in it. A translator or a
-script can keep reading it after the last release.
-
-What you lose is the checks. A missing translation goes back to being something a person has to
-notice, the way it was before you added the tool.
+| You keep | Why |
+| --- | --- |
+| Catalogs | Plain JSON in ICU MessageFormat, or the i18next form you already had. Nothing in them refers to loclizr. An i18next catalog only converted in memory was never touched. |
+| Converted catalogs | ICU loads into i18next through `i18next-icu`, into FormatJS as is, and into any TMS that speaks ICU. |
+| The generated tree | Plain ESM with hand-printed `.d.ts`, importing only the locale store and the plural and Intl helpers from `loclizr`. Delete the self-ignoring `.gitignore` in `outDir`, commit the tree, pin the last version, and the app builds and typechecks with no compiler, as long as your runtime has `Intl`. |
+| The context record | JSON with a `schema` field and no tool version. A translator or a script can keep reading it. |
 
 ## Versions and upgrades
 
-Three surfaces carry a version, and each breaks where you can see it:
+Three surfaces carry a version, and each breaks visibly:
 
 | Surface | Versioned by | How a break shows |
 | --- | --- | --- |
@@ -71,25 +40,39 @@ Three surfaces carry a version, and each breaks where you can see it:
 | The four `$` helpers the generated code imports | The trailing digit, `abi=1` in every generated header. A renamed helper keeps its old name exported for one minor. | After that minor, a stale tree fails at link time on the missing `$...1` export, in Vite dev, Rollup, esbuild and Node ESM alike. |
 | The record | Its `schema` field, `1` today. | An older `schema` differs from what the tool would write, so `check` reports `LZ5003` and the next `build` rewrites it. Every app's `check` fails until that app rebuilds and commits. |
 
-What a `0.x` minor may change: the generated bytes, the abi digit, a rule's default severity, new
-rules, and an invariant, with a changelog entry for it.
+A `0.x` minor may add rules, or change the generated bytes, the abi digit or a rule's default
+severity. It may also break an invariant, with a changelog entry for it. At `1.0` the
+specification's invariants become the semver contract.
 
-Upgrading a fleet is the same four steps per app: bump `loclizr`, run `loclizr build`, commit the
-record (and the tree, if you commit it), run `loclizr check`. Until the commit, that app's CI fails
-`LZ5003`, which is the gate doing its job.
+To upgrade a fleet, repeat per app:
 
-<Aside type="note">
-No changelog exists yet. This page links it once there is one. Security has its own page:
-[Security](/project/security/).
-</Aside>
+<Steps>
+
+1. ### Bump `loclizr`
+
+2. ### Run `loclizr build`
+
+   It regenerates the tree and the record.
+
+3. ### Commit the record
+
+   And the tree, if you commit it. Until this commit, the app's CI fails `LZ5003`: that is
+   the gate working.
+
+4. ### Run `loclizr check`
+
+   It passes once the committed record matches.
+
+</Steps>
+
+No changelog exists yet; this page will link it. Security has [its own page](/project/security/).
 
 ## Licence and money
 
 The compiler, the runtime and the catalog format are MIT and stay MIT. Closed source has no
-precedent in this category, and the only advantage that has ever held here is distribution, which
-a licence change deletes.
+precedent in this category, and a licence change would delete the one advantage that holds here,
+distribution.
 
-If a paid layer ever exists it sits where the precedent is: seats, governance, a hosted place for
-the context record to be read by people who are not engineers. It never sits at the install, never
-in the CLI, and never in the console. A notice printed at build time asking for money is a way to
-convert a small fraction of users into ex-users, and it has been tried.
+A paid layer, if one ever exists, sits at seats, governance, or a hosted place for non-engineers
+to read the context record. Never at the install, the CLI or the console: no build-time notice
+asking for money.

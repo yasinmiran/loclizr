@@ -21,7 +21,7 @@ import { Card, CardGrid, LinkCard } from '@astrojs/starlight/components'
 
 ## Sixty seconds
 
-A catalog in, ICU MessageFormat by default. An existing i18next catalog is detected per file and
+A JSON catalog in, ICU MessageFormat by default. i18next catalogs are detected per file and
 converted in memory.
 
 ```json title="locales/en.json"
@@ -37,8 +37,7 @@ converted in memory.
 npx loclizr build
 ```
 
-Typed functions out. The locale is read at call time, so `setLocale('de')` switches the language
-with no reload.
+Typed functions out. The locale is read at call time: `setLocale('de')` needs no reload.
 
 ```ts title="src/Cart.tsx"
 import * as m from './loclizr/messages'
@@ -52,24 +51,20 @@ m.cart_items({ count: '3' })       // type error: count is a number
 
 <CardGrid>
   <Card title="Typed message functions" icon="seti:typescript">
-    Plain ESM with declarations, one function per message, every locale inlined. Runs in a Vite
-    SPA, server rendering, React Native and Node. Nothing to add to your bundler.
+    Plain ESM with declarations, one function per message, every locale inlined. Runs in Vite,
+    server rendering, React Native and Node. No bundler plugin.
   </Card>
   <Card title="Checks that are already on" icon="approve-check">
-    Fifty-six rules run inside every build: missing and blank translations, ICU syntax,
-    arguments that differ between locales, markup mismatches, two keys sharing a text. Errors
-    fail the build. Other tools check catalogs too, usually as a step you add; here it is the
-    default.
+    Fifty-six rules in every build: missing and blank translations, ICU syntax, arguments that
+    differ between locales, markup mismatches, two keys sharing a text. Errors fail the build.
   </Card>
   <Card title="A context record per message" icon="document">
-    Argument types, plural shape, the file and enclosing scope where the message is called, and
-    an optional description. Deterministic, committed, diffed in the same pull request as the
-    string change.
+    Argument types, plural shape, calling file and scope, an optional description. Committed and
+    diffed in the same pull request as the string change.
   </Card>
 </CardGrid>
 
-One entry of that record, for `cart.greeting` in the example app, as the build wrote it with the
-indentation of its enclosing array removed:
+The entry for `cart.greeting` in the example app (array indentation removed):
 
 ```json title="locales/loclizr.context.json (one entry)"
 {
@@ -121,7 +116,9 @@ indentation of its enclosing array removed:
 
 ## What a failing build looks like
 
-Translate both messages above into German, with one typo: `{name}` became `{nmae}`.
+### Break a German translation
+
+`{name}` became `{nmae}`.
 
 ```json title="locales/de.json"
 {
@@ -132,8 +129,9 @@ Translate both messages above into German, with one typo: `{name}` became `{nmae
 }
 ```
 
-The next build prints this and exits 1. It was run after a green build, which is why only one
-file was rewritten:
+### Build fails with exit 1
+
+Run after a green build, so one file is rewritten.
 
 ```txt frame="terminal" title="loclizr build"
 error  LZ3004  arg-missing  locales/de.json:3:18  de  cart.greeting
@@ -154,16 +152,17 @@ commit locales/loclizr.context.json; `loclizr check` compares it
 fell back to source text: de 1
 ```
 
-Each header line reads: severity, code, rule, `file:line:column`, locale, key. Two errors from
-one typo: the German text lost `{name}` and gained `{nmae}`, and the compiler does not guess which
-one you meant.
+Header: severity, code, rule, `file:line:column`, locale, key. One typo, two errors: the compiler
+does not guess which was meant.
 
-| Error | What it caught | What the build did about it |
+| Error | Caught | Effect |
 | --- | --- | --- |
-| `LZ3004 arg-missing` | The German text no longer uses `{name}`. | Reported it, exit 1. On its own this keeps the German arm, which would render without the name. |
-| `LZ3005 arg-extra` | The German text uses `{nmae}`, which the function's `args` will never carry. | Dropped the German arm. German renders the English text until the typo is fixed. |
+| `LZ3004 arg-missing` | German lost `{name}`. | Exit 1. Alone, it keeps the German arm, rendered without the name. |
+| `LZ3005 arg-extra` | German uses `{nmae}`, which `args` never carries. | Dropped the German arm: `args.nmae` would print `undefined`. |
 
-The function the build wrote, from `src/loclizr/messages/cart.js`:
+### What ships meanwhile
+
+Only the `default` arm is left and serves German; `fell back to source text: de 1` counts it.
 
 ```js title="src/loclizr/messages/cart.js"
 export function cart_greeting(args, opts) {
@@ -174,21 +173,16 @@ export function cart_greeting(args, opts) {
 }
 ```
 
-The `de` arm is gone, because a function reading `args.nmae` would print `undefined` to somebody.
-The `default` arm serves German until the typo is fixed, which is what
-`fell back to source text: de 1` counts.
-
-What the app shows meanwhile, both calls run against that tree:
-
 ```ts
 m.cart_greeting({ name: 'Ada' }, { locale: 'de' })   // "Hi Ada, your cart is ready"
 m.cart_items({ count: 3 }, { locale: 'de' })         // "3 Artikel im Warenkorb"
 ```
 
-The first line is English for a German visitor. The second message was never touched and still
-renders German.
+German visitors get English for `cart.greeting`; the untouched `cart.items` stays German.
 
-Put `{name}` back and rebuild:
+### Fix and rebuild
+
+Put `{name}` back.
 
 ```txt frame="terminal" title="loclizr build"
 wrote src/loclizr (1 file) and locales/loclizr.context.json
@@ -201,14 +195,18 @@ commit locales/loclizr.context.json; `loclizr check` compares it
       return `Hallo ${args.name}, dein Warenkorb ist bereit`
 ```
 
-A target locale whose value fails to lower, or carries an argument the source lacks, is filled
-from the fallback chain. The generated tree is still written, so the app keeps typechecking and
-the real errors are not buried under "cannot find module". The exit code is what gates:
-`loclizr build --no-fail` prints the same diagnostics and exits 0 for the dev server, and
-`loclizr check` is the CI gate: the same two blocks on a fresh clone, exit 1, nothing written. On
-a machine that still holds the green tree it adds a third, `LZ5002 output-stale`, naming
-`cart.js`. The source locale is the exception: a source value that fails to parse has no function at all, which
-is its [fatal scope](/reference/checks/#fatal-scope).
+The tree is written even on error, so the app keeps typechecking and real errors are not buried
+under "cannot find module". The exit code gates:
+
+| Command | Exit on error | Use |
+| --- | --- | --- |
+| `loclizr build` | 1 | `prebuild`, local gate |
+| `loclizr build --no-fail` | 0, same diagnostics | dev server |
+| `loclizr check` | 1, writes nothing | CI. The same two errors, plus `LZ5002 output-stale` for `cart.js` if the green tree is on disk. |
+
+A target value that fails to lower, or uses an argument the source lacks, takes the fallback
+chain. A source value that fails to parse gets no function: see
+[fatal scope](/reference/checks/#fatal-scope).
 
 ## Where to go next
 
@@ -222,23 +220,21 @@ is its [fatal scope](/reference/checks/#fatal-scope).
 
 ## What it deliberately does not do
 
-- **No per-locale delivery.** Every declared locale of every used message is inlined into that
-  message function, one arm per locale per used message, so bundle size grows with locale count.
-  For the example's 26 messages in 3 locales, the generated tree and the `loclizr` runtime it
-  imports come out as one chunk of 7.0 kB minified and 2.6 kB gzipped in a `vite build` of the
-  example. The same build with `loclizr` marked external leaves the tree alone at 4.7 kB and
-  1.6 kB gzipped; the runtime bundled by itself is 2.6 kB minified and 1.2 kB gzipped.
-- **No runtime `format()` for content unknown at build time.** ICU is parsed at build time only
-  and the browser never ships a parser.
-- **No extraction.** It does not find hardcoded strings in your source or rewrite them into
-  message calls. Catalogs are authored or imported.
-- **Server rendering covers Web Fetch handlers.** Express and Fastify go through
-  `localeFromHeaders`. Next.js is not a first-class target in v0.1.
-- **No URL-prefix locale routing.** The locale comes from a cookie or from `Accept-Language`.
-- **No `--watch`.** `loclizr build --no-fail` in `predev`, or the example's inline Vite plugin,
-  is the dev loop.
-- **Translations are a build input.** A copy fix is a commit and a deploy; if copy has to change
-  in production without a release, i18next with a backend is built for that.
+- **No per-locale delivery.** Every locale is inlined into each used message function, so bundle
+  size grows with locale count. Example app, 26 messages in 3 locales, `vite build`: tree plus
+  runtime 7.0 kB minified (2.6 kB gzipped); tree alone, `loclizr` external, 4.7 kB (1.6 kB);
+  runtime alone 2.6 kB (1.2 kB).
+- **No runtime `format()`.** ICU is parsed at build time; the browser ships no parser, and content
+  unknown at build time has no formatter.
+- **No extraction.** Nothing finds or rewrites hardcoded strings. Catalogs are authored or
+  imported.
+- **Servers: Web Fetch handlers.** Express and Fastify via `localeFromHeaders`. Next.js is not
+  first-class in v0.1.
+- **No URL-prefix locale routing.** Locale comes from a cookie or `Accept-Language`.
+- **No `--watch`.** `loclizr build --no-fail` in `predev`, or the example's inline Vite plugin.
+- **Translations are a build input.** A copy fix is a commit and a deploy. To change copy in
+  production without a release, use i18next with a backend.
+- **`0.x`.** A minor release may break.
 
-Day zero. No users yet, no track record, and no promise about how long this stays maintained.
-MIT, with the [maintenance situation written down](/project/continuity/) rather than implied.
+Day zero: no users yet, no track record, no maintenance promise. MIT, with the
+[maintenance situation written down](/project/continuity/).

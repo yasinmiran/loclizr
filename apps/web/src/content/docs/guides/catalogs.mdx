@@ -23,19 +23,16 @@ One file per locale at `locales/{locale}.json`. The compiler reads it and never 
 }
 ```
 
-- An object is a level, a string is a message. `nav.home` becomes `m.nav_home()` in a module named
-  `nav`.
-- A key written already dotted, `"nav.home": "Home"`, flattens to the same path and collides with
-  the nested form: `LZ1011 duplicate-key`.
-- A `null` leaf is a missing translation and takes the fallback chain, like an absent key. In the
-  source locale a `null` leaf removes the message from the tree with no diagnostic today; a target
-  catalog that still carries the key then gets `LZ3003 extra-translation`.
-- An array leaf is `LZ1010 catalog-shape-invalid`. The app wants the array; flattening it into
-  `tips.0` and `tips.1` would hand it one message per item.
+| Value | Result |
+| --- | --- |
+| Object | A level. |
+| String | A message: `nav.home` becomes `m.nav_home()` in module `nav`. |
+| Dotted key, `"nav.home"` | Same path as the nested form; both together are `LZ1011 duplicate-key`. |
+| `null` | Missing translation; takes the fallback chain. In the source locale it drops the message, no diagnostic today; a target still carrying the key gets `LZ3003 extra-translation`. |
+| Array | `LZ1010 catalog-shape-invalid`: flattening would yield one message per item. |
 
-The grammar is decided per file. `{{` anywhere, or a key with a CLDR plural suffix, means i18next,
-converted in memory. Everything else is ICU, which is this page.
-[Importing i18next catalogs](/guides/i18next-import/) covers the other path.
+A file with `{{` anywhere, or a key with a CLDR plural suffix, is i18next, converted in memory
+([Importing i18next catalogs](/guides/i18next-import/)). The rest is ICU.
 
 ## Arguments
 
@@ -44,9 +41,7 @@ converted in memory. Everything else is ICU, which is this page.
 | `{name}` | `string \| number` |
 | `{count, plural, ...}` | `number` |
 | `{at, date, ...}` | `Date \| number` |
-| `{state, select, packing {...} shipped {...} other {...}}` | `'packing' \| 'shipped'`, the branch names without `other` |
-
-The generated declaration is the contract, printed with the source text above it:
+| `{state, select, packing {...} shipped {...} other {...}}` | `'packing' \| 'shipped'`, branches minus `other` |
 
 ```ts title="src/loclizr/messages/cart.d.ts"
 /** en: "Hi {name}, your cart is ready" */
@@ -77,21 +72,19 @@ switch ($plural1('en', n0 - 1, false)) {
 }
 ```
 
-Exact branches are tested first, against the value as passed. Then `Intl.PluralRules` picks a
-keyword category and `#` renders the number through `Intl.NumberFormat`. With an `offset`, the
-category and `#` use the value minus the offset; `=0` and `=1` still see the original.
+1. Exact branches (`=0`, `=1`) match first, against the value as passed.
+2. `Intl.PluralRules` picks a category in the arm's language (the literal `'en'`), from the value
+   minus any `offset`.
+3. `#` renders that value in the visitor's locale (`l`).
 
-The category follows the language of the body, so every `$plural1` call names the locale whose
-text that arm prints, as a literal; the number inside it follows the visitor, through `l`. A
-locale that falls back to the source renders the English branches with English categories and
-its own digit grouping.
+A locale falling back to the source gets English branches and categories, with its own digits.
 
-- `other` is required. A plural without it is `LZ2004`, a select without it `LZ2005`, and the
-  message is dropped from the output rather than guessed at.
-- Categories come from `Intl.PluralRules` per locale, not from a table. A German catalog with a
-  `zero` branch passes every syntax check and never renders it, because German never selects
-  `zero`: `LZ3013 plural-category-unreachable`. The fix is the exact branch `=0`.
-- The mirror case, a locale missing a category it needs, is `LZ3007`.
+| Rule | Severity | Cause |
+| --- | --- | --- |
+| `LZ2004` | error | A plural without `other`: the message is dropped, not guessed at. |
+| `LZ2005` | error | A select without `other`, dropped the same way. |
+| `LZ3013 plural-category-unreachable` | warn | A branch the locale never selects: German `zero` passes syntax checks but never renders. Use `=0`. |
+| `LZ3007 plural-category-incomplete` | warn | A category the locale selects and the message lacks (`many`, below). |
 
 ### The `many` category
 
@@ -103,19 +96,14 @@ warn  LZ3007  plural-category-incomplete  locales/es.json:1:23  es  cart.items
   fix  add many {...} to {count, plural, ...} in locales/es.json
 ```
 
-Spanish, French, Italian and Portuguese select `many` for the millions in current CLDR: on Node
-22, `new Intl.PluralRules('es').resolvedOptions().pluralCategories` is `['many', 'one', 'other']`.
-A plural translated with `one` and `other` alone passes every syntax check and raises `LZ3007`
-once per plural message per such locale, at `warn`.
+Spanish, French, Italian and Portuguese select `many` for millions in current CLDR (Node 22:
+`new Intl.PluralRules('es').resolvedOptions().pluralCategories` is `['many', 'one', 'other']`).
+Each plural with only `one` and `other` warns once per such locale.
 
-- Add `many {# ...}` to each message, mirroring `other`. For a message that counts things it is
-  the same text twice.
-- Or re-level `'plural-category-incomplete': 'off'` until the catalog is cleaned, then turn it
-  back on.
-
-The i18next importer does not synthesize the branch. `items_one` beside `items_other` folds into
-a plural with those two branches and the same warning fires; an `items_many` key folds in like any
-other suffix and clears it.
+- Add `many {# ...}` mirroring `other`.
+- Or set `'plural-category-incomplete': 'off'` until the catalog is clean, then turn it back on.
+- The i18next importer adds no `many`: `items_one` beside `items_other` warns the same way. Add
+  `items_many` to clear it.
 
 ## Select
 
@@ -123,11 +111,8 @@ other suffix and clears it.
 { "order": { "status": "{state, select, packing {Being packed} shipped {On its way} delivered {Delivered} other {Processing}}" } }
 ```
 
-The example app derives its state type from the generated signature instead of declaring it twice:
-`type Delivery = Parameters<typeof m.order_status>[0]['state']`.
-
-A translation that drops a branch is a warning (`LZ3008`). One that adds a branch the source lacks
-is an error (`LZ3009`).
+Derive the type from the signature: `type Delivery = Parameters<typeof m.order_status>[0]['state']`.
+A translation dropping a branch warns (`LZ3008`); adding one the source lacks is an error (`LZ3009`).
 
 ## Number and date styles
 
@@ -142,8 +127,7 @@ is an error (`LZ3009`).
 | `{when, time, short}` | `{ timeStyle: 'short' }` |
 | `{when, date, ::yMMMd}` | `{ year: 'numeric', month: 'short', day: 'numeric' }` |
 
-A bare `{amount, number, currency}` is `LZ2002 icu-style-unknown`, because ICU carries no
-currency code:
+A bare `{amount, number, currency}` fails: ICU carries no currency code.
 
 ```text
 error  LZ2002  icu-style-unknown  locales/en.json:14:11  en  usd
@@ -153,19 +137,17 @@ error  LZ2002  icu-style-unknown  locales/en.json:14:11  en  usd
   fix  ICU carries no currency code. Define formats.number.currency, or write ::currency/USD.
 ```
 
-Any other style name is looked up in `formats.number` or `formats.dateTime` in
-`loclizr.config.ts`, so `{amount, number, eur}` works once `eur` is defined there.
+Any other style name, like `eur`, must be defined in `formats.number` or `formats.dateTime` in
+`loclizr.config.ts`.
 
 <Aside type="tip">
-`formats.timeZone` is merged into every date and time style, which matters the moment a server
-renders one. `LZ3011 date-without-timezone` exists for that case and ships off;
+`formats.timeZone` applies to every date and time style. `LZ3011 date-without-timezone` ships off;
 [Server rendering](/guides/server-rendering/) says when to turn it on.
 </Aside>
 
 ## Markup
 
-`<link>terms</link>` makes `link` a required argument and changes the return type: an array of
-strings and whatever your handler returned, instead of a string.
+`<link>terms</link>` makes `link` a required argument; the message returns an array, not a string.
 
 ```ts title="src/loclizr/messages/terms.d.ts"
 /** en: "Read our <link>terms</link> before you continue." */
@@ -176,15 +158,13 @@ export declare function terms_accept<T>(
 ```
 
 - Tags nest: `<b><i>full</i> terms</b>` compiles to `args.b([args.i(['full']), ' terms'])`.
-- A translator may renest tags freely. Only the set of tag names is compared across locales
-  (`LZ3010`).
-- Attributes inside a tag are not supported.
-- `Parts` from `loclizr/react` renders the array, see [React](/guides/react/).
+- Translators may renest freely; only tag names are compared across locales (`LZ3010`).
+- Tag attributes are not supported.
+- `Parts` from `loclizr/react` renders the array ([React](/guides/react/)).
 
 ## Apostrophes
 
-Quoting starts only when an apostrophe is followed by `{`, `}`, `<`, or `#` inside a plural
-branch. `Don't` is fine as written.
+Quoting starts only when an apostrophe precedes `{`, `}`, `<`, or `#` inside a plural branch.
 
 | Written | Renders |
 | --- | --- |
@@ -192,16 +172,13 @@ branch. `Don't` is fine as written.
 | `'{'` | `{` |
 | `''` | `'`, always one literal apostrophe |
 
-The record carries the canonical source in that quoted form: `Don't use '{' or '}' as literal text`
-appears there as `Don''t use '{' or '}' as literal text` and renders as
-`Don't use { or } as literal text`.
+The record stores the canonical quoted form: `Don't` is recorded as `Don''t`.
 
 ## Descriptions and placeholder notes
 
-Notes for the translator live beside the source catalog, in `locales/en.meta.json`, never inside
-it. A TMS (a translation management system, the web app translators work in) imports every leaf
-of `en.json` as a translatable string, so a description written there ships as copy.
-[Translation workflow](/guides/translation-workflow/) has the export rules.
+Translator notes go in `locales/en.meta.json`, never in `en.json`: a TMS (translation management
+system) imports every leaf there as a string to translate, so a note would ship as copy
+([Translation workflow](/guides/translation-workflow/)).
 
 ```json title="locales/en.meta.json"
 {
@@ -214,10 +191,7 @@ of `en.json` as a translatable string, so a description written there ships as c
 ```
 
 Both fields land in the context record. A note for a key that no longer exists is `LZ1015`.
-
-The rule that makes descriptions worth writing is `LZ3012 ambiguous-source`: two keys share the
-same source text and one of them has no description. Here `app.cart` lost its note while
-`nav.cart` kept one:
+`LZ3012 ambiguous-source` fires when keys share source text and one lacks a description:
 
 ```text
 error  LZ3012  ambiguous-source  locales/en.json:5:14
@@ -235,7 +209,6 @@ error  LZ3012  ambiguous-source  locales/en.json:5:14
 ```
 
 <Aside type="note">
-That rule ships at `warn`. `loclizr init` raises it to `error` on a fresh project, where it costs
-nothing, and leaves the line commented out on an existing catalog, where the first build would
-otherwise be a wall of shared "Save" and "Cancel" strings.
+`LZ3012` ships at `warn`. `loclizr init` raises it to `error` on a fresh project and leaves the
+line commented out on an existing catalog, which would otherwise fail on every shared "Save".
 </Aside>

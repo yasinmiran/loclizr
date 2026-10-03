@@ -3,39 +3,38 @@ title: Using loclizr with agents
 description: llms.txt, Markdown per page, Copy page, and a paste-ready AGENTS.md block.
 ---
 
-Every page on this site is also served as plain Markdown, and the whole site is collected
-into the files the llms.txt convention asks for. Point an agent at those rather than at the
-HTML.
+Point an agent at the Markdown and llms.txt versions below, not the HTML.
 
 ## llms.txt
 
 | File | What it holds |
 | --- | --- |
-| [`/llms.txt`](https://loclizr.dev/llms.txt) | The index: a short description of loclizr, one link per page to its Markdown twin in sidebar order, and the two files below. |
-| [`/llms-full.txt`](https://loclizr.dev/llms-full.txt) | Every page rendered to Markdown in one file, the site's 404 page included. |
-| [`/llms-small.txt`](https://loclizr.dev/llms-small.txt) | The same with note and tip asides and collapsible details removed and prose whitespace collapsed, for a small context window. |
+| [`/llms.txt`](https://loclizr.dev/llms.txt) | Index: a description, a link per page to its Markdown twin in sidebar order, and the two files below. |
+| [`/llms-full.txt`](https://loclizr.dev/llms-full.txt) | Every page as Markdown in one file, the 404 page included. |
+| [`/llms-small.txt`](https://loclizr.dev/llms-small.txt) | For a small context window: no 404 page, note and tip asides or collapsible details, prose whitespace collapsed. |
 
 ## One Markdown file per page
 
-Drop the trailing slash of any page URL and add `.md`. The page at `/guides/catalogs/` is at
-`https://loclizr.dev/guides/catalogs.md`, `/reference/cli/` is at `/reference/cli.md`, and
-the landing page is at `/index.md`.
+Drop the page URL's trailing slash and add `.md`: `/guides/catalogs/` is at
+`https://loclizr.dev/guides/catalogs.md`, and the landing page is at `/index.md`.
 
-The file opens with the title as a heading and the description, then the page source. Component
-imports are stripped and asides become blockquotes. Tabs, steps, file trees and cards keep their
-tags, which is still readable: the content is between them.
+Each opens with the title and description, then the page source:
+
+- component imports are stripped
+- asides become blockquotes
+- steps, tabs, file trees and card grids lose their tags; a tab label or card title becomes bold
+  text, and a link card becomes a bullet link
 
 ## Copy page
 
-Every page has a Copy page button beside its title. It copies the page source as Markdown with
-the frontmatter in front, ready to paste into a chat. The arrow next to it opens the page URL in
-ChatGPT, Claude, v0 or Scira with a prompt that asks for help with the page.
+The Copy page button beside each title copies the page source as Markdown, frontmatter first. The
+arrow next to it opens the page in ChatGPT or Claude with a prompt that asks for help with it.
 
 ## For AGENTS.md or CLAUDE.md
 
-Paste this into the instruction file of a project that uses loclizr. Every line comes from the
+Paste this into the instruction file of a project that uses loclizr. The
 [CLI](/reference/cli/), [Catalog checks](/reference/checks/) and
-[Context record](/reference/context-record/) pages, which carry the detail.
+[Context record](/reference/context-record/) pages carry the detail.
 
 ```md title="AGENTS.md" wrap
 ## loclizr

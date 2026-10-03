@@ -16,19 +16,14 @@ export default defineConfig({
 })
 ```
 
-Configuration is optional. Without a file, `loclizr build` expands `locales/{locale}.json`, takes
-`en` as the source locale when an `en.json` exists, and writes `src/loclizr/`. A config changes one
-of those or switches on what has no sensible default: groups, format styles.
+Optional: the defaults below apply without one. Groups and format styles need a file.
 
-- `defineConfig` is an identity function, there for the type. The default export is the
-  configuration itself, not a promise.
-- Discovery tries `loclizr.config.ts`, `loclizr.config.mts`, `loclizr.config.js` and
-  `loclizr.config.mjs` at the project root, in that order, stopping at the first;
-  `--config <path>` names one. TypeScript configs load through `jiti`.
-- Every field is re-checked at load time whatever its declared type says. A failure is
-  `LZ1001 config-invalid`, exit 2, with a pasteable example in the hint.
-- Paths are POSIX, relative to the project root (the CLI's directory, or `--cwd`). `{locale}`,
-  `{sourceLocale}` and `{ns}` are tokens.
+- `defineConfig` only adds the type. Export the object, not a promise.
+- Discovery takes the first of `loclizr.config.ts`, `.mts`, `.js`, `.mjs` at the project root,
+  unless `--config` names one. TypeScript loads through `jiti`.
+- Fields are re-checked at load time: a failure is `LZ1001 config-invalid`, exit 2, hint a
+  pasteable example.
+- Paths are POSIX, relative to the project root (the CLI's directory, or `--cwd`).
 
 ## Fields
 
@@ -36,88 +31,85 @@ of those or switches on what has no sensible default: groups, format styles.
 
 | Field | Type | Default | Meaning |
 | --- | --- | --- | --- |
-| `locales` | `string[]` | every locale discovered by expanding `catalogs` | Locales to compile, one arm per entry in every message function. |
-| `sourceLocale` | `string` | `'en'` if discovered, else the single discovered locale | Defines the message set, the argument types and the end of every fallback chain. |
-| `catalogs` | `string` | `'locales/{locale}.json'` | Catalog path with tokens, never a glob. |
-| `catalogFormat` | `'auto' \| 'icu' \| 'i18next'` | `'auto'` | How each catalog file is read; `'auto'` decides per file. |
-| `i18nextMarkup` | `'literal' \| 'tags'` | `'literal'` | Tag-shaped text in an i18next file: literal text, or markup arguments. |
-| `meta` | `string \| false` | `'locales/{sourceLocale}.meta.json'` | Description sidecar; `false` switches descriptions off. |
+| `locales` | `string[]` | every locale `catalogs` expands to | Locales to compile, one arm each in every message function. |
+| `sourceLocale` | `string` | `'en'` if found, else the single locale | Defines the message set, argument types and the end of every fallback chain. |
+| `catalogs` | `string` | `'locales/{locale}.json'` | Path with tokens, never a glob. |
+| `catalogFormat` | `'auto' \| 'icu' \| 'i18next'` | `'auto'` | How each file is read. |
+| `i18nextMarkup` | `'literal' \| 'tags'` | `'literal'` | Tags in i18next files: text, or markup arguments. |
+| `meta` | `string \| false` | `'locales/{sourceLocale}.meta.json'` | Description sidecar. |
 
 ### Output
 
 | Field | Type | Default | Meaning |
 | --- | --- | --- | --- |
-| `outDir` | `string` | `'src/loclizr'` | Generated tree. Must resolve inside the project root. |
-| `record` | `string \| false` | `'locales/loclizr.context.json'` | Context record; `false` writes none. |
-| `augmentLocale` | `boolean` | `true` | Whether the barrel augments `LocaleRegistry` in `loclizr`, which types `useLocale()`. |
-| `groups` | `Record<string, string>` | `{}` | Group name to key prefix; each becomes a typed lookup record in `groups.js`. |
-| `identifiers` | `Record<string, string>` | `{}` | Catalog key to generated identifier, replacing the mangled one. |
+| `outDir` | `string` | `'src/loclizr'` | Generated tree, inside the project root. |
+| `record` | `string \| false` | `'locales/loclizr.context.json'` | Context record. |
+| `augmentLocale` | `boolean` | `true` | Augment `LocaleRegistry` in `loclizr`, which types `useLocale()`. |
+| `groups` | `Record<string, string>` | `{}` | Group name to key prefix, each a typed record in `groups.js`. |
+| `identifiers` | `Record<string, string>` | `{}` | Catalog key to generated identifier. |
 
 ### Runtime
 
 | Field | Type | Default | Meaning |
 | --- | --- | --- | --- |
-| `cookie` | `string` | `'locale'` | Cookie `setLocale` persists to and the server reads. |
-| `fallback` | `'bcp47' \| Record<string, string[]>` | `'bcp47'` | How a locale resolves a message it does not carry itself. |
-| `formats.timeZone` | `string` | unset | IANA zone merged into every date and time format. |
-| `formats.number` | `Record<string, IntlOptions>` | `{}` | Named `Intl.NumberFormat` option sets, usable as a message style. |
-| `formats.dateTime` | `Record<string, IntlOptions>` | `{}` | Named `Intl.DateTimeFormat` option sets. |
+| `cookie` | `string` | `'locale'` | Cookie `setLocale` writes and the server reads. |
+| `fallback` | `'bcp47' \| Record<string, string[]>` | `'bcp47'` | Where a locale finds a message it lacks. |
+| `formats.timeZone` | `string` | unset | IANA zone for every date and time format. |
+| `formats.number` | `Record<string, IntlOptions>` | `{}` | Named `Intl.NumberFormat` styles. |
+| `formats.dateTime` | `Record<string, IntlOptions>` | `{}` | Named `Intl.DateTimeFormat` styles. |
 
 ### Scan and severity
 
 | Field | Type | Default | Meaning |
 | --- | --- | --- | --- |
 | `scan.include` | `string[]` | `['src/**/*.{ts,tsx,js,jsx,mts,mjs}']` | Globs for the usage scan. |
-| `scan.exclude` | `string[]` | `['**/node_modules/**', '**/dist/**']` | Globs the scan skips; `outDir` is always added. |
+| `scan.exclude` | `string[]` | `['**/node_modules/**', '**/dist/**']` | Skipped globs; `outDir` always added. |
 | `severity` | `Partial<Record<RuleName, Severity>>` | `{}` | Rule name to `'off'`, `'warn'` or `'error'`. |
 
-`IntlOptions` is `Readonly<Record<string, string | number | boolean>>`, the shape `Intl` takes.
+`IntlOptions` is `Readonly<Record<string, string | number | boolean>>`.
 
 ## Locales and the source locale
 
-- `locales` unset: every locale `catalogs` expands to, sorted. Set: each entry must pass
-  `Intl.getCanonicalLocales`, or the build stops with `LZ1002 locale-tag-invalid`.
-- Declared, no catalog file: `LZ1005 catalog-missing`, an error that still emits; every message of
-  that locale falls back to source text.
-- Catalog file, undeclared locale: `LZ1006 catalog-undeclared` at warn, file ignored.
-- `sourceLocale` unset: `en` if an `en.json` was discovered, else the single discovered locale,
-  else `LZ1004 source-catalog-missing`, whose hint is a `locales` block to paste, one line per
-  discovered locale and its file.
-- A source locale the list does not declare is `LZ1001`, since every fallback chain ends there.
-- A declared locale carrying a region subtag whose base tag is not also declared, `de-AT` without
-  `de`, is `LZ1018 locale-base-missing` at warn. Runtime matching truncates subtags, so a browser
-  sending `Accept-Language: de` would get English and nothing would say why.
+| Case | Result |
+| --- | --- |
+| `locales` unset | every locale `catalogs` expands to, sorted |
+| Tag `Intl.getCanonicalLocales` rejects | `LZ1002 locale-tag-invalid`, build stops |
+| Declared, no catalog | `LZ1005 catalog-missing`, an error that still emits; the locale falls back to source text |
+| Catalog, undeclared | `LZ1006 catalog-undeclared` at warn, file ignored |
+| `sourceLocale` unset, no `en.json`, not exactly one locale | `LZ1004 source-catalog-missing`; the hint is a `locales` block to paste, one line per discovered locale and file |
+| `sourceLocale` not in `locales` | `LZ1001` |
+| A region tag whose base is undeclared (`de-AT` without `de`) | `LZ1018 locale-base-missing` at warn: runtime matching truncates subtags, so `Accept-Language: de` would silently get English |
 
 ## `catalogs`
 
-Exactly one `{locale}`, at most one `{ns}`, no `{sourceLocale}`, no glob characters (the hint
-names the character). Anything else is `LZ1001`.
+Exactly one `{locale}`, at most one `{ns}`, no `{sourceLocale}`, no glob characters. Anything else
+is `LZ1001`, the hint naming the character.
 
-- A token expands to one path segment or one basename stem, never crossing `/` or `.`, which
-  keeps `en.meta.json` and `loclizr.context.json` out of the locale set. Discovery also excludes
-  the resolved `meta` and `record` paths.
-- `'public/locales/{locale}/{ns}.json'` matches the `i18next-fs-backend`, `i18next-http-backend`
-  and `next-i18next` default layout. One file is one catalog, keys prefixed with the namespace:
-  `nav.home` in `common.json` becomes `common.nav.home`.
+- A token matches one path segment or basename stem, never crossing `/` or `.`, so `en.meta.json`,
+  `loclizr.context.json` and the resolved `meta` and `record` paths stay out of the locale set.
+- `'public/locales/{locale}/{ns}.json'` is the `i18next-fs-backend`, `i18next-http-backend` and
+  `next-i18next` default. Keys gain the namespace: `nav.home` in `common.json` is `common.nav.home`.
 
 <Aside type="caution">
-With `{ns}` and `locales` unset, the discovered directories are the locale set.
-`Intl.getCanonicalLocales('shared')` does not throw, so a stray `locales/shared/` declares a
-locale called `shared`. Declare `locales`; a split-catalog project should anyway.
+With `{ns}` and `locales` unset, every directory is a locale: `Intl.getCanonicalLocales('shared')`
+does not throw, so a stray `locales/shared/` declares locale `shared`. Declare `locales`.
 </Aside>
 
 ## `catalogFormat`
 
-Decided per file, never per project or per value.
+Decided per file after flattening, never per value. `'icu'` and `'i18next'` force every file.
 
-- `'auto'` classifies each catalog after flattening, before conversion: i18next when any string
-  value contains `{{` or any key carries a CLDR plural suffix that would fold (`X_one` beside
-  `X_other`), otherwise ICU. `'icu'` and `'i18next'` force every file.
-- No hybrid parse. ICU syntax in a file read as i18next is literal text, as i18next rendered it;
-  `{{name}}` in a file read as ICU is a literal brace around an argument.
-- `{count, plural, ...}` in a file that classified as i18next is the one mistake `'auto'` could
-  hide, so it is reported: `LZ1020 icu-in-i18next-file`, the hint naming the `{{` or suffixed key
-  that decided.
+| `'auto'` reads a file as | When |
+| --- | --- |
+| i18next | any value contains `{{`, or any key has a foldable CLDR plural suffix (`X_one` beside `X_other`) |
+| ICU | otherwise |
+
+- No hybrid parse. ICU syntax in a file read as i18next stays literal text; `{{name}}` in a file
+  read as ICU is a literal brace around an argument.
+- `{count, plural, ...}` in a file classed as i18next is the one mistake `'auto'` could hide:
+  `LZ1020 icu-in-i18next-file`, the hint naming the `{{` or suffixed key that decided.
+
+[Importing i18next catalogs](/guides/i18next-import/#auto-detection) has examples.
 
 ## `i18nextMarkup`
 
@@ -125,44 +117,34 @@ Files read as i18next only.
 
 | Value | Effect |
 | --- | --- |
-| `'literal'` | Tag-shaped text such as `<b>here</b>` is escaped to stay text. Each value that needed it raises `LZ1016 i18next-markup-literal`, so the conversion is visible. |
-| `'tags'` | `<` leaves the escape set for the whole catalog set and tags lower to markup arguments: the return type becomes an array of parts instead of `string`, each tag a required handler at the call site. |
+| `'literal'` | Tags such as `<b>here</b>` are escaped to text; each such value raises `LZ1016 i18next-markup-literal`. |
+| `'tags'` | Catalog-wide, tags lower to markup arguments: the function returns an array of parts, each tag a required handler at the call site. |
 
 ## `meta`
 
-JSON, flat-key addressed, source locale only: a `description` and a `placeholders` map per key.
-The path takes `{sourceLocale}`.
+Flat-key JSON, per key a `description` and `placeholders` map. The path takes `{sourceLocale}`.
 
 - An entry for a key the source catalog lacks: `LZ1015 meta-orphan`.
-- `false` switches descriptions off; `LZ3012 ambiguous-source` and `LZ5006 missing-description`
-  then hint at setting `meta` instead of editing a file.
+- `false` switches descriptions off; `LZ3012` and `LZ5006` then hint at setting `meta`.
 
 ## `outDir`
 
-- Must resolve inside the project root: `LZ1007 outdir-unsafe`, exit 2. Checked again at write
-  time through symlinks: `LZ5001 output-unwritable`. The prune step deletes files under `outDir`
-  carrying the generated header that this emit did not produce, so the directory has to be the
-  project's own.
-- May not contain the resolved `catalogs`, `meta` or `record` path (`LZ1001`): the tree writes a
-  self-ignoring `.gitignore` into it, and the catalogs would stop being committed.
+- Inside the project root (`LZ1007 outdir-unsafe`), rechecked through symlinks on write
+  (`LZ5001 output-unwritable`). Pruning deletes header-carrying files it did not produce, so give
+  it its own directory.
+- May not contain the `catalogs`, `meta` or `record` path (`LZ1001`): the tree's self-ignoring
+  `.gitignore` would keep them out of commits.
 
 ## `record`
 
-The context record's path, taking `{sourceLocale}`. `false` writes no record and skips
-`LZ5003 record-stale` and `LZ5007 record-rewritten`, which have nothing to compare.
+The path takes `{sourceLocale}`. `false` writes no record and skips `LZ5003 record-stale` and
+`LZ5007 record-rewritten`.
 
 ## `cookie`
 
-An RFC 6265 cookie name: letters, digits and the punctuation ``!#$%&'*+-.^_`|~``. Anything else
-would go into `document.cookie` verbatim and never be read back, so the loader rejects it as
-`LZ1001`.
-
-The generated `_locale.js` passes the name to `$configure1`, `setLocale` writes it, and the client
-reads it first when detecting the initial locale. `loclizr/server` takes the name separately in
-`NegotiateOptions`; the server entry never reads the generated tree.
-
-Only the name is configurable. The attributes `setLocale` writes are fixed: `path=/`, a one year
-`max-age`, `SameSite=Lax`, no `Domain` and no `Secure`.
+An RFC 6265 name: letters, digits and ``!#$%&'*+-.^_`|~``; anything else is `LZ1001`, since
+`document.cookie` could never read it back. The client checks it first for the initial locale.
+Attributes are fixed: `path=/`, one year `max-age`, `SameSite=Lax`, no `Domain`, no `Secure`.
 
 ## `augmentLocale`
 
@@ -176,25 +158,22 @@ declare module 'loclizr' {
 }
 ```
 
-- The augmentation makes `getLocale()`, `useLocale()` and `setLocale()` from `loclizr` take and
-  return the union of your locales rather than `string`.
-- Two generated directories in one TypeScript program both declaring it is TS2717, "Subsequent
-  property declarations must have the same type", reported inside generated files. Set it `false`
-  in the second tree; `loclizr init` does when it finds an existing generated tree.
-- The barrel keeps its own concrete `getLocale`, `setLocale` and `locales` declarations either
-  way, so `m.getLocale()` stays typed.
+- Types `getLocale()`, `useLocale()` and `setLocale()` from `loclizr` with your locale union.
+- Two trees declaring it in one TypeScript program is TS2717. Set `false` in the second; `init`
+  does when it finds one. See [Monorepo](/guides/monorepo/#two-trees-in-one-program).
+- The barrel's own `getLocale`, `setLocale` and `locales` stay typed either way.
 
 ## `groups`
 
-`{ errors: 'errors' }` collects every key under `errors.` into a frozen record exported from
-`groups.js` as `errors`, typed `Readonly<{ [K in ErrorsKey]: ... }>` so `errors[code]` is checked
-against the member's real arguments.
+`{ errors: 'errors' }` exports every `errors.` key from `groups.js` as a frozen `errors` record,
+typed `Readonly<{ [K in ErrorsKey]: ... }>` so `errors[code]` checks each member's arguments.
+Prefixes match on a dot boundary: `err` does not capture `errors.forbidden`.
 
-- A prefix matches on a dot boundary: `err` does not capture `errors.forbidden`.
-- No match: `LZ4004 group-empty`. Members with differing argument sets:
-  `LZ4006 group-args-heterogeneous`, since a dynamic call must then pass the union.
-- The name is the export identifier and, PascalCased, the base of `ErrorsKey` and `ErrorsArgs`.
-  Two groups sharing either: `LZ4001 identifier-collision`.
+| Case | Result |
+| --- | --- |
+| No key matches | `LZ4004 group-empty` |
+| Members with differing argument sets | `LZ4006 group-args-heterogeneous`: a dynamic call must pass the union |
+| Two groups sharing a name or its PascalCased types (`ErrorsKey`, `ErrorsArgs`) | `LZ4001 identifier-collision` |
 
 ## `identifiers`
 
@@ -202,33 +181,30 @@ against the member's real arguments.
 identifiers: { 'nav.home': 'navHome' }
 ```
 
-Replaces the mangled identifier entirely, so a collision can be fixed without renaming a key that
-i18next still reads during a migration.
+Replaces the mangled identifier: fixes a collision without renaming a key i18next still reads.
 
-- Validated like a mangled identifier: starts with an identifier character, is not a reserved
-  word, `default` or `then`, and stays out of the `$` namespace and the barrel's own exports
-  (`locales`, `sourceLocale`, `getLocale`, `setLocale`, `subscribe`).
-- An entry can also rename a top-level key segment: the fix when one mangles to `_locale`,
-  `_formats` or `_root`, or when two segments differ only by case and a case-insensitive
-  filesystem would merge their modules.
+- Must start with an identifier character and avoid reserved words, `default`, `then`, the `$`
+  namespace and the barrel's exports (`locales`, `sourceLocale`, `getLocale`, `setLocale`, `subscribe`).
+- Fixes a top-level segment that mangles to `_locale`, `_formats` or `_root`, or two that differ
+  only by case (a case-insensitive filesystem merges them).
 
 ## `fallback`
 
-Fallback is resolved at build time: every locale gets its own compiled arm in every message, and
-the runtime never walks a chain. `fallback` sets the middle of that chain.
+Resolved at build time into each locale's compiled arm; the runtime never walks a chain.
 
-`'bcp47'`, the default, gives `[L, ...declared BCP 47 truncations of L, sourceLocale]`: `de-AT`
-resolves through `de`, then `en`. A `de-AT.json` with twelve overrides on a complete `de.json` is
-valid rather than a few hundred errors; those twelve are `translated`, the rest `inherited`, and
-only falling all the way through to the source locale is a missing translation.
+The default `'bcp47'` gives `[L, ...declared BCP 47 truncations of L, sourceLocale]`: `de-AT`
+resolves through `de`, then `en`. Messages a sparse `de-AT.json` lacks are `inherited` from `de`;
+only reaching source counts as a missing translation.
 
 ```ts
 fallback: { nb: ['no'] }
 ```
 
-A map replaces the middle for the locales it names; the rest stay on truncation. Keys that are
-not valid locale tags are dropped silently, and no diagnostic fires for that today. The source
-locale is always the last step, named or not.
+A map replaces the middle for the locales it names; the rest keep truncation. Source is always last.
+
+<Aside type="caution">
+Map keys that are not valid locale tags are dropped silently, with no diagnostic.
+</Aside>
 
 ## `formats`
 
@@ -240,38 +216,26 @@ formats: {
 }
 ```
 
-Named styles beyond the ones ICU defines, keyed by the name a message uses:
-`{views, number, compact}`, `{when, date, weekday}`. A style neither built in nor here is
-`LZ2002 icu-style-unknown`.
+Named styles beyond ICU's own, used as `{views, number, compact}` or `{when, date, weekday}`. An
+undefined style is `LZ2002 icu-style-unknown`.
 
-Each option set is handed to `Intl.NumberFormat` or `Intl.DateTimeFormat` at load time with a
-fixed probe locale, so the verdict is the same on every machine. One `Intl` rejects is `LZ1001`
-with `Intl`'s own message as the hint, instead of every date message throwing at once in the
-viewer's browser.
+Option sets are checked at load time against `Intl` with a fixed probe locale, so every machine
+agrees. A rejected set is `LZ1001`, hint from `Intl`, not a throw in the browser.
 
 ### `timeZone`
 
-Merged into every resolved date and time option set. An ICU skeleton can carry `timeZoneName` but
-never an IANA zone, so without this field pinning one would mean rewriting every date message in
-every catalog.
-
-<Aside type="tip">
-Leave it unset in a browser SPA, where the viewer's own zone is the right one. Set it where the
-server renders dates and both sides of the hydration boundary must agree. While it is unset,
-`LZ3011 date-without-timezone` is available at `off` to list the messages that format a date
-without one.
-</Aside>
+Merged into every date and time option set; ICU skeletons cannot carry an IANA zone. Leave it
+unset in a browser SPA. Set it when the server renders dates, so both sides of hydration agree. Turn on `LZ3011 date-without-timezone` (default `off`)
+to list the messages that format a date without one.
 
 ## `scan`
 
-- Reads every file `include` matches minus `exclude`, and minus `outDir` whatever `exclude` says,
-  since generated files reference their own identifiers.
-- Binds a generated module by import specifier suffix (`./loclizr/messages`,
-  `@/loclizr/messages`, `#app/loclizr/groups` all bind; no resolver, no alias map) and records
-  every `m.<id>` access and every bound bare call into the record's `usage` field.
-- Nothing it finds fails a build by default: `LZ5004 scan-found-nothing` is `warn` and fires only
-  when files were read and none imported the generated tree, `LZ5005 unused-message` is `off`,
-  and the record gate compares with `usage` projected out.
+- Reads `include` minus `exclude`, always minus `outDir`.
+- Binds generated modules by specifier suffix, no resolver or alias map: `./loclizr/messages`,
+  `@/loclizr/messages` and `#app/loclizr/groups` all bind. Every `m.<id>` access and bound bare
+  call lands in the record's `usage`.
+- Fails nothing by default: `LZ5004 scan-found-nothing` warns only when files were read and none
+  imported the tree, `LZ5005 unused-message` is `off`, the record gate ignores `usage`.
 
 ## `severity`
 
@@ -283,27 +247,18 @@ severity: {
 }
 ```
 
-Re-levels any rule to `'off'`, `'warn'` or `'error'` by rule name, the one printed beside each
-code. A name that is not a rule is `LZ1001`; so is naming one of the three rules that cannot be
-re-levelled at all:
+Keys are the rule names printed beside each code. An unknown name is `LZ1001`, as is naming one
+of the three fixed rules, also the only ones that exit 2:
 
-| Code | Rule | Why it is fixed |
-| --- | --- | --- |
-| `LZ1001` | `config-invalid` | Self-referential: the field that turns it down is the one it validates. |
-| `LZ1007` | `outdir-unsafe` | A build could write outside the project root and exit 0. |
-| `LZ5001` | `output-unwritable` | The build could not write what it produced, and nothing downstream can act on a tree that is not there. |
+| Rule | Why it is fixed |
+| --- | --- |
+| `LZ1001 config-invalid` | Self-referential: the field that turns it down is the one it validates. |
+| `LZ1007 outdir-unsafe` | A build could write outside the project root and exit 0. |
+| `LZ5001 output-unwritable` | Nothing downstream can act on a tree that is not there. |
 
-Those three are also the only rules that exit 2.
-
-<Aside type="caution">
-Re-levelling changes the printed severity and nothing else about a fatal rule. `LZ4001
-identifier-collision` at `warn` prints the collision as a warning, writes no tree and exits 1,
-because a run that could not produce output never exits 0, and fatality is not on this dial.
-</Aside>
-
-The reporter reads `severity` once, at the end of the run. No analysis module reads it, so a
-re-levelled rule cannot change what the compiler emitted. One rule reads one key to write a
-sentence: `LZ3012`'s hint names the severity the rule is not already running at.
+- Applied once, at the end: it never changes what is emitted.
+- A fatal rule at `warn` prints as a warning, still writes no tree and exits 1.
+- Only `LZ3012` reads it, to name in its hint the severity it is not running at.
 
 ### Sharing a config across projects
 
@@ -318,14 +273,10 @@ export default defineConfig({
 })
 ```
 
-`defineConfig` returns the object it was given, so a shared config is a plain object one package
-exports and every project spreads. There is no `extends` field. A top-level spread replaces
-`severity` wholesale, which is why the example spreads it nested: without that line the project
-would keep its own one rule and lose every rule `base` set.
+There is no `extends`: spread a plain object. Spread `severity` too, or the override drops every
+rule `base` set.
 
-## Runtime and server settings that are not here
+## What reaches the runtime
 
-Nothing in this file reaches the browser. The generated `_locale.js` carries `locales`,
-`sourceLocale` and `cookie` into the runtime through `$configure1`; that is the whole handoff.
-`loclizr/server` functions take their locale list in `NegotiateOptions`, so a server entry that
-never imports the generated tree still negotiates correctly.
+Only `locales`, `sourceLocale` and `cookie`, through `$configure1` in the generated `_locale.js`.
+`loclizr/server` takes the same values in `NegotiateOptions` and never reads the generated tree.

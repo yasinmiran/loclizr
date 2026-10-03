@@ -3,13 +3,14 @@ title: Honest limits
 description: What v0.1 does not do, with the reason and the measured cost for each.
 ---
 
-Each of these is a decision with a cost, not an item on a backlog, and each is stated here so it
-is read before the install rather than discovered when the bundle report comes back.
+import { Aside } from '@astrojs/starlight/components'
+
+Each is a decision with a cost, not a backlog item.
 
 ## Every locale is inlined into every message function
 
-`cart_items` carries a `de` arm, a `de-AT` arm and an `en` arm, and so does every other message
-you call. Your bundle grows with locale count.
+`cart_items` carries a `de`, a `de-AT` and an `en` arm, as does every message you call. Bundle size
+grows with locale count.
 
 | Messages x locales | Generated tree, minified | Gzipped |
 | --- | --- | --- |
@@ -22,129 +23,110 @@ you call. Your bundle grows with locale count.
 | 1000 x 10 | 1146.5 kB | 66.7 kB |
 | 2000 x 10 | 2312.4 kB | 129.5 kB |
 
-Measured with `vite build` in library mode over an entry that imports the whole barrel, with
-`loclizr` external, so nothing tree-shakes; the synthetic catalogs are one short sentence per
-message, a quarter each plain text, placeholder, plural and select. The runtime itself, the
-`loclizr` entry the tree imports, is 2.1 kB gzipped; `loclizr/react` adds 0.6 kB and
+Measured with `vite build` in library mode, importing the whole barrel with `loclizr` external,
+so nothing tree-shakes. Catalogs: one short sentence per message, a quarter each plain text,
+placeholder, plural and select. Runtime on top, gzipped: `loclizr` 2.1 kB, `loclizr/react` 0.6 kB,
 `loclizr/server` 1.4 kB.
 
-Those are the ceilings. A production build drops every message the app never calls, since each
-is a plain export, while dev mode serves whole namespace modules, so a flat catalog under one
-top-level key is the worst case there.
+These are ceilings: a production build drops every message the app never calls. Dev mode serves
+whole namespace modules, so a flat catalog under one top-level key is its worst case.
 
-Per-locale delivery needs to own your build, and loclizr does not; at ten or more locales
-Paraglide is the better fit where it can own the build.
+Per-locale delivery needs to own your build; loclizr does not. At ten or more locales, Paraglide
+fits better where it can own the build.
 
 ## Translations are a build input
 
-A translation fix is a commit and a deploy. A TMS that opens pull requests fits that shape; a
-dashboard where somebody corrects a typo in production at four in the afternoon does not. If your
-copy must change without a deploy you want a runtime catalog loader, and i18next has spent a decade
-being good at exactly that.
+A translation fix is a commit and a deploy, which suits a TMS that opens pull requests. Copy that
+must change without a deploy wants a runtime catalog loader such as i18next.
 
 ## Content unknown at build time is out of scope
 
-Every message function was compiled from a string the build saw. There is no `format()` for text
-that arrives at runtime, from a CMS or a feature flag, because a runtime formatter needs a runtime
-parser and the whole design rests on never shipping one.
-
-When it lands it will be a separate entry, so the invariant keeps holding for everyone who does
-not import it. That is deferred past v0.1, not promised for it.
+No `format()` for text that arrives at runtime, from a CMS or a feature flag: it needs a runtime
+parser, which the design never ships. It is deferred past v0.1, not promised, and would be a
+separate entry so the invariant holds for everyone else.
 
 ## One framework demo
 
-React with Vite is the example that exists and is tested: the locale negotiation, the hydration
-agreement, the language switcher. The generated messages are plain ESM and run anywhere JavaScript
-does, and the server entry covers Web Fetch handlers plus anything that can hand over two header
-strings. Outside that demo you wire the locale in yourself, and the docs say message layer only
-where they mean it.
+React with Vite is the one tested example: locale negotiation, hydration agreement, language
+switcher. Messages are plain ESM that run anywhere JavaScript does; the server entry covers Web Fetch handlers and
+anything that can hand over two header strings. Elsewhere you wire the locale in yourself.
 
-In React a message call subscribes to nothing, so a switch re-renders a component in one of two
-ways: key the root on the locale, or pass `{ locale: useLocale() }` per call. Pick one pattern
-per app and write it down; [Language switching](/guides/language-switching/) has both.
+In React a message call subscribes to nothing: key the root on the locale, or pass
+`{ locale: useLocale() }` per call, one pattern per app. See
+[Language switching](/guides/language-switching/).
 
 ## Next.js is not a first-class SSR target
 
 No test, no example, no promise, for either router. Middleware runs in a different runtime and
-cannot wrap a render, and the App Router entry is a v0.2 question.
+cannot wrap a render; the App Router entry is a v0.2 question.
 
-`loclizr/react` emits no `'use client'` directive; an app that needs one puts it on its own
-component file. next-intl is built for that stack and this page is not going to pretend
-otherwise.
+`loclizr/react` emits no `'use client'` directive: put it on your own component file. next-intl is
+built for that stack.
 
 ## Generated files live in your tree
 
-`src/loclizr/` is real files, gitignored by default through a `.gitignore` written inside it. That
-is what having no bundler plugin costs: a build step before anything imports the tree, and the
-`predev`, `prebuild` and `pretypecheck` scripts to keep a fresh clone working once the first
-`dev` or `build` has run. `init` also prints a `prepare` script; [Continuous
-integration](/guides/continuous-integration/) says why to leave it out.
+`src/loclizr/` is real files, gitignored by default through a `.gitignore` loclizr writes inside
+it: the cost of having no bundler plugin.
 
-There is no `--watch`. The loop is `loclizr build --no-fail` in `predev`, and, for edits that
-should land in the running app, the Vite plugin the example ships in its own `vite.config.ts`. A
-team that would rather commit the tree deletes the one `.gitignore` and `check` starts comparing
-those files too.
+- A build must run before anything imports the tree; `predev`, `prebuild` and `pretypecheck` keep a
+  fresh clone working once the first `dev` or `build` has run.
+- No `prepare` hook, on purpose: it runs on `npm ci` and would rewrite the record before CI compares it.
+  [Continuous integration](/guides/continuous-integration/) has the order.
+- No `--watch`: `loclizr build --no-fail` runs in `predev`, and the example's own `vite.config.ts`
+  keeps a small plugin for live catalog edits.
+- Delete that `.gitignore` to commit the tree; `check` then compares those files too.
 
 ## The locale never comes from the URL
 
-No `/de/pricing`. It is read from a cookie, then from `Accept-Language`, and the agreement between
-what the server rendered and what the client hydrates depends on exactly that order, which is why
-prefix routing is out of scope rather than unfinished.
+No `/de/pricing`. The locale comes from a cookie, then `Accept-Language`, and hydration agreement
+depends on exactly that order, so prefix routing is out of scope, not unfinished.
 
 ## No extraction and no codemod
 
-v0.1 never reads your components looking for strings and never rewrites one. Catalogs are authored
-or imported, and a retrofit starts from a catalog you wrote. This follows from never transforming
-app code; a one-time instrumentation command is a question for after v0.1 and would never be part
-of the build.
+v0.1 never reads your components for strings or rewrites one. Catalogs are authored or
+[imported from i18next](/guides/i18next-import/), so a retrofit starts from a catalog. A one-time instrumentation command is a question for after v0.1, never part of the build.
 
 ## The usage scan is a scan
 
 It tokenizes rather than type-checks, so renamed re-exports and computed access on a plain
-namespace go unseen. Everything it produces is `off` or `warn` by default and projected out of
-the record gate, so nothing the scan produces can fail a build. The record's render site is a
-file and an enclosing scope, deliberately without a line number, because one added import at the
-top of a file would otherwise churn every entry below it.
+namespace go unseen. Its rules default to `off` or `warn` and its output is projected out of the
+record gate, so by default it cannot fail a build. Render sites carry no line number, see
+[Context record](/reference/context-record/#what-is-deterministic-and-why).
 
-## The record carries two of the five fields the idea started with
+## The record carries two of five context fields
 
-Render site and argument types ship. Element role does not: the scan cannot read a JSX tree, so
-the record never says whether a string is a button label or a page title.
-
-Surrounding copy and glossary hits do not ship either. Glossary is the cheap deterministic one and
-the first candidate after v0.1.
+Render site and argument types ship. Element role (the scan cannot read a JSX tree), surrounding
+copy and glossary hits do not; glossary is the first candidate after v0.1. See
+[Context record](/reference/context-record/#what-it-does-not-carry).
 
 ## Escape hatches
 
-Every one of these is a config field or a file you can delete, with its page. Per-key and
-per-locale silencing do not exist: a rule is re-levelled for every key and every locale at once.
+There is no per-key or per-locale silencing: a rule is re-levelled for every key and locale at once.
 
 | Hatch | What it does |
 | --- | --- |
-| [`identifiers`](/reference/configuration/#identifiers) | renames one generated function when the mangled key collides or reads badly |
-| [`severity`](/reference/configuration/#severity) | re-levels any rule but three to `error`, `warn` or `off`, for the whole catalog |
-| `./loclizr/messages/cart.js` | a deep import of one namespace module where the bundler tree-shakes nothing, see [Generated code](/reference/generated-code/#what-tree-shakes-and-what-does-not) |
+| [`identifiers`](/reference/configuration/#identifiers) | renames a generated function whose mangled key collides or reads badly |
+| [`severity`](/reference/configuration/#severity) | re-levels any rule but three to `error`, `warn` or `off`, catalog-wide |
+| `./loclizr/messages/cart.js` | deep-imports one namespace module where the bundler tree-shakes nothing, see [Generated code](/reference/generated-code/#what-tree-shakes-and-what-does-not) |
 | `{ locale }` per call | overrides the store for one message, see [Language switching](/guides/language-switching/#the-per-call-override) |
 | [`record: false`](/reference/configuration/#record) | no context record, no `LZ5003`, no `LZ5007` |
 | [`meta: false`](/reference/configuration/#meta) | no description sidecar is read |
 | deleting `src/loclizr/.gitignore` | commits the generated tree, which `check` then compares file by file |
-| [`BuildResult.program`](/reference/runtime-api/#buildresult) | the lowered program from `loclizr/compiler`, for a script that needs what the CLI does not print |
+| [`BuildResult.program`](/reference/runtime-api/#buildresult) | the lowered program from `loclizr/compiler`, for scripts needing more than the CLI prints |
 
 ## Intl is required
 
 Generated code calls `Intl.PluralRules`, `Intl.NumberFormat` and `Intl.DateTimeFormat`
-unconditionally. Every current browser and Node has them. React Native does too, with the one
-caveat that Hermes on Android needs the `intl` build of the runtime, which is a one-line project
-setting named here rather than found in a crash report.
+unconditionally. Every current browser, Node and React Native has them; Hermes on Android needs
+its `intl` build, a one-line project setting.
 
-The runtime also reads `process.env.NODE_ENV` on its warning paths. Bundlers and Node define it;
-a plain ESM page loading the runtime straight from a `<script type="module">` does not, and
-throws on the first warning path it reaches.
+<Aside type="caution">
+The runtime reads `process.env.NODE_ENV` on warning paths. Bundlers and Node define it; a plain
+`<script type="module">` page does not, and throws on the first warning path.
+</Aside>
 
-## Day zero
+## `0.x`, no track record
 
-No published release, no users, no track record, and no promise about how long this stays
-maintained. While the version is `0.x` a minor may break an invariant, and the changelog will say
-so. Maintainer count, cadence and what happens if this stops are on the
-[continuity page](/project/continuity/), because no library in this category has died of its
-design.
+`0.1.0` is on npm with no promise about how long it stays maintained. While `0.x`, a minor may
+break an invariant, with a changelog entry. Maintainers, cadence and what happens
+if this stops: [Continuity](/project/continuity/).

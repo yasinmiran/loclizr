@@ -13,11 +13,10 @@ localeFromHeaders(headers: { cookie?: string; acceptLanguage?: string }, options
 negotiate(accepted: readonly string[], options: NegotiateOptions): string
 ```
 
-No mutable global locale on the server: `loclizr/server` installs an `AsyncLocalStorage` scope per
-request, every message call inside it resolves to that request's locale, and concurrent requests
-cannot see each other. The four negotiating functions take the locale list as `NegotiateOptions`,
-`{ locales, sourceLocale, cookie? }`; the generated barrel exports the first two. `runWithLocale`
-takes a locale you already chose.
+No mutable global locale on the server: `loclizr/server` opens an `AsyncLocalStorage` scope per
+request, so message calls resolve to that request's locale and concurrent requests never see each
+other. The negotiating functions take `NegotiateOptions`, `{ locales, sourceLocale, cookie? }`; the
+barrel exports the first two.
 
 ## Scope, stated first
 
@@ -27,14 +26,13 @@ takes a locale you already chose.
 | Express, Fastify, anything with `req.headers` instead of a `Request` | `localeFromHeaders`, then `runWithLocale` around the render |
 | Next.js, App Router or Pages Router middleware | not first-class: no test, no example, no promise |
 
-Middleware runs in a different runtime and cannot wrap a render; the App Router entry is an open
-question.
+[Limits](/project/limits/#nextjs-is-not-a-first-class-ssr-target) explains the Next.js gap.
 
 ## A Fetch handler
 
 <figure class="diagram">
 
-![A request path: the page sends GET /cart with its cookie and Accept-Language, withLocale negotiates the locale and opens a runWithLocale scope, your handler renders through the generated message functions, and the response carries Content-Language. In the browser the loclizr store reads the cookie first, so hydration lands on the same locale.](../../../assets/diagrams/server-request.svg)
+![GET /cart with a cookie and Accept-Language reaches withLocale, which negotiates and opens a runWithLocale scope; the handler renders through the generated message functions and the response carries Content-Language. In the browser the store reads the cookie first, so hydration lands on the same locale.](../../../assets/diagrams/server-request.svg)
 
 </figure>
 
@@ -50,19 +48,27 @@ export const handler = withLocale(
 )
 ```
 
+`withLocale` negotiates, runs the handler in the scope, and sets `Content-Language` and
+`Vary: Accept-Language`. Yours:
+
 <Steps>
 
-1. `withLocale` negotiates from the request.
-2. The handler runs inside the scope.
-3. Two headers go on the response.
+1. ### Render `lang` from the negotiated locale
+
+   The client reads the cookie, then `<html lang>`, so a hardcoded `lang="en"` hydrates German
+   markup as English for a visitor with no cookie. Use `getLocale()`; outside production `useLocale`
+   warns once on a mismatch ([React](/guides/react/)).
+
+2. ### Keep cookie responses out of shared caches
+
+   Most CDNs ignore `Vary` outside `Accept-Encoding`. When the locale came from the cookie, send
+   `Cache-Control: private` or key the CDN cache on that cookie.
 
 </Steps>
 
 <Aside type="note">
-The generated tree is ESM, so wherever Node runs it `package.json` needs `"type": "module"`.
-Under Node's own resolver, or `moduleResolution: nodenext`, import `./loclizr/messages.js` with
-the extension, as the snippet does; under a bundler the extension is optional. The example app's
-`package.json` has the field, which is why every snippet on this page ran as written.
+Generated code is ESM. Under Node, `package.json` needs `"type": "module"`, and Node's resolver
+(or `moduleResolution: nodenext`) needs the `.js` extension in the import. Bundlers do not.
 </Aside>
 
 Three requests against the example catalogs:
@@ -88,25 +94,7 @@ nothing matches
 | `accept-language: de-CH,de;q=0.9,en;q=0.8`, no cookie | `de-CH` truncated to the declared `de` |
 | `fr` | the source locale |
 
-<Aside type="caution">
-`Vary: Accept-Language` is set, and most CDNs ignore `Vary` outside `Accept-Encoding`. A response
-whose locale came from the cookie must stay out of shared caches: `Cache-Control: private`, or
-key the CDN cache on the locale cookie.
-</Aside>
-
 ## Cookie first, then Accept-Language
-
-`localeFromHeaders` is the primitive. `localeFromRequest` reads the two headers off a `Request`
-and passes them through, so the order has one implementation:
-
-<Steps>
-
-1. The configured cookie.
-2. `Accept-Language`, through `negotiate`: RFC 4647 lookup by subtag truncation, ranked by
-   quality, with no dependency.
-3. The source locale.
-
-</Steps>
 
 ```ts title="server/app.ts"
 import { localeFromHeaders, runWithLocale } from 'loclizr/server'
@@ -124,24 +112,13 @@ app.get('/cart', (req, res) => {
 })
 ```
 
-Express and Fastify never hold a `Request`, so they call the primitive. `runWithLocale`, which
-`withLocale` uses underneath, installs the scope on first call and runs `fn` inside it; no
-per-request state lives outside the `AsyncLocalStorage`.
+Express and Fastify hold no `Request`, so they call `localeFromHeaders`; `localeFromRequest` wraps
+it for a `Request`. `runWithLocale` installs the scope on first call; no per-request state lives
+outside it. Order:
 
-## html lang and Content-Language
-
-The client reads the cookie, then `<html lang>`, nothing else. A visitor with no cookie and
-`Accept-Language: de` gets German from the server and hydrates from whatever `lang` the markup
-carries.
-
-<Aside type="caution">
-Hardcode `<html lang="en">` and the page renders German and hydrates English; nothing in the
-library can see that from the server. Render `lang` from the negotiated locale, the value
-`withLocale` put in `Content-Language`.
-</Aside>
-
-Outside production, `useLocale` checks `document.documentElement.lang` against the resolved locale
-on the client and warns once when they disagree, naming that header.
+1. The configured cookie.
+2. `Accept-Language`, through `negotiate`: RFC 4647 lookup by subtag truncation, ranked by quality, no dependency.
+3. The source locale.
 
 ## Outside a request
 
@@ -149,13 +126,15 @@ on the client and warns once when they disagree, naming that header.
 loclizr: getLocale() ran outside a request scope, so it returned the source locale. Wrap the render in runWithLocale().
 ```
 
-Inside a scope `setLocale` throws; pass `{ locale }` per call. Outside any scope a message call
-quietly returns source-locale text, and `getLocale()` returns the source locale with that warning,
-once per process outside production.
+| Call | Inside a scope | Outside any scope |
+| --- | --- | --- |
+| A message | the request's locale | source-locale text, quietly |
+| `getLocale()` | the request's locale | the source locale, warning once per process outside production |
 
-Warning rather than throwing is deliberate. Static prerender, background jobs, scripts and error
-boundaries run with no request in hand; a 500 where source text would have degraded gracefully is
-the wrong trade. Wrap them in `runWithLocale` to render a specific language.
+Inside a scope `setLocale` throws; pass `{ locale }` per call.
+
+It warns rather than throws because prerender, jobs, scripts and error boundaries run with no
+request; wrap them in `runWithLocale` for another language.
 
 ## Dates on the server
 
@@ -166,8 +145,8 @@ export default defineConfig({
 })
 ```
 
-A date formatted with no time zone resolves the server's default zone during render and the
-viewer's on the client: one instant, two different days across the hydration boundary.
-`LZ3011 date-without-timezone` catches every date and time style with no zone. It ships `off`,
-since a browser SPA wants the viewer's own zone; turn it on wherever a server renders dates, and
-set `formats.timeZone`, which is merged into every date and time style.
+A zoneless date formats in the server's zone, then the viewer's on hydration: one instant, two
+days. `LZ3011 date-without-timezone` flags every date and time
+style with no zone; it ships `off` because an SPA wants the viewer's zone.
+
+Server-rendered dates: turn it on and set `formats.timeZone`, merged into every date and time style.

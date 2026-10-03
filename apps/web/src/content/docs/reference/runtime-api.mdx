@@ -7,13 +7,12 @@ import { Aside } from '@astrojs/starlight/components'
 
 | Entry | Holds |
 | --- | --- |
-| `loclizr` | the store the generated code and your app share |
-| `loclizr/react` | three bindings over it |
-| `loclizr/server` | request-scoped resolution and `Accept-Language` negotiation for a Fetch handler |
+| `loclizr` | the locale store shared by generated code and your app |
+| `loclizr/react` | three bindings over the store |
+| `loclizr/server` | request scoping and `Accept-Language` negotiation |
 | `loclizr/compiler` | the build behind the CLI |
 
-Signatures are quoted from the published `.d.ts` files; every snippet ran under Node against the
-example app's generated tree.
+Signatures are quoted from the published `.d.ts`; snippets ran against the example's tree.
 
 ## `loclizr`
 
@@ -32,8 +31,7 @@ import { defineConfig } from 'loclizr'
 export default defineConfig({ locales: ['en', 'de', 'de-AT'], sourceLocale: 'en' })
 ```
 
-An identity function that exists for the type of `loclizr.config.ts`. Every field is re-checked
-at load time regardless, since the config is arbitrary JavaScript.
+An identity function for typing. Every field is still re-checked at load.
 
 ### `getLocale`
 
@@ -45,22 +43,20 @@ getLocale()                          // 'en'
 m.nav_home()                         // 'Home'
 ```
 
-Returns the resolved locale, always one from the registered list. It reads, in order:
+Returns a registered locale, reading in order:
 
 1. the active server request scope
 2. the tag `setLocale` stored
-3. where a `document` exists, the value detected once on first read from the configured cookie,
-   then `<html lang>`
+3. with a `document`, the configured cookie, then `<html lang>`, read once
 
-That tag is matched against the locale list by exact match and subtag truncation, falling back to
-the source locale.
+Then it matches by exact tag and subtag truncation, falling back to the source locale.
 
-- The generated barrel re-exports it typed as `AppLocale`; `m.getLocale()` is the usual import.
-- The list is registered by the first generated `_locale.js` to load. Reach `getLocale()` before
-  importing any message module and you get the stored tag or the literal `'en'`, plus one warning
-  outside production naming the missing import.
-- On a server with no active request scope it returns the source locale and warns once rather
-  than throwing: a prerender or a background job degrades to source text instead of a 500.
+- `m.getLocale()`, typed as `AppLocale`, is the usual import.
+- The first generated `_locale.js` to load registers the list. Called before any message module
+  loads, it returns the stored tag or `'en'` and warns once outside production, naming the missing
+  import.
+- On a server outside a request scope it returns the source locale and warns once, so a prerender
+  gets source text, not a 500.
 
 ### `setLocale`
 
@@ -73,15 +69,14 @@ m.nav_home()                         // 'Startseite'
 off()
 ```
 
-Stores the tag, then notifies every subscriber. Where a `document` exists it also writes the
-cookie (`path=/`, one year, `SameSite=Lax`) and sets `document.documentElement.lang`.
+Stores the tag and notifies subscribers. With a `document` it also sets `<html lang>` and the
+cookie (`path=/`, one year, `SameSite=Lax`).
 
-- `{ persist: false }` skips the cookie.
-- No DOM: the in-memory store updates and notifies, persisting nothing, which is what React Native
-  gets.
-- Inside a request scope it throws, with the message
-  `setLocale() cannot run inside a request scope. Pass { locale } per call instead.` A
-  process-wide locale mutated mid-request has no correct meaning.
+| Case | Behaviour |
+| --- | --- |
+| `{ persist: false }` | skips the cookie |
+| No DOM (React Native) | updates and notifies in memory, persists nothing |
+| Inside a request scope | throws `setLocale() cannot run inside a request scope. Pass { locale } per call instead.` |
 
 ### `subscribe`
 
@@ -92,25 +87,24 @@ const unsubscribe = subscribe(() => document.title = m.app_cart())
 unsubscribe()
 ```
 
-Registers a listener called after every `setLocale` and returns the function that removes it.
-Listeners take no arguments; read `getLocale()` inside. `useLocale` is this plus
-`useSyncExternalStore`.
+Called after every `setLocale`; returns the remover. Listeners take no arguments, so read
+`getLocale()` inside.
 
 ### Types
 
 | Type | Definition |
 | --- | --- |
-| `Locale` | `LocaleRegistry extends { locale: infer L extends string } ? L : string`. The generated barrel augments `LocaleRegistry`, so this is your locale union once a tree is in the program, `string` before. |
-| `LocaleRegistry` | The empty interface the generated `messages.d.ts` augments with `locale: AppLocale`. |
-| `MessageOptions` | `{ readonly locale?: Locale \| undefined }`, every message function's second parameter. |
-| `EmptyArgs` | `{ readonly $?: never }`, the first parameter of a message with no arguments: `f()` and `f({})` compile, `f({ x: 1 })` is an error. |
-| `SetLocaleOptions` | `{ readonly persist?: boolean \| undefined }`. |
-| `LocaleListener` | `() => void`. |
-| `LocaleResolver` | `(options?: MessageOptions \| undefined) => string`, the type of the generated `$l`. |
-| `LocaleSetup` | `{ locales, sourceLocale, cookie }`, all required; what `_locale.js` passes to `$configure1`. |
-| `NegotiateOptions` | `{ locales, sourceLocale, cookie? }`, what every `loclizr/server` function takes. |
-| `IntlOptions` | `Readonly<Record<string, string \| number \| boolean>>`, an `Intl` option object. |
-| `LoclizrConfig` | The config file's shape, see [Configuration](/reference/configuration/). |
+| `Locale` | `LocaleRegistry extends { locale: infer L extends string } ? L : string`: your union once a generated tree is in the program, `string` before. |
+| `LocaleRegistry` | Empty interface; `messages.d.ts` adds `locale: AppLocale`. |
+| `MessageOptions` | `{ readonly locale?: Locale \| undefined }`, a message's second parameter. |
+| `EmptyArgs` | `{ readonly $?: never }`, for a message without arguments: `f()` and `f({})` compile, `f({ x: 1 })` does not. |
+| `SetLocaleOptions` | `{ readonly persist?: boolean \| undefined }` |
+| `LocaleListener` | `() => void` |
+| `LocaleResolver` | `(options?: MessageOptions \| undefined) => string`, the type of `$l` |
+| `LocaleSetup` | `{ locales, sourceLocale, cookie }`, all required, passed to `$configure1` |
+| `NegotiateOptions` | `{ locales, sourceLocale, cookie? }`, taken by `loclizr/server` |
+| `IntlOptions` | `Readonly<Record<string, string \| number \| boolean>>` |
+| `LoclizrConfig` | the config shape, see [Configuration](/reference/configuration/) |
 
 ### Internal: the `$` helpers
 
@@ -121,16 +115,16 @@ export declare function $number1(locale: string, value: number, options: IntlOpt
 export declare function $dateTime1(locale: string, value: Date | number, options: IntlOptions): string
 ```
 
-The ABI between the generated tree and the runtime. Generated code imports them; apps do not call
-them.
+Generated code's ABI; apps never call them.
 
-- `$configure1` registers the locale list with the store, first registration wins, and returns
-  the resolver bound to that tree's own list.
-- `$plural1` caches one `Intl.PluralRules` per locale and type.
-- `$number1` and `$dateTime1` cache formatters by the identity of the options object, which is
-  why the generated tree hoists every option object into `_formats.js`.
-- The trailing digit is the version: a breaking change renames the helper, the old name stays
-  exported for one minor, and a stale tree fails at link time because the import is gone.
+| Helper | Does |
+| --- | --- |
+| `$configure1` | registers the locale list (first wins), returns the resolver bound to that tree's list |
+| `$plural1` | caches one `Intl.PluralRules` per locale and type |
+| `$number1`, `$dateTime1` | cache formatters by options identity, hence `_formats.js` |
+
+The trailing digit is the version. A breaking change renames the helper; the old name stays one
+minor, then a stale tree fails at link time.
 
 ## `loclizr/react`
 
@@ -142,7 +136,7 @@ export declare function Parts(props: {
 }): ReactElement
 ```
 
-No `'use client'` directive in v0.1. An app that needs one puts it on its own component file.
+No `'use client'` directive in v0.1; add one on your own file if needed.
 
 ### `useLocale`
 
@@ -160,14 +154,13 @@ function Draft({ count }: { count: number }) {
 }
 ```
 
-`useSyncExternalStore(subscribe, getLocale, getLocale)` with module-level function references: no
-resubscribe per render, and the snapshot is a primitive string. It is the only subscription there
-is; a component that calls messages and no hook re-renders when its parent re-renders it, and at
-no other time.
+`useSyncExternalStore(subscribe, getLocale, getLocale)` with module-level references, so no
+resubscribe per render and the snapshot is a primitive string. It is the only subscription: a
+component calling messages without it re-renders only with its parent.
 
-Outside production it also runs one effect comparing `document.documentElement.lang` with the
-resolved locale. It warns once when they differ, naming the `Content-Language` header `withLocale`
-sets, or when the attribute is missing, and assigns it.
+Outside production it compares `<html lang>` with the resolved locale, warns once when they differ
+(naming the `Content-Language` header `withLocale` sets) or when the attribute is missing, and
+assigns it. See [React](/guides/react/).
 
 ### `useSetLocale`
 
@@ -186,7 +179,7 @@ function Switcher() {
 }
 ```
 
-Returns `setLocale`. It exists so a switcher reads as a hook pair.
+Returns `setLocale`, so a switcher reads as a hook pair.
 
 ### `Parts`
 
@@ -197,9 +190,7 @@ import * as m from './loclizr/messages'
 <Parts of={m.terms_accept({ link: (chunks) => <a href="/terms">{chunks}</a> })} />
 ```
 
-`createElement(Fragment, null, ...props.of)`, the whole component. A markup message returns an
-array of strings and whatever your tag handlers returned; `Parts` spreads it as positional
-children, so no keys are needed and React warns about nothing.
+The whole component is `createElement(Fragment, null, ...props.of)`; no keys needed.
 
 ## `loclizr/server`
 
@@ -217,9 +208,8 @@ export declare function localeFromHeaders(headers: {
 }, options: NegotiateOptions): string
 ```
 
-Every negotiating function takes its locale list explicitly in `NegotiateOptions`, so a server
-entry that never imports the generated tree still negotiates correctly. `m.locales` and
-`m.sourceLocale` from the barrel are the usual source.
+Negotiating functions take the list in `NegotiateOptions` (usually `m.locales` and
+`m.sourceLocale`), so they work without importing the tree.
 
 ### `runWithLocale`
 
@@ -231,13 +221,12 @@ import * as m from './loclizr/messages'
 runWithLocale('de-AT', () => [getLocale(), m.nav_cart()])   // ['de-AT', 'Einkaufswagerl']
 ```
 
-Installs an `AsyncLocalStorage` scope on first call and runs `fn` inside it with that locale
-active; every `getLocale()` and every message call on that async path resolves through it.
+Runs `fn` in an `AsyncLocalStorage` scope; every `getLocale()` and message call on that async
+path resolves to `locale`.
 
-The scope handle lives in `globalThis[Symbol.for('loclizr.locale')]`, so a package loaded twice
-by two module graphs, which is how Next serves the wrong language under concurrency in other
-libraries, still shares one scope. Express, Fastify and a Pages Router handler use this directly:
-resolve the locale with `localeFromHeaders`, then wrap the render.
+- The handle lives in `globalThis[Symbol.for('loclizr.locale')]`, so two module graphs share one
+  scope (two graphs is how Next serves the wrong language under concurrency elsewhere).
+- Express, Fastify and Pages Router handlers call it after `localeFromHeaders`.
 
 ### `withLocale`
 
@@ -256,15 +245,13 @@ response.headers.get('content-language')     // 'de'
 response.headers.get('vary')                 // 'Accept-Language'
 ```
 
-Wraps a Fetch handler: negotiates the locale from the request, runs the handler inside
-`runWithLocale`, and sets `Content-Language` to the locale and `Vary: Accept-Language` on the
-response.
+Wraps a Fetch handler: negotiates, runs it inside `runWithLocale`, sets `Content-Language` and
+`Vary: Accept-Language`.
 
 <Aside type="caution">
-`Vary` is not enough on its own. Most CDNs ignore it outside `Accept-Encoding`, and with the cookie
-as the only locale channel a shared cache would store one viewer's localized HTML under the
-unlocalized URL. A response whose locale came from the cookie needs `Cache-Control: private` or a
-cache key that includes the cookie.
+Most CDNs ignore `Vary` outside `Accept-Encoding`. A cookie-localized response needs
+`Cache-Control: private` or a cache key with the cookie; see
+[Server rendering](/guides/server-rendering/).
 </Aside>
 
 ### `negotiate`
@@ -273,11 +260,11 @@ cache key that includes the cookie.
 negotiate(['fr', 'de-CH;q=0.8', 'en;q=0.5'], { locales: m.locales, sourceLocale: 'en' })   // 'de'
 ```
 
-RFC 4647 lookup over a list of `Accept-Language` ranges, hand-rolled.
+Hand-rolled RFC 4647 lookup over `Accept-Language` ranges:
 
-- Ranges are sorted by `q`, then by order; `q=0` and `*` are dropped.
-- Each is matched by exact tag, then subtag truncation, against `locales`.
-- The first that matches wins; nothing matching yields `sourceLocale`.
+1. Sort by `q`, then order; drop `q=0` and `*`.
+2. Match each by exact tag, then subtag truncation.
+3. First match wins; none yields `sourceLocale`.
 
 ### `localeFromHeaders`
 
@@ -289,14 +276,12 @@ localeFromHeaders({ acceptLanguage: 'de;q=0.9, en;q=0.8' }, options)            
 localeFromHeaders({}, options)                                                              // 'en'
 ```
 
-The primitive. Reads the configured cookie (default name `locale`) first, then `Accept-Language`,
-then the source locale. A cookie that matches nothing resolves to the source locale rather than
-falling through to `Accept-Language`: the client reads the same cookie through the same matcher,
-and the two answers have to agree across the hydration boundary.
+The primitive: the cookie (default `locale`), then `Accept-Language`, then the source locale.
 
-Two optional strings rather than a `Headers`, so nothing outside a Fetch runtime has to construct
-one. Express passes
-`{ cookie: req.headers.cookie, acceptLanguage: req.headers['accept-language'] }`.
+- An unmatched cookie yields the source locale, not `Accept-Language`, so server and client
+  agree across hydration.
+- Takes two optional strings, not `Headers`. Express passes
+  `{ cookie: req.headers.cookie, acceptLanguage: req.headers['accept-language'] }`.
 
 ### `localeFromRequest`
 
@@ -304,8 +289,7 @@ one. Express passes
 localeFromRequest(new Request('http://x/', { headers: { 'accept-language': 'de-AT' } }), options)  // 'de-AT'
 ```
 
-`localeFromHeaders` over `request.headers.get('cookie')` and
-`request.headers.get('accept-language')`. One implementation, so the two cannot drift.
+`localeFromHeaders` over the request's headers: one implementation, no drift.
 
 ## `loclizr/compiler`
 
@@ -321,17 +305,16 @@ export declare function build(options?: BuildOptions): Promise<BuildResult>
 export declare function check(options?: BuildOptions): Promise<BuildResult>
 ```
 
-The CLI is a thin layer over these two. `build` writes the tree and the record; `check` writes
-nothing and adds the `LZ5002` and `LZ5003` gates. Neither prints: the result carries the
-diagnostics and the code, and the reporters are the CLI's.
+The CLI is a thin layer over these. `build` writes the tree and record; `check` writes nothing and
+adds the `LZ5002` and `LZ5003` gates. Neither prints; reporters belong to the CLI.
 
 | Option | Default | Meaning |
 | --- | --- | --- |
-| `cwd` | `process.cwd()` | The project root. |
-| `configPath` | discovery | A config file relative to `cwd`. |
-| `emit` | `true` | `false` runs the whole pipeline and writes nothing, on `build` too; `files` and `record` are still filled. |
-| `maxWarnings` | no cap | The `--max-warnings` value. |
-| `failOnError` | `true` | `false` is `build --no-fail`. `check` ignores it. |
+| `cwd` | `process.cwd()` | project root |
+| `configPath` | discovery | config file relative to `cwd` |
+| `emit` | `true` | `false` writes nothing, even on `build`; `files` and `record` are still filled |
+| `maxWarnings` | no cap | `--max-warnings` |
+| `failOnError` | `true` | `false` is `build --no-fail`; `check` ignores it |
 
 ```ts
 import { build } from 'loclizr/compiler'
@@ -342,8 +325,7 @@ result.exitCode           // 0
 result.written.length     // 21 on a first run, 0 when nothing changed
 ```
 
-That is the call the example app's Vite plugin makes when a catalog changes. `check` is the same
-shape and never writes:
+The example's Vite plugin makes this call on a catalog change. `check` has the same shape:
 
 ```ts
 import { check } from 'loclizr/compiler'
@@ -358,17 +340,17 @@ gate.written                                    // []
 
 | Field | Type | Meaning |
 | --- | --- | --- |
-| `ok` | `boolean` | No diagnostic at `error` after re-levelling. |
-| `exitCode` | `0 \| 1 \| 2` | What the CLI would exit with. |
-| `program` | `Program \| null` | The lowered program: `config`, `sourceLocale`, `locales`, `messages`, `extras`, `groups`, `usages`, `diagnostics`. `null` when the run halted before the catalogs were read. |
-| `diagnostics` | `Diagnostic[]` | Sorted, re-levelled, the same objects the JSON reporter prints. |
-| `files` | `EmittedFile[]` | Every `{ path, contents }` emit produced, paths relative to `outDir`; filled even with `emit: false`. |
-| `record` | `ContextRecord \| null` | The context record; `null` when `record: false` or the run halted. |
-| `written` | `string[]` | Paths written this run, relative to the project root. Empty for `check`. |
-| `summary` | `Summary` | `{ errors, warnings, messages, locales, fellBack }`. |
+| `ok` | `boolean` | no `error` diagnostic after re-levelling |
+| `exitCode` | `0 \| 1 \| 2` | the CLI's exit code |
+| `program` | `Program \| null` | `config`, `sourceLocale`, `locales`, `messages`, `extras`, `groups`, `usages`, `diagnostics`; `null` if the run halted before reading catalogs |
+| `diagnostics` | `Diagnostic[]` | sorted, re-levelled, as the JSON reporter prints them |
+| `files` | `EmittedFile[]` | every `{ path, contents }`, relative to `outDir`, even with `emit: false` |
+| `record` | `ContextRecord \| null` | `null` with `record: false` or a halted run |
+| `written` | `string[]` | paths written this run, relative to the project root; empty for `check` |
+| `summary` | `Summary` | `{ errors, warnings, messages, locales, fellBack }` |
 
-`Diagnostic`, `Summary`, `ContextRecord`, `Program` and `EmittedFile` are exported as types. The
-`Diagnostic` fields are the ones the [JSON reporter](/reference/cli/#json) prints, and
-`ContextRecord` is the shape of the [context record](/reference/context-record/).
-`program.usages` keeps the five-field `UsageSite` (file, line, column, scope, snippet) that the
-committed record deliberately reduces to file and scope.
+- `Diagnostic`, `Summary`, `ContextRecord`, `Program` and `EmittedFile` are exported types.
+- `Diagnostic` matches the [JSON reporter](/reference/cli/#json); `ContextRecord` is the
+  [context record](/reference/context-record/).
+- `program.usages` keeps the full `UsageSite` (file, line, column, scope, snippet); the committed
+  record keeps only file and scope.
