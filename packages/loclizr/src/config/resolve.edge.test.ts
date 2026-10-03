@@ -382,7 +382,7 @@ describe('outDir at the boundary', () => {
   })
 
   it('accepts a record whose name only starts with outDir', () => {
-    const resolved = config(run({ outDir: 'locales/gen', record: 'locales/generated.json' }))
+    const resolved = config(run({ outDir: 'locales/gen', record: 'locales/generated.ctx.json' }))
     expect(resolved.outDir).toBe('locales/gen')
   })
 

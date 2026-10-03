@@ -57,7 +57,7 @@ describe('defaults', () => {
       fallback: 'bcp47',
       formats: { timeZone: null, number: {}, dateTime: {} },
       scan: {
-        include: ['src/**/*.{ts,tsx,js,jsx,mts,mjs}'],
+        include: ['src/**/*.{ts,tsx,js,jsx,mts,mjs,svelte,vue,astro}'],
         exclude: ['**/node_modules/**', '**/dist/**', 'src/loclizr/**'],
       },
       severity: {},
@@ -256,12 +256,13 @@ describe('LZ1007 outdir-unsafe', () => {
 })
 
 describe('an outDir that would swallow the catalogs it was built from', () => {
-  it('rejects the meta and record paths landing inside it', () => {
+  it('rejects the catalogs, meta and record paths landing inside it', () => {
     const result = run({ outDir: 'locales' }, [catalog('en')])
     expect(result.config).toBeNull()
-    expect(codes(result.diagnostics)).toEqual(['LZ1001', 'LZ1001'])
-    expect(result.diagnostics[0]?.message).toContain('meta')
-    expect(result.diagnostics[1]?.message).toContain('record')
+    expect(codes(result.diagnostics)).toEqual(['LZ1001', 'LZ1001', 'LZ1001'])
+    expect(result.diagnostics[0]?.message).toContain('catalogs')
+    expect(result.diagnostics[1]?.message).toContain('meta')
+    expect(result.diagnostics[2]?.message).toContain('record')
   })
 
   it('rejects a record the user pointed inside outDir', () => {
@@ -272,9 +273,125 @@ describe('an outDir that would swallow the catalogs it was built from', () => {
     expect(only(result.diagnostics, 'LZ1001').message).toContain('src/gen/context.json')
   })
 
-  it('accepts an outDir over the catalogs once neither artifact lands there', () => {
-    const resolved = config(run({ outDir: 'locales', meta: false, record: false }, [catalog('en')]))
-    expect(resolved.outDir).toBe('locales')
+  it('rejects an outDir over the catalogs even with neither artifact landing there', () => {
+    const result = run({ outDir: 'locales', meta: false, record: false }, [catalog('en')])
+    expect(result.config).toBeNull()
+    expect(only(result.diagnostics, 'LZ1001').message).toBe(
+      '`outDir` is `locales`, which holds the `catalogs` path `locales/{locale}.json`.',
+    )
+  })
+
+  it('rejects an outDir that one locale of a split layout would sit inside', () => {
+    const result = run(
+      { outDir: 'locales/en', catalogs: 'locales/{locale}/{ns}.json', meta: false, record: false },
+      [catalog('en', 'locales/en/common.json', 'common')],
+    )
+    expect(only(result.diagnostics, 'LZ1001').message).toContain('catalogs')
+  })
+
+  it('rejects an outDir above the catalog directory', () => {
+    const result = run(
+      { outDir: 'src', catalogs: 'src/locales/{locale}.json', meta: false, record: false },
+      [catalog('en', 'src/locales/en.json')],
+    )
+    expect(only(result.diagnostics, 'LZ1001').message).toContain('catalogs')
+  })
+
+  it('accepts an outDir beside the catalogs that no catalog path can reach', () => {
+    expect(config(run({ outDir: 'locales/en' }, [catalog('en')])).outDir).toBe('locales/en')
+  })
+
+  it('substitutes the source locale before asking whether outDir holds meta or record', () => {
+    for (const field of ['meta', 'record']) {
+      const result = run({ outDir: 'locales/en', [field]: 'locales/{sourceLocale}/file.json' }, [
+        catalog('en'),
+      ])
+      expect(result.config).toBeNull()
+      expect(only(result.diagnostics, 'LZ1001').message).toBe(
+        `\`outDir\` is \`locales/en\`, which holds the resolved \`${field}\` path \`locales/en/file.json\`.`,
+      )
+    }
+  })
+
+  it('substitutes a declared source locale before reading the catalogs on disk', () => {
+    const result = run(
+      { outDir: 'locales/fr', sourceLocale: 'fr', meta: 'locales/{sourceLocale}/meta.json' },
+      [],
+    )
+    expect(codes(result.diagnostics)).toEqual(['LZ1001'])
+  })
+
+  it('substitutes the inferred source locale when the declared one is dropped as invalid', () => {
+    const result = run(
+      {
+        sourceLocale: 'en_US',
+        locales: ['en'],
+        outDir: 'locales/en',
+        meta: 'locales/{sourceLocale}/m.json',
+        severity: { 'locale-tag-invalid': 'warn' },
+      },
+      [catalog('en')],
+    )
+    expect(result.config).toBeNull()
+    expect(codes(result.diagnostics)).toEqual(['LZ1002', 'LZ1001'])
+    expect(result.diagnostics[1]?.message).toContain('locales/en/m.json')
+  })
+
+  it('never substitutes a declared source locale that is not a valid tag', () => {
+    const result = run(
+      { sourceLocale: 'en_US', outDir: 'locales/en_US', meta: 'locales/{sourceLocale}/m.json' },
+      [catalog('en')],
+    )
+    expect(codes(result.diagnostics)).toEqual(['LZ1002'])
+  })
+
+  it('leaves an outDir alone that is named after another locale than the source', () => {
+    const resolved = config(
+      run({ outDir: 'locales/de', meta: 'locales/{sourceLocale}/meta.json' }, [catalog('en')]),
+    )
+    expect(resolved.meta).toBe('locales/{sourceLocale}/meta.json')
+  })
+
+  it('compares without case, since macOS and Windows resolve both spellings to one directory', () => {
+    for (const outDir of ['Locales', 'LOCALES']) {
+      const result = run({ outDir }, [catalog('en')])
+      expect(result.config).toBeNull()
+      expect(codes(result.diagnostics)).toEqual(['LZ1001', 'LZ1001', 'LZ1001'])
+    }
+  })
+})
+
+describe('a meta or record path the catalogs pattern reads as a catalog', () => {
+  it('rejects a record named like a catalog, which the build would write over', () => {
+    const result = run({ record: 'locales/de.json' }, [catalog('en'), catalog('de')])
+    expect(result.config).toBeNull()
+    const diagnostic = only(result.diagnostics, 'LZ1001')
+    expect(diagnostic.message).toBe(
+      '`record` is `locales/de.json`, which the `catalogs` pattern `locales/{locale}.json` also matches.',
+    )
+    expect(diagnostic.hint).toContain('locales/loclizr.context.json')
+  })
+
+  it('rejects it whether or not the catalog exists yet', () => {
+    expect(codes(run({ record: 'locales/de.json' }, [catalog('en')]).diagnostics)).toEqual([
+      'LZ1001',
+    ])
+  })
+
+  it('rejects a meta path that resolves onto a catalog once the source locale is known', () => {
+    const result = run({ meta: 'locales/{sourceLocale}-meta.json' }, [catalog('en')])
+    expect(result.config).toBeNull()
+    expect(only(result.diagnostics, 'LZ1001').message).toContain('locales/en-meta.json')
+  })
+
+  it('rejects a spelling that differs from a catalog only by case', () => {
+    expect(codes(run({ record: 'Locales/de.json' }, [catalog('en')]).diagnostics)).toEqual([
+      'LZ1001',
+    ])
+  })
+
+  it('accepts the default meta and record, which no locale token can spell', () => {
+    expect(run({}, [catalog('en')]).diagnostics).toEqual([])
   })
 })
 
@@ -356,6 +473,13 @@ describe('LZ1001 config-invalid', () => {
     expect(result.config).toBeNull()
     expect(only(result.diagnostics, 'LZ1001').message).toContain('sourceLocale')
   })
+
+  it('rejects an undeclared sourceLocale the same way when its catalog is missing too', () => {
+    const result = run({ locales: ['en', 'de'], sourceLocale: 'fr' }, [catalog('en')])
+    expect(result.config).toBeNull()
+    expect(codes(result.diagnostics)).toEqual(['LZ1001'])
+    expect(result.diagnostics[0]?.locale).toBe('fr')
+  })
 })
 
 describe('LZ1003 no-catalogs-found', () => {
@@ -423,6 +547,24 @@ describe('LZ1004 source-catalog-missing', () => {
     expect(diagnostic.hint).toContain('sourceLocale')
   })
 
+  it('prints a block that is a whole config file, import included', () => {
+    const { hint } = only(run({}, [catalog('de'), catalog('fr')]).diagnostics, 'LZ1004')
+    expect(hint).toBe(
+      [
+        'write loclizr.config.ts, or add `locales` and `sourceLocale` to the config you have:',
+        "import { defineConfig } from 'loclizr'",
+        '',
+        'export default defineConfig({',
+        '  locales: [',
+        "    'de',  // locales/de.json",
+        "    'fr',  // locales/fr.json",
+        '  ],',
+        "  sourceLocale: 'de',",
+        '})',
+      ].join('\n'),
+    )
+  })
+
   it('fires when the source locale has no catalog file, naming the path it looked for', () => {
     const result = run({ locales: ['en', 'de'], sourceLocale: 'en' }, [catalog('de')])
     expect(result.config).toBeNull()
@@ -482,6 +624,13 @@ describe('LZ1006 catalog-undeclared', () => {
     expect(config(result).locales).toEqual(['en', 'fr'])
   })
 
+  it('offers only fixes that move the file, since discovery reaches it whatever locales holds', () => {
+    const result = run({ locales: ['en'] }, [catalog('en'), catalog('en_US', 'locales/en_US.json')])
+    expect(only(result.diagnostics, 'LZ1006').hint).toBe(
+      'rename it to a BCP 47 tag, or move it out of the catalog pattern.',
+    )
+  })
+
   it('skips a discovered basename Intl rejects rather than failing the build', () => {
     const result = run({}, [catalog('en'), catalog('123', 'locales/123.json')])
     const diagnostic = only(result.diagnostics, 'LZ1006')
@@ -500,19 +649,16 @@ describe('LZ1006 catalog-undeclared', () => {
 })
 
 describe('the meta and record paths are never catalogs', () => {
-  it('excludes a discovered file that the meta pattern also matches', () => {
-    const result = run({ meta: 'locales/{sourceLocale}-meta.json' }, [
-      catalog('en'),
-      catalog('en-meta', 'locales/en-meta.json'),
-    ])
+  it('excludes the meta sidecar the loose match reached', () => {
+    const result = run({}, [catalog('en'), catalog('en.meta', 'locales/en.meta.json')])
     expect(result.diagnostics).toEqual([])
     expect(config(result).locales).toEqual(['en'])
   })
 
-  it('excludes the resolved record path', () => {
-    const result = run({ record: 'locales/context.json' }, [
+  it('excludes the resolved record path the loose match reached', () => {
+    const result = run({ record: 'locales/context.v1.json' }, [
       catalog('en'),
-      catalog('context', 'locales/context.json'),
+      catalog('context.v1', 'locales/context.v1.json'),
     ])
     expect(result.diagnostics).toEqual([])
     expect(config(result).locales).toEqual(['en'])

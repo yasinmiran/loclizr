@@ -144,14 +144,14 @@ describe('the artifacts a previous build left beside the catalogs', () => {
     expect(config(result).locales).toEqual(['de', 'en'])
   })
 
-  it('excludes a configured meta and record path whose basename is a valid tag', async () => {
+  it('rejects a configured meta and record path whose basename is a valid tag', async () => {
     await catalogs('locales/en.json', 'locales/zz.json', 'locales/xx.json')
     await write(
       'loclizr.config.ts',
       "export default { record: 'locales/zz.json', meta: 'locales/xx.json' }",
     )
     const result = await loadConfig({ cwd: root })
-    expect(result.diagnostics).toEqual([])
-    expect(config(result).locales).toEqual(['en'])
+    expect(result.config).toBeNull()
+    expect(result.diagnostics.map((diagnostic) => diagnostic.code)).toEqual(['LZ1001', 'LZ1001'])
   })
 })

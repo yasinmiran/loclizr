@@ -173,14 +173,14 @@ describe('paths the config file spells its own way', () => {
           outDir: 'src\\gen',
           catalogs: 'locales\\{locale}.json',
           meta: './locales/./{sourceLocale}.meta.json',
-          record: 'locales//ctx.json',
+          record: 'locales//loclizr.ctx.json',
         },
         [catalog('en')],
       ),
     )
     expect(resolved.catalogs).toBe('locales/{locale}.json')
     expect(resolved.meta).toBe('locales/{sourceLocale}.meta.json')
-    expect(resolved.record).toBe('locales/ctx.json')
+    expect(resolved.record).toBe('locales/loclizr.ctx.json')
     expect(resolved.outDir).toBe('src/gen')
     expect(resolved.scan.exclude).toContain('src/gen/**')
   })

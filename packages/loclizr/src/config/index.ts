@@ -235,10 +235,10 @@ async function importConfig(
       filename: absolute,
       async: true,
       forceTranspile: true,
-    })) as Readonly<Record<string, unknown>>
+    })) as Readonly<Record<string, unknown>> | null | undefined
     exported = defaultExport(loaded)
   } catch (error) {
-    return { user: {}, diagnostic: threw(file, error, root) }
+    if (!isNullDefault(error)) return { user: {}, diagnostic: threw(file, error, root) }
   }
   if (Object.prototype.toString.call(exported) !== '[object Object]') {
     return {
@@ -253,14 +253,38 @@ async function importConfig(
   return { user: exported as LoclizrConfig, diagnostic: null }
 }
 
-function defaultExport(loaded: Readonly<Record<string, unknown>>): unknown {
+function defaultExport(loaded: Readonly<Record<string, unknown>> | null | undefined): unknown {
+  if (loaded === null || loaded === undefined) return undefined
   // `__esModule` is the marker the transform leaves on a real ES module. A
   // CommonJS config carries none and declares no `default` binding either,
   // because its whole `module.exports` is the configuration.
   if (Object.hasOwn(loaded, '__esModule')) {
-    return Object.hasOwn(loaded, 'default') ? loaded['default'] : undefined
+    if (!Object.hasOwn(loaded, 'default')) return undefined
+    const value = loaded['default']
+    // Where the real default is undefined, jiti hands back the module namespace
+    // in its place, and every named export would then read as a config field.
+    return isNamespaceWithoutDefault(value) ? undefined : value
   }
   return loaded['default']
+}
+
+function isNamespaceWithoutDefault(value: unknown): boolean {
+  return (
+    typeof value === 'object' &&
+    value !== null &&
+    Object.hasOwn(value, '__esModule') &&
+    (value as Readonly<Record<string, unknown>>)['default'] === undefined
+  )
+}
+
+// jiti's interop Proxy reads `then` off a null default while the async load
+// settles, so `export default null` rejects inside jiti before any shape check.
+// The frame test keeps a config whose own code reads `then` off null a throw.
+function isNullDefault(error: unknown): boolean {
+  if (!(error instanceof TypeError)) return false
+  if (error.message !== "Cannot read properties of null (reading 'then')") return false
+  const [, frame = ''] = (error.stack ?? '').split('\n')
+  return /[\\/]jiti[\\/]/.test(frame)
 }
 
 function threw(file: string | null, error: unknown, root: string): Diagnostic {

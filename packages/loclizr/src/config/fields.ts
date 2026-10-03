@@ -37,7 +37,9 @@ export const DEFAULT_META = 'locales/{sourceLocale}.meta.json'
 export const DEFAULT_OUT_DIR = 'src/loclizr'
 export const DEFAULT_RECORD = 'locales/loclizr.context.json'
 export const DEFAULT_COOKIE = 'locale'
-export const DEFAULT_SCAN_INCLUDE: readonly string[] = ['src/**/*.{ts,tsx,js,jsx,mts,mjs}']
+export const DEFAULT_SCAN_INCLUDE: readonly string[] = [
+  'src/**/*.{ts,tsx,js,jsx,mts,mjs,svelte,vue,astro}',
+]
 export const DEFAULT_SCAN_EXCLUDE: readonly string[] = ['**/node_modules/**', '**/dist/**']
 
 const NOT_RELEVELABLE: readonly RuleName[] = ['config-invalid', 'outdir-unsafe', 'output-unwritable']

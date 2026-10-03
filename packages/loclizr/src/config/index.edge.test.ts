@@ -131,6 +131,35 @@ describe('a default export that is not a configuration object', () => {
     const diagnostic = await rejectedConfig('throw undefined\nexport default {}')
     expect(diagnostic.message).toContain('threw while loading')
   })
+
+  it.each([
+    ['undefined', 'export default undefined'],
+    ['undefined beside a named export', "export const outDir = 'gen'\nexport default undefined"],
+    ['null', 'export default null'],
+  ])('rejects %s as a missing default export', async (_label, body) => {
+    const diagnostic = await rejectedConfig(body)
+    expect(diagnostic.message).toBe('loclizr.config.ts must export its configuration as the default export.')
+  })
+
+  it.each([
+    ['null', 'module.exports = null'],
+    ['undefined', 'module.exports = undefined'],
+  ])('rejects a CommonJS export of %s as a missing configuration', async (_label, body) => {
+    const diagnostic = await rejectedConfig(body, 'loclizr.config.js')
+    expect(diagnostic.message).toBe('loclizr.config.js must export its configuration as the default export.')
+  })
+
+  it('still reports a config whose own code reads then off null as having thrown', async () => {
+    const diagnostic = await rejectedConfig('const value = null\nvalue.then\nexport default {}')
+    expect(diagnostic.message).toContain('threw while loading')
+  })
+
+  it('accepts a namespace import handed over as the configuration', async () => {
+    await catalogs('locales/en.json')
+    await write('base.ts', "export const cookie = 'base'")
+    await write('loclizr.config.ts', "import * as base from './base'\nexport default base")
+    expect(config(await loadConfig({ cwd: root })).cookie).toBe('base')
+  })
 })
 
 describe('locating the config', () => {

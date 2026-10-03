@@ -2,8 +2,8 @@ import { isAbsolute, relative, resolve } from 'node:path'
 import { RULES, diag } from '../diagnostics'
 import type { Config, Diagnostic, DiscoveredCatalog, LoclizrConfig, RuleName } from '../types'
 import { compareCodepoint, toPosix } from '../util'
-import { isLocaleTag, readFields } from './fields'
-import { literalMatcher, substituteLocale } from './pattern'
+import { DEFAULT_META, DEFAULT_RECORD, isLocaleTag, readFields } from './fields'
+import { catalogMatcher, literalMatcher, substituteLocale } from './pattern'
 
 export interface LoadConfigResult {
   readonly config: Config | null
@@ -45,18 +45,11 @@ export function resolveConfig(input: {
   const meta = fields.meta === false ? false : normalize(root, fields.meta)
   const record = fields.record === false ? false : normalize(root, fields.record)
 
-  const swallowed = swallowedByOutDir(outDir, { meta, record })
-  if (swallowed.length > 0) {
-    return {
-      config: null,
-      diagnostics: swallowed.map(([field, path]) =>
-        diag('config-invalid', {
-          message: `\`outDir\` is \`${outDir}\`, which holds the resolved \`${field}\` path \`${path}\`.`,
-          hint: `the generated tree writes a self-ignoring .gitignore into outDir, so ${path} would stop being committed. Give outDir a directory of its own, such as 'src/loclizr'.`,
-        }),
-      ),
-    }
-  }
+  const paths: ArtifactPaths = { outDir, catalogs, meta, record }
+  const validSource =
+    fields.sourceLocale !== undefined && isLocaleTag(fields.sourceLocale) ? fields.sourceLocale : undefined
+  const conflicts = pathConflicts(paths, validSource)
+  if (conflicts.length > 0) return { config: null, diagnostics: conflicts }
 
   // A rule the user took out of error stops being fatal (section 9), and M10
   // never gets the chance to apply that override on a null config, so the three
@@ -146,6 +139,18 @@ export function resolveConfig(input: {
     if (blocks('source-catalog-missing')) return { config: null, diagnostics }
   }
   const sourceLocale = inferred ?? firstLocale
+  if (declaredSource === undefined) {
+    const late = pathConflicts(paths, sourceLocale)
+    if (late.length > 0) return { config: null, diagnostics: [...diagnostics, ...late] }
+  }
+
+  // A declared locale list makes an undeclared source a config mistake whatever
+  // is on disk. A discovered list lacks it only because its catalog is missing,
+  // which LZ1004 names.
+  const undeclaredSource = !locales.includes(sourceLocale)
+  if (undeclaredSource && fields.locales !== undefined) {
+    return { config: null, diagnostics: [...diagnostics, sourceNotDeclared(sourceLocale)] }
+  }
 
   const localesWithCatalog = new Set(usable.map((catalog) => catalog.locale))
   if (inferred !== null && !emptyTree && !localesWithCatalog.has(sourceLocale)) {
@@ -159,15 +164,8 @@ export function resolveConfig(input: {
     )
     if (blocks('source-catalog-missing')) return { config: null, diagnostics }
   }
-  if (!locales.includes(sourceLocale)) {
-    diagnostics.push(
-      diag('config-invalid', {
-        message: `\`sourceLocale\` is \`${sourceLocale}\`, which \`locales\` does not declare.`,
-        hint: `every fallback chain ends at the source locale, so add '${sourceLocale}' to locales.`,
-        locale: sourceLocale,
-      }),
-    )
-    return { config: null, diagnostics }
+  if (undeclaredSource) {
+    return { config: null, diagnostics: [...diagnostics, sourceNotDeclared(sourceLocale)] }
   }
 
   for (const locale of locales) {
@@ -232,16 +230,74 @@ export function resolveConfig(input: {
   }
 }
 
-function swallowedByOutDir(
-  outDir: string,
-  paths: Readonly<Record<string, string | false>>,
-): readonly (readonly [string, string])[] {
-  const inside: (readonly [string, string])[] = []
-  for (const [field, path] of Object.entries(paths)) {
+function sourceNotDeclared(sourceLocale: string): Diagnostic {
+  return diag('config-invalid', {
+    message: `\`sourceLocale\` is \`${sourceLocale}\`, which \`locales\` does not declare.`,
+    hint: `every fallback chain ends at the source locale, so add '${sourceLocale}' to locales.`,
+    locale: sourceLocale,
+  })
+}
+
+interface ArtifactPaths {
+  readonly outDir: string
+  readonly catalogs: string
+  readonly meta: string | false
+  readonly record: string | false
+}
+
+// Run once before discovery with the declared source locale, unless LZ1002 is
+// about to reject it, and again once an inferred one is known: a check that waited for inference would lose to any
+// disk fatal raised on the way. Paths compare without case, because macOS and
+// Windows resolve `Locales` and `locales` to one directory, and the verdict has
+// to be the same on every machine.
+function pathConflicts(paths: ArtifactPaths, sourceLocale: string | undefined): Diagnostic[] {
+  const { outDir, catalogs } = paths
+  const conflicts: Diagnostic[] = []
+  if (holdsCatalogs(outDir, catalogs)) conflicts.push(swallowed(outDir, '`catalogs`', catalogs))
+  const readsAsCatalog = catalogMatcher(catalogs.toLowerCase())
+  const artifacts = [
+    ['meta', paths.meta, DEFAULT_META],
+    ['record', paths.record, DEFAULT_RECORD],
+  ] as const
+  for (const [field, path, fallback] of artifacts) {
     if (path === false) continue
-    if (path === outDir || path.startsWith(`${outDir}/`)) inside.push([field, path])
+    const resolved = sourceLocale === undefined ? path : path.replaceAll('{sourceLocale}', sourceLocale)
+    const folded = resolved.toLowerCase()
+    const folder = outDir.toLowerCase()
+    if (folded === folder || folded.startsWith(`${folder}/`)) {
+      conflicts.push(swallowed(outDir, `resolved \`${field}\``, resolved))
+    }
+    if (readsAsCatalog !== null && readsAsCatalog(folded) !== null) {
+      conflicts.push(
+        diag('config-invalid', {
+          message: `\`${field}\` is \`${resolved}\`, which the \`catalogs\` pattern \`${catalogs}\` also matches.`,
+          hint: `a file the pattern matches is either a catalog or the ${field} file, never both. Name one it cannot match, such as '${fallback}'.`,
+        }),
+      )
+    }
   }
-  return inside
+  return conflicts
+}
+
+function swallowed(outDir: string, field: string, path: string): Diagnostic {
+  return diag('config-invalid', {
+    message: `\`outDir\` is \`${outDir}\`, which holds the ${field} path \`${path}\`.`,
+    hint: `the generated tree writes a self-ignoring .gitignore into outDir, so ${path} would stop being committed. Give outDir a directory of its own, such as 'src/loclizr'.`,
+  })
+}
+
+// Segment by segment, because a token can stand for a directory: outDir
+// `locales/en` sits inside `locales/{locale}/{ns}.json` and beside
+// `locales/{locale}.json`.
+function holdsCatalogs(outDir: string, catalogs: string): boolean {
+  const directories = outDir.split('/')
+  const segments = catalogs.split('/')
+  return (
+    segments.length > directories.length &&
+    directories.every((directory, index) =>
+      new RegExp(literalMatcher(segments[index] ?? '').source, 'i').test(directory),
+    )
+  )
 }
 
 function usableCatalogs(
@@ -259,7 +315,7 @@ function usableCatalogs(
       diagnostics.push(
         diag('catalog-undeclared', {
           message: `\`${catalog.locale}\` is not a valid locale tag, so ${catalog.file} was skipped.`,
-          hint: 'rename it to a BCP 47 tag, or declare `locales` explicitly so the pattern stops reaching this file.',
+          hint: 'rename it to a BCP 47 tag, or move it out of the catalog pattern.',
           file: catalog.file,
         }),
       )
@@ -297,7 +353,9 @@ function pasteableConfig(
     return file === undefined ? `    ${cell}` : `    ${cell.padEnd(width)}  // ${file}`
   })
   return [
-    'name the source locale in loclizr.config.ts:',
+    'write loclizr.config.ts, or add `locales` and `sourceLocale` to the config you have:',
+    "import { defineConfig } from 'loclizr'",
+    '',
     'export default defineConfig({',
     '  locales: [',
     ...lines,
