@@ -26,7 +26,35 @@ import { Aside } from '@astrojs/starlight/components'
 | `prebuild`, `pretypecheck` | `build` | Fails on an error. |
 | CI | `check` | Compares the committed record instead of rewriting it. |
 
-## build --no-fail
+That step is the whole of loclizr's part. A complete workflow around it, with the install step
+`init` leaves to you:
+
+```yaml title=".github/workflows/loclizr.yml"
+on: [push, pull_request]
+jobs:
+  loclizr:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - run: npm ci --ignore-scripts
+      - run: npx loclizr check
+```
+
+<Aside type="caution">
+`check` has to run before anything that runs `loclizr build`, and `prepare` runs on `npm ci`. A
+plain `npm ci` rewrites the record during the install, and `check` then passes on a stale record.
+`--ignore-scripts` closes that. It also skips other packages' install scripts, so if a dependency
+of yours needs its script, drop `prepare` from `package.json` instead and rely on `predev`,
+`prebuild` and `pretypecheck`.
+</Aside>
+
+The transcripts on this page come from `examples/vite-react` in the loclizr repository: 26
+messages, 3 locales, and one warning the example keeps on purpose.
+
+## `build --no-fail`
 
 The flag changes the exit code and nothing else. Every diagnostic is still produced, printed and
 counted.
@@ -84,11 +112,13 @@ The contract: keys, ids, modules, kinds, source text and hash, descriptions, arg
 types, plural and select shapes, markup tags. Add or remove a key, rename a placeholder, change a
 description, and `check` fails.
 
-Two fields are projected out of both sides first, each tried against the example catalogs.
+Two fields are projected out of both sides first, each tried against the `examples/vite-react`
+catalogs with the generated tree absent, which is the CI state.
 
 - **Translator pull requests.** A German string edited in `de.json`, then a key deleted from it:
   neither raised `LZ5003`. The deletion raised `LZ3001 missing-translation` for the two locales
-  that now fall back, the right error for it. Per-locale status is the record's `translations`
+  that now fall back, the right error for it. With the generated tree still on disk the string
+  edit also raises `LZ5002`, which the note below covers. Per-locale status is the record's `translations`
   array, outside the gate, because a batch of translations landing is not a change to the
   contract.
 - **Usage churn.** A component calling `m.nav_home()` renamed and its file moved to another
