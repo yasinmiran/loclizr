@@ -230,3 +230,35 @@ describe('ranking', () => {
     expect(await discoverLayouts(root)).toEqual(await discoverLayouts(root))
   })
 })
+
+describe('layouts a catalogs pattern cannot name', () => {
+  it('marks a base directory carrying a glob metacharacter', async () => {
+    await touch('app/(marketing)/locales/en.json', 'app/[lang]/i18n/de.json')
+
+    expect(await discoverLayouts(root)).toEqual([
+      { pattern: 'app/(marketing)/locales/{locale}.json', locales: ['en'], unnameable: true },
+      { pattern: 'app/[lang]/i18n/{locale}.json', locales: ['de'], unnameable: true },
+    ])
+  })
+
+  it.skipIf(process.platform === 'win32')(
+    'marks a POSIX directory whose name holds a backslash, keeping the name',
+    async () => {
+      await touch('a\\b/locales/en.json')
+
+      expect(await discoverLayouts(root)).toEqual([
+        { pattern: 'a\\b/locales/{locale}.json', locales: ['en'], unnameable: true },
+      ])
+    },
+  )
+
+  it('ranks a nameable layout first whatever its size', async () => {
+    await touch('app/(marketing)/locales/en.json', 'app/(marketing)/locales/de.json')
+    await touch('web/messages/en.json')
+
+    expect((await discoverLayouts(root)).map((layout) => layout.pattern)).toEqual([
+      'web/messages/{locale}.json',
+      'app/(marketing)/locales/{locale}.json',
+    ])
+  })
+})

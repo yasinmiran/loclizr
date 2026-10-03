@@ -3,7 +3,7 @@ import type { Command, GlobalOptions } from './args'
 import { USAGE, parseCommand } from './args'
 
 function optionsOf(command: Command): GlobalOptions {
-  if (command.kind === 'help' || command.kind === 'usage') {
+  if (command.kind === 'help' || command.kind === 'version' || command.kind === 'usage') {
     throw new Error(`expected a runnable command, got ${command.kind}`)
   }
   return command.options

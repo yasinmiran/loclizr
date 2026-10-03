@@ -3,7 +3,7 @@ import type { Command, GlobalOptions } from './args'
 import { parseCommand } from './args'
 
 function optionsOf(command: Command): GlobalOptions {
-  if (command.kind === 'help' || command.kind === 'usage') {
+  if (command.kind === 'help' || command.kind === 'version' || command.kind === 'usage') {
     throw new Error(`expected a runnable command, got ${command.kind}`)
   }
   return command.options
@@ -133,5 +133,12 @@ describe('parseCommand', () => {
     expect(parseCommand(['--help'])).toEqual({ kind: 'help' })
     expect(parseCommand(['-h'])).toEqual({ kind: 'help' })
     expect(parseCommand(['build', '--help'])).toEqual({ kind: 'help' })
+  })
+
+  it('reads --version before any command, and --help over it', () => {
+    expect(parseCommand(['--version'])).toEqual({ kind: 'version' })
+    expect(parseCommand(['build', '-v'])).toEqual({ kind: 'version' })
+    expect(parseCommand(['--version', '--help'])).toEqual({ kind: 'help' })
+    expect(parseCommand(['-h', '-v'])).toEqual({ kind: 'help' })
   })
 })

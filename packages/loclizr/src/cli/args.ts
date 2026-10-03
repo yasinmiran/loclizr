@@ -13,6 +13,7 @@ export type Command =
   | { readonly kind: 'check'; readonly options: GlobalOptions }
   | { readonly kind: 'init'; readonly options: GlobalOptions }
   | { readonly kind: 'help' }
+  | { readonly kind: 'version' }
   | { readonly kind: 'usage'; readonly message: string }
 
 export const USAGE: string = `loclizr <command> [options]
@@ -35,6 +36,7 @@ Options
                           were dropped
   --no-fail               build only: report everything, exit 0 once output
                           was written
+  -v, --version           print the installed loclizr version
   -h, --help              print this`
 
 interface Flags {
@@ -45,6 +47,7 @@ interface Flags {
   readonly quiet?: boolean | undefined
   readonly 'no-fail'?: boolean | undefined
   readonly help?: boolean | undefined
+  readonly version?: boolean | undefined
 }
 
 export function parseCommand(argv: readonly string[]): Command {
@@ -61,6 +64,7 @@ export function parseCommand(argv: readonly string[]): Command {
         quiet: { type: 'boolean' },
         'no-fail': { type: 'boolean' },
         help: { type: 'boolean', short: 'h' },
+        version: { type: 'boolean', short: 'v' },
       },
       allowPositionals: true,
     })
@@ -71,6 +75,7 @@ export function parseCommand(argv: readonly string[]): Command {
   }
 
   if (flags.help === true) return { kind: 'help' }
+  if (flags.version === true) return { kind: 'version' }
 
   const [name, ...rest] = positionals
   if (name === undefined) return { kind: 'usage', message: 'missing command' }

@@ -38,13 +38,20 @@ export const SEED_CATALOG: string = `{
 }
 `
 
+// The catalogs pattern carries whatever directory names discovery walked
+// through, so an apostrophe or a control character in one has to be escaped
+// for the config to parse.
+function singleQuoted(value: string): string {
+  return `'${JSON.stringify(value).slice(1, -1).replaceAll("'", "\\'")}'`
+}
+
 export function configTemplate(options: ConfigTemplateOptions): string {
   const lines: string[] = [
     "import { defineConfig } from 'loclizr'",
     '',
     'export default defineConfig({',
     `  sourceLocale: '${options.sourceLocale}',`,
-    `  catalogs: '${options.catalogs}',`,
+    `  catalogs: ${singleQuoted(options.catalogs)},`,
     `  outDir: '${SEED_OUT_DIR}',`,
   ]
   if (!options.augmentLocale) {

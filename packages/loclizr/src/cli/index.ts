@@ -1,4 +1,4 @@
-import { stat } from 'node:fs/promises'
+import { readFile, stat } from 'node:fs/promises'
 import { resolve } from 'node:path'
 import type { BuildOptions } from '../compiler'
 import { build, check } from '../compiler'
@@ -13,6 +13,10 @@ export async function run(argv: readonly string[]): Promise<number> {
   const command = parseCommand(argv)
   if (command.kind === 'help') {
     io.out(`${USAGE}\n`)
+    return 0
+  }
+  if (command.kind === 'version') {
+    io.out(`${await packageVersion()}\n`)
     return 0
   }
   if (command.kind === 'usage') return usage(command.message)
@@ -40,6 +44,13 @@ export async function run(argv: readonly string[]): Promise<number> {
     io.err(`loclizr: ${error instanceof Error ? error.message : String(error)}\n`)
     return 2
   }
+}
+
+// Both this file and the bundled dist/cli/bin.js sit two levels below the
+// package root, so one relative URL finds the package.json that shipped.
+async function packageVersion(): Promise<string> {
+  const text = await readFile(new URL('../../package.json', import.meta.url), 'utf8')
+  return (JSON.parse(text) as { version: string }).version
 }
 
 function usage(message: string): number {

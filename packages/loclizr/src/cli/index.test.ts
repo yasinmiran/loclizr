@@ -1,4 +1,4 @@
-import { mkdtemp, rm, writeFile } from 'node:fs/promises'
+import { mkdtemp, readFile, rm, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
@@ -186,5 +186,31 @@ describe('run, init', () => {
     expect(await run(['init', '--cwd', root])).toBe(2)
     expect(out).toEqual([])
     expect(err.join('')).toContain('could not write locales/en.json')
+  })
+})
+
+describe('run, --version', () => {
+  it('prints the package version and a newline, and exits 0', async () => {
+    const { version } = JSON.parse(
+      await readFile(new URL('../../package.json', import.meta.url), 'utf8'),
+    ) as { version: string }
+
+    expect(await run(['--version'])).toBe(0)
+    expect(await run(['-v'])).toBe(0)
+    expect(out).toEqual([`${version}\n`, `${version}\n`])
+    expect(err).toEqual([])
+    expect(calls).toEqual([])
+  })
+
+  it('yields to --help when both are given', async () => {
+    expect(await run(['-v', '-h'])).toBe(0)
+
+    expect(out.join('')).toContain('-v, --version')
+  })
+
+  it('is listed in the usage text', async () => {
+    await run(['--help'])
+
+    expect(out.join('')).toContain('-v, --version')
   })
 })

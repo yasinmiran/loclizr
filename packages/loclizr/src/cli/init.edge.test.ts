@@ -348,3 +348,108 @@ describe('the shape of what it prints and writes', () => {
     )
   })
 })
+
+describe('a catalog path that needs escaping', () => {
+  it('writes an apostrophe in the path as a string literal that still parses', async () => {
+    await write("o'brien/locales/en.json", '{"a":"b"}')
+
+    const result = await runInit({ cwd: root })
+    const config = await read('loclizr.config.ts')
+    const literal = /^ {2}catalogs: ('.*'),$/m.exec(config)?.[1] ?? ''
+
+    expect(result.ok).toBe(true)
+    expect(new Function(`return ${literal}`)()).toBe("o'brien/locales/{locale}.json")
+  })
+})
+
+describe('--config naming a directory', () => {
+  it.each([
+    ['the empty string', '', '.'],
+    ['the cwd itself', '.', '.'],
+    ['an existing directory', 'src', 'src'],
+  ])('refuses %s and seeds nothing', async (_, configPath, shown) => {
+    await mkdir(join(root, 'src'))
+
+    const result = await runInit({ cwd: root, configPath })
+
+    expect(result.ok).toBe(false)
+    expect(result.output).toContain(`could not write ${shown}: it is a directory`)
+    expect(result.output).not.toContain('already exists')
+    await expect(read('locales/en.json')).rejects.toThrow()
+  })
+})
+
+describe('a layout no catalogs pattern can name', () => {
+  it.each([
+    ['a glob metacharacter', 'app/(marketing)/locales'],
+    ...(process.platform === 'win32' ? [] : [['a POSIX backslash', 'a\\b/locales']]),
+  ])('is reported through %s, and nothing is seeded over it', async (_, directory) => {
+    await write(`${directory}/de.json`, '{"a":"b"}')
+
+    const result = await runInit({ cwd: root })
+    const config = await read('loclizr.config.ts')
+
+    expect(result.ok).toBe(true)
+    expect(result.output).toContain(
+      `found 1 locale at ${directory}/{locale}.json: de, which \`catalogs\` cannot name; move the catalogs to a path`,
+    )
+    expect(result.output).toContain(
+      `no seed catalog written, because ${directory}/{locale}.json already holds the catalogs it would seed`,
+    )
+    expect(config).toContain("  sourceLocale: 'de',")
+    expect(config).toContain("  catalogs: 'locales/{locale}.json',")
+    expect(config).toContain(SOFT_GATE)
+    expect(config).not.toContain(HARD_GATE)
+    await expect(read('locales/de.json')).rejects.toThrow()
+    await expect(read('locales/en.json')).rejects.toThrow()
+  })
+
+  it('lists every other unnameable layout when that is all there is', async () => {
+    await write('app/(marketing)/locales/en.json', '{"a":"b"}')
+    await write('app/[lang]/messages/de.json', '{"a":"b"}')
+
+    const result = await runInit({ cwd: root })
+
+    expect(result.output).toContain('found 1 locale at app/(marketing)/locales/{locale}.json: en, which')
+    expect(result.output).toContain('also found app/[lang]/messages/{locale}.json, which `catalogs` cannot name')
+    expect(await read('loclizr.config.ts')).toContain("  catalogs: 'locales/{locale}.json',")
+  })
+
+  it('is listed after the nameable layout init picks', async () => {
+    await write('app/(marketing)/locales/en.json', '{"a":"b"}')
+    await write('web/messages/en.json', '{"a":"b"}')
+
+    const result = await runInit({ cwd: root })
+
+    expect(result.output).toContain('found 1 locale at web/messages/{locale}.json: en')
+    expect(result.output).toContain(
+      'also found app/(marketing)/locales/{locale}.json, which `catalogs` cannot name',
+    )
+    expect(await read('loclizr.config.ts')).toContain("  catalogs: 'web/messages/{locale}.json',")
+  })
+})
+
+describe('a write target that is not a file', () => {
+  it('fails on a seed path that is a directory, rather than calling it present', async () => {
+    await mkdir(join(root, 'locales/en.json'), { recursive: true })
+
+    const result = await runInit({ cwd: root })
+
+    expect(result.ok).toBe(false)
+    expect(result.output).toContain('wrote loclizr.config.ts')
+    expect(result.output).toContain('could not write locales/en.json: it is a directory')
+  })
+
+  it('seeds nothing when the config could not be written', async () => {
+    await write('conf', 'a file, not a directory')
+
+    const result = await runInit({ cwd: root, configPath: 'conf/loclizr.config.ts' })
+
+    expect(result.ok).toBe(false)
+    expect(result.output).toContain('could not write conf/loclizr.config.ts')
+    expect(result.output).toContain(
+      'no seed catalog written, because conf/loclizr.config.ts was not written',
+    )
+    await expect(read('locales/en.json')).rejects.toThrow()
+  })
+})

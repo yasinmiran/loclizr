@@ -3,7 +3,7 @@ import type { Command, GlobalOptions } from './args'
 import { USAGE, parseCommand } from './args'
 
 function optionsOf(command: Command): GlobalOptions {
-  if (command.kind === 'help' || command.kind === 'usage') {
+  if (command.kind === 'help' || command.kind === 'version' || command.kind === 'usage') {
     throw new Error(`expected a runnable command, got ${command.kind}`)
   }
   return command.options
@@ -41,9 +41,9 @@ describe('an unrecognized flag is reported as one', () => {
   // parseArgs answers with advice about positional arguments starting with a
   // dash, which no command here takes, and its closing quote is unbalanced.
   it('names the flag and nothing else, whichever spelling it was', () => {
-    expect(parseCommand(['build', '--version'])).toEqual({
+    expect(parseCommand(['build', '--verbose'])).toEqual({
       kind: 'usage',
-      message: "unknown option '--version'",
+      message: "unknown option '--verbose'",
     })
     expect(parseCommand(['build', '-x'])).toEqual({
       kind: 'usage',
@@ -52,7 +52,7 @@ describe('an unrecognized flag is reported as one', () => {
   })
 
   it('mentions neither positional arguments nor the terminator', () => {
-    const command = parseCommand(['--version'])
+    const command = parseCommand(['--verbose'])
     const message = command.kind === 'usage' ? command.message : ''
 
     expect(message).not.toContain('positional')

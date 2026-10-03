@@ -38,13 +38,15 @@ type Outcome =
 export async function runInit(options: InitOptions): Promise<InitResult> {
   const root = resolve(options.cwd)
   const layouts = await discoverLayouts(root)
+  // Unnameable layouts rank last, so the first is one only when it is all there is.
   const layout = layouts[0] ?? null
-  const catalogs = layout?.pattern ?? DEFAULT_CATALOGS
+  const discovered = layout?.pattern ?? DEFAULT_CATALOGS
+  const catalogs = layout?.unnameable === true ? DEFAULT_CATALOGS : discovered
   const sourceLocale = sourceLocaleOf(layout)
   // Only the default layout has one file a seed could be. Writing
   // `locales/en.json` beside a `public/locales/{locale}/{ns}.json` tree would
   // compile the demo strings and leave every real catalog invisible.
-  const seed = catalogs === DEFAULT_CATALOGS ? resolve(root, catalogPath(sourceLocale)) : null
+  const seed = discovered === DEFAULT_CATALOGS ? resolve(root, catalogPath(sourceLocale)) : null
 
   const configFile = resolve(root, options.configPath ?? CONFIG_FILENAME)
   const shadowed = options.configPath === undefined ? await firstConfigPresent(root) : null
@@ -53,7 +55,7 @@ export async function runInit(options: InitOptions): Promise<InitResult> {
       ? await writeIfAbsent(root, configFile, await configFor(root, catalogs, sourceLocale, seed))
       : { kind: 'exists', path: shadowed }
 
-  const catalog = await seedOutcome(root, config, seed, catalogs)
+  const catalog = await seedOutcome(root, config, seed, discovered)
 
   const lines = [...describeLayouts(layouts), describeOutcome(config), describeOutcome(catalog)]
   const ok = config.kind !== 'failed' && catalog.kind !== 'failed'
@@ -73,6 +75,9 @@ async function seedOutcome(
 ): Promise<Outcome> {
   if (config.kind === 'exists') {
     return { kind: 'skipped', because: `${config.path} already declares sourceLocale and catalogs` }
+  }
+  if (config.kind === 'failed') {
+    return { kind: 'skipped', because: `${config.path} was not written` }
   }
   if (seed === null) {
     return { kind: 'skipped', because: `${catalogs} already holds the catalogs it would seed` }
@@ -103,18 +108,26 @@ function sourceLocaleOf(layout: CatalogLayout | null): string {
   return layout.locales[0] ?? DEFAULT_SOURCE_LOCALE
 }
 
+const UNNAMEABLE_NOTE =
+  'which `catalogs` cannot name; move the catalogs to a path without glob characters or backslashes to compile them'
+
 // The inferred pattern is the one decision here a user cannot see in the two
 // files, and on a monorepo root it is the decision most likely to be wrong.
 function describeLayouts(layouts: readonly CatalogLayout[]): readonly string[] {
   const [chosen, ...rest] = layouts
   if (chosen === undefined) return []
   const count = chosen.locales.length
-  const lines = [
-    `found ${count} locale${count === 1 ? '' : 's'} at ${chosen.pattern}: ${chosen.locales.join(', ')}`,
-  ]
-  if (rest.length > 0) {
-    const others = rest.map((layout) => layout.pattern).join(', ')
-    lines.push(`also found ${others}; set \`catalogs\` yourself to compile one of those instead`)
+  const found = `found ${count} locale${count === 1 ? '' : 's'} at ${chosen.pattern}: ${chosen.locales.join(', ')}`
+  const lines = [chosen.unnameable === true ? `${found}, ${UNNAMEABLE_NOTE}` : found]
+  const others = rest.filter((layout) => layout.unnameable !== true)
+  if (others.length > 0) {
+    const patterns = others.map((layout) => layout.pattern).join(', ')
+    lines.push(`also found ${patterns}; set \`catalogs\` yourself to compile one of those instead`)
+  }
+  const unnameable = rest.filter((layout) => layout.unnameable === true)
+  if (unnameable.length > 0) {
+    const patterns = unnameable.map((layout) => layout.pattern).join(', ')
+    lines.push(`also found ${patterns}, ${UNNAMEABLE_NOTE}`)
   }
   return lines
 }
@@ -124,7 +137,7 @@ function describeLayouts(layouts: readonly CatalogLayout[]): readonly string[] {
 // catch because its EEXIST means the parent is a file, which is a failure,
 // while the write's means the target is already there, which is not.
 async function writeIfAbsent(root: string, file: string, content: string): Promise<Outcome> {
-  const path = toPosix(relative(root, file))
+  const path = toPosix(relative(root, file)) || '.'
   try {
     await mkdir(dirname(file), { recursive: true })
   } catch (error) {
@@ -134,8 +147,18 @@ async function writeIfAbsent(root: string, file: string, content: string): Promi
     await writeFile(file, content, { encoding: 'utf8', flag: 'wx' })
     return { kind: 'written', path }
   } catch (error) {
-    if (codeOf(error) === 'EEXIST') return { kind: 'exists', path }
-    return { kind: 'failed', path, reason: reasonOf(error) }
+    if (codeOf(error) !== 'EEXIST') return { kind: 'failed', path, reason: reasonOf(error) }
+  }
+  // `wx` answers EEXIST for a directory too, which is no config and no seed.
+  if (await isDirectory(file)) return { kind: 'failed', path, reason: 'it is a directory' }
+  return { kind: 'exists', path }
+}
+
+async function isDirectory(file: string): Promise<boolean> {
+  try {
+    return (await stat(file)).isDirectory()
+  } catch {
+    return false
   }
 }
 
