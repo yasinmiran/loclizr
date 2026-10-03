@@ -229,7 +229,7 @@ describe('plurals', () => {
         '  switch (l) {',
         '    default:',
         '      if (n0 === 0) return `none`',
-        '      switch ($plural1(l, n0 - 2, false)) {',
+        "      switch ($plural1('en', n0 - 2, false)) {",
         "        case 'one':",
         '          return `${$number1(l, n0 - 2, $f44136fa355b3678a)} left`',
         '        default:',
@@ -261,7 +261,7 @@ describe('plurals', () => {
       }),
       locales: ['en'],
     })
-    expect(contentsOf(files, 'messages/race.js')).toContain('switch ($plural1(l, n0, true)) {')
+    expect(contentsOf(files, 'messages/race.js')).toContain("switch ($plural1('en', n0, true)) {")
   })
 
   test('collapses the category lookup when every keyword branch renders the same', () => {
@@ -334,11 +334,11 @@ describe('plurals', () => {
         '  switch (l) {',
         '    default:',
         '      return `${',
-        "        $plural1(l, n0, false) === 'one'",
+        "        $plural1('en', n0, false) === 'one'",
         '          ? `${$number1(l, n0, $f44136fa355b3678a)} file`',
         '          : `${$number1(l, n0, $f44136fa355b3678a)} files`',
         '      } in ${',
-        "        $plural1(l, n1, false) === 'one'",
+        "        $plural1('en', n1, false) === 'one'",
         '          ? `${$number1(l, n1, $f44136fa355b3678a)} folder`',
         '          : `${$number1(l, n1, $f44136fa355b3678a)} folders`',
         '      }`',
@@ -385,7 +385,7 @@ describe('plurals', () => {
     expect(contentsOf(files, 'messages/cart.js')).toContain(
       lines(
         '      if (n0 === 0) {',
-        '        switch ($plural1(l, n1, false)) {',
+        "        switch ($plural1('en', n1, false)) {",
         "          case 'one':",
         '            return `one empty box`',
         '          default:',
@@ -401,9 +401,9 @@ describe('plurals', () => {
     const files = only({ message: nestedPlurals(), locales: ['en'] })
     expect(contentsOf(files, 'messages/cart.js')).toContain(
       lines(
-        '      switch ($plural1(l, n0 - 2, false)) {',
+        "      switch ($plural1('en', n0 - 2, false)) {",
         "        case 'one':",
-        '          switch ($plural1(l, n1, false)) {',
+        "          switch ($plural1('en', n1, false)) {",
         "            case 'one':",
         '              return `one user, one file`',
         '            default:',
@@ -411,7 +411,7 @@ describe('plurals', () => {
         '          }',
         '        default:',
         '          return `${$number1(l, n0 - 2, $f44136fa355b3678a)} users, ${',
-        "            $plural1(l, n1, false) === 'one'",
+        "            $plural1('en', n1, false) === 'one'",
         '              ? `one file`',
         '              : `${$number1(l, n1, $f44136fa355b3678a)} files`',
         '          }`',
@@ -573,7 +573,7 @@ describe('selects and markup', () => {
       lines(
         '      return [',
         "        'You have ',",
-        "        ...($plural1(l, n0, false) === 'one'",
+        "        ...($plural1('en', n0, false) === 'one'",
         "          ? [args.b(['one file'])]",
         '          : [args.b([`${$number1(l, n0, $f44136fa355b3678a)} files`])]),',
         "        ' to read',",
@@ -642,7 +642,7 @@ describe('selects and markup', () => {
     expect(contentsOf(files, 'messages/cart.js')).toContain(
       lines(
         '      return [`You have ${',
-        "        $plural1(l, n0, false) === 'one'",
+        "        $plural1('en', n0, false) === 'one'",
         '          ? `one file`',
         '          : `many files`',
         '      } to read`]',

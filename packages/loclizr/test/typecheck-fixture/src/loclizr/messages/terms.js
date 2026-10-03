@@ -41,7 +41,7 @@ export function terms_notice(args, opts) {
     case 'de-AT':
       return [
         'Du hast ',
-        ...($plural1(l, n0, false) === 'one'
+        ...($plural1('de', n0, false) === 'one'
           ? [args.b(['eine Datei'])]
           : [args.b([`${$number1(l, n0, $f44136fa355b3678a)} Dateien`])]),
         ' zu lesen',
@@ -49,7 +49,7 @@ export function terms_notice(args, opts) {
     default:
       return [
         'You have ',
-        ...($plural1(l, n0, false) === 'one'
+        ...($plural1('en', n0, false) === 'one'
           ? [args.b(['one file'])]
           : [args.b([`${$number1(l, n0, $f44136fa355b3678a)} files`])]),
         ' to read',

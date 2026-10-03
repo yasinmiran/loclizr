@@ -116,7 +116,7 @@ export function cart_items(args, opts) {
       return `${args.count} Artikel in deinem Warenkorb`
     default:
       if (n0 === 0) return `Your cart is empty`
-      switch ($plural1(l, n0, false)) {
+      switch ($plural1('en', n0, false)) {
         case 'one':
           return `${$number1(l, n0, $f44136fa355b3678a)} item in your cart`
         default:

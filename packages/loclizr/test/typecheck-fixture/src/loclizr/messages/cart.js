@@ -11,21 +11,21 @@ export function cart_counts(args, opts) {
     case 'de':
     case 'de-AT':
       return `${
-        $plural1(l, n0, false) === 'one'
+        $plural1('de', n0, false) === 'one'
           ? `${$number1(l, n0, $f44136fa355b3678a)} Datei`
           : `${$number1(l, n0, $f44136fa355b3678a)} Dateien`
       } in ${
-        $plural1(l, n1, false) === 'one'
+        $plural1('de', n1, false) === 'one'
           ? `${$number1(l, n1, $f44136fa355b3678a)} Ordner`
           : `${$number1(l, n1, $f44136fa355b3678a)} Ordnern`
       }`
     default:
       return `${
-        $plural1(l, n0, false) === 'one'
+        $plural1('en', n0, false) === 'one'
           ? `${$number1(l, n0, $f44136fa355b3678a)} file`
           : `${$number1(l, n0, $f44136fa355b3678a)} files`
       } in ${
-        $plural1(l, n1, false) === 'one'
+        $plural1('en', n1, false) === 'one'
           ? `${$number1(l, n1, $f44136fa355b3678a)} folder`
           : `${$number1(l, n1, $f44136fa355b3678a)} folders`
       }`
@@ -53,7 +53,7 @@ export function cart_items(args, opts) {
       return `${args.count} Artikel in deinem Warenkorb`
     default:
       if (n0 === 0) return `Your cart is empty`
-      switch ($plural1(l, n0, false)) {
+      switch ($plural1('en', n0, false)) {
         case 'one':
           return `${$number1(l, n0, $f44136fa355b3678a)} item in your cart`
         default:
@@ -69,9 +69,9 @@ export function cart_nested(args, opts) {
   switch (l) {
     default:
       if (n0 === 0) return `nobody`
-      switch ($plural1(l, n0 - 2, false)) {
+      switch ($plural1('en', n0 - 2, false)) {
         case 'one':
-          switch ($plural1(l, n1, false)) {
+          switch ($plural1('en', n1, false)) {
             case 'one':
               return `one user, one file`
             default:
@@ -79,7 +79,7 @@ export function cart_nested(args, opts) {
           }
         default:
           return `${$number1(l, n0 - 2, $f44136fa355b3678a)} users, ${
-            $plural1(l, n1, false) === 'one'
+            $plural1('en', n1, false) === 'one'
               ? `one file`
               : `${$number1(l, n1, $f44136fa355b3678a)} files`
           }`

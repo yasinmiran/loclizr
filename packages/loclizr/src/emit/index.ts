@@ -14,7 +14,7 @@ import type {
   Program,
 } from '../types'
 import { compareCodepoint } from '../util'
-import { armContext, localDeclarations, pluralSelectors, renderArm } from './body'
+import { localDeclarations, messageContext, pluralSelectors, renderArm } from './body'
 import { argsShape, declaration, returnType } from './declare'
 import {
   HEADER,
@@ -114,21 +114,21 @@ function renderMessage(
 ): RenderedMessage {
   const bodies = new Map<string, Body>(message.bodies.map((body) => [body.locale, body]))
   const origins = new Map<string, Origin>(message.origins.map((entry) => [entry.locale, entry.origin]))
-  const nodesFor = (locale: string): readonly Node[] => {
+  const bodyLocale = (locale: string): string => {
     const origin = origins.get(locale)
-    const from = origin === undefined || origin.status === 'translated' ? locale : origin.from
-    return bodies.get(from)?.nodes ?? []
+    return origin === undefined || origin.status === 'translated' ? locale : origin.from
   }
+  const nodesFor = (locale: string): readonly Node[] => bodies.get(bodyLocale(locale))?.nodes ?? []
 
-  const context = armContext(
+  const context = messageContext(
     message.kind,
     pluralSelectors([...locales, sourceLocale].map(nodesFor)),
     handlerNames(message.args),
   )
-  const arms = locales.map((locale) => ({ locale, code: renderArm(nodesFor(locale), context, ARM_INDENT) }))
-  const fallthrough =
-    arms.find((arm) => arm.locale === sourceLocale)?.code ??
-    renderArm(nodesFor(sourceLocale), context, ARM_INDENT)
+  const armFor = (locale: string): string =>
+    renderArm(nodesFor(locale), context, ARM_INDENT, bodyLocale(locale))
+  const arms = locales.map((locale) => ({ locale, code: armFor(locale) }))
+  const fallthrough = arms.find((arm) => arm.locale === sourceLocale)?.code ?? armFor(sourceLocale)
 
   const cases: { readonly code: string; readonly locales: string[] }[] = []
   for (const arm of arms) {

@@ -10,7 +10,7 @@ type ArgNode = Extract<Node, { kind: 'arg' }>
 
 const NO_OPTIONS: IntlOptions = {}
 
-export interface ArmContext {
+export interface MessageContext {
   readonly kind: 'text' | 'markup'
   readonly selectors: readonly string[]
   // Every argument the declaration types as a markup handler. A name here is a
@@ -21,11 +21,21 @@ export interface ArmContext {
   readonly runtime: Set<string>
 }
 
-export function armContext(
+interface ArmContext extends MessageContext {
+  // The locale whose body this arm prints. A plural selects its category with
+  // that locale's rules, never the requesting locale's: an inherited or
+  // fallback arm carries another language's grammar, and the requesting
+  // locale's categories can pick a branch that body never wrote. Number and
+  // date formatting stay on the requesting locale, which is what a regional
+  // overlay such as de-AT over de is declared for.
+  readonly locale: string
+}
+
+export function messageContext(
   kind: 'text' | 'markup',
   selectors: readonly string[],
   handlers: ReadonlySet<string>,
-): ArmContext {
+): MessageContext {
   return {
     kind,
     selectors,
@@ -48,11 +58,16 @@ export function pluralSelectors(bodies: readonly (readonly Node[])[]): readonly 
   return names
 }
 
-export function renderArm(nodes: readonly Node[], ctx: ArmContext, indent: number): string {
-  return statements(nodes, ctx, indent, null)
+export function renderArm(
+  nodes: readonly Node[],
+  ctx: MessageContext,
+  indent: number,
+  locale: string,
+): string {
+  return statements(nodes, { ...ctx, locale }, indent, null)
 }
 
-export function localDeclarations(ctx: ArmContext, indent: number): readonly string[] {
+export function localDeclarations(ctx: MessageContext, indent: number): readonly string[] {
   return [...ctx.usedLocals]
     .sort((a, b) => a - b)
     .map((index) => `${pad(indent)}const n${index} = ${access(ctx.selectors[index] ?? '')}`)
@@ -81,8 +96,7 @@ function pluralStatements(node: PluralNode, ctx: ArmContext, indent: number, fra
     lines.push(statements(plan.other, ctx, indent, plan.inner))
     return lines.join('\n')
   }
-  ctx.runtime.add('$plural1')
-  lines.push(`${pad(indent)}switch ($plural1(l, ${selectorValue(plan.inner, ctx)}, ${node.ordinal})) {`)
+  lines.push(`${pad(indent)}switch (${pluralCall(node, plan.inner, ctx)}) {`)
   for (const branch of plan.keywords) {
     lines.push(`${pad(indent + 2)}case ${quoted(branch.keyword)}:`)
     lines.push(statements(branch.body, ctx, indent + 4, plan.inner))
@@ -263,11 +277,17 @@ function branchPlan(node: PluralNode | SelectNode, ctx: ArmContext, frame: Frame
     body: branch.body,
   }))
   for (const branch of plan.keywords) {
-    ctx.runtime.add('$plural1')
-    const call = `$plural1(l, ${selectorValue(plan.inner, ctx)}, ${node.ordinal})`
-    alternatives.push({ test: `${call} === ${quoted(branch.keyword)}`, body: branch.body })
+    alternatives.push({
+      test: `${pluralCall(node, plan.inner, ctx)} === ${quoted(branch.keyword)}`,
+      body: branch.body,
+    })
   }
   return { alternatives, fallback: plan.other, frame: plan.inner }
+}
+
+function pluralCall(node: PluralNode, frame: Frame, ctx: ArmContext): string {
+  ctx.runtime.add('$plural1')
+  return `$plural1(${quoted(ctx.locale)}, ${selectorValue(frame, ctx)}, ${node.ordinal})`
 }
 
 type Render = (nodes: readonly Node[], ctx: ArmContext, indent: number, frame: Frame | null) => string
