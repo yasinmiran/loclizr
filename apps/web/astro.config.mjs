@@ -13,7 +13,14 @@ export default defineConfig({
       plugins: [
         starlightThemeBlack({
           navLinks: [{ label: 'Docs', link: '/start/introduction/' }],
-          docs: { showMarkdownActions: true },
+          docs: {
+            showMarkdownActions: {
+              prompt:
+                'I am reading the loclizr documentation at {url}. loclizr compiles JSON translation catalogs into typed ESM message functions, checks the catalogs inside the build, and writes a context record per message. Answer from this page.',
+              // The theme ships four agents and enables them all by default.
+              agents: { v0: false, scira: false },
+            },
+          },
         }),
         starlightLlmsTxt({
           projectName: 'loclizr',
