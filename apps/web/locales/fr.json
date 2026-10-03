@@ -1,0 +1,9 @@
+{
+  "demo": {
+    "greeting": "Bonjour, {name} !",
+    "items": "{count, plural, =0 {Votre panier est vide} one {# article dans votre panier} many {# d’articles dans votre panier} other {# articles dans votre panier}}",
+    "total": "Total : {amount, number, ::currency/EUR}",
+    "updated": "Mis à jour le {at, date, medium}",
+    "status": "{state, select, packing {En cours de préparation} shipped {En cours de livraison} delivered {Livré} other {En cours de traitement}}"
+  }
+}

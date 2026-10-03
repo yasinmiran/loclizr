@@ -1,0 +1,9 @@
+{
+  "demo": {
+    "greeting": "こんにちは、{name}さん！",
+    "items": "{count, plural, =0 {カートは空です} other {カートに#点の商品があります}}",
+    "total": "合計: {amount, number, ::currency/EUR}",
+    "updated": "{at, date, medium}に更新",
+    "status": "{state, select, packing {梱包中} shipped {配送中} delivered {配達済み} other {処理中}}"
+  }
+}

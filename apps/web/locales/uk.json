@@ -1,0 +1,9 @@
+{
+  "demo": {
+    "greeting": "Вітаємо, {name}!",
+    "items": "{count, plural, =0 {Ваш кошик порожній} one {# товар у кошику} few {# товари в кошику} many {# товарів у кошику} other {# товару в кошику}}",
+    "total": "Разом: {amount, number, ::currency/EUR}",
+    "updated": "Оновлено {at, date, medium}",
+    "status": "{state, select, packing {Пакується} shipped {У дорозі} delivered {Доставлено} other {В обробці}}"
+  }
+}

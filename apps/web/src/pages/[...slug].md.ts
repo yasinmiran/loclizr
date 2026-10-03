@@ -61,6 +61,8 @@ function asidesToBlockquotes(body: string): string {
 const wrapperTag = /^\s*<\/?(?:Steps|FileTree|Tabs|CardGrid)>\s*$/
 const tabOpen = /^\s*<TabItem\b[^>]*\blabel="([^"]*)"[^>]*>\s*$/
 const tabClose = /^\s*<\/TabItem>\s*$/
+// Interactive widgets such as <LanguageDemo /> have no Markdown form.
+const widget = /^\s*<[A-Z][A-Za-z]*\s*\/>\s*$/
 
 function componentsToMarkdown(body: string): string {
   const flattened = body
@@ -84,7 +86,7 @@ function componentsToMarkdown(body: string): string {
   for (const line of flattened.split('\n')) {
     if (/^\s*(?:```|~~~)/.test(line)) fenced = !fenced
     if (!fenced) {
-      if (wrapperTag.test(line) || tabClose.test(line)) continue
+      if (wrapperTag.test(line) || tabClose.test(line) || widget.test(line)) continue
       const tab = tabOpen.exec(line)
       if (tab) {
         lines.push(`**${tab[1]}**`)

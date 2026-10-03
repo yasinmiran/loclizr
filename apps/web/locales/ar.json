@@ -1,0 +1,9 @@
+{
+  "demo": {
+    "greeting": "مرحبًا، {name}!",
+    "items": "{count, plural, =0 {سلتك فارغة} zero {لا توجد منتجات في سلتك} one {منتج واحد في سلتك} two {منتجان في سلتك} few {# منتجات في سلتك} many {# منتجًا في سلتك} other {# منتج في سلتك}}",
+    "total": "المجموع: {amount, number, ::currency/EUR}",
+    "updated": "آخر تحديث: {at, date, medium}",
+    "status": "{state, select, packing {قيد التغليف} shipped {في الطريق} delivered {تم التوصيل} other {قيد المعالجة}}"
+  }
+}

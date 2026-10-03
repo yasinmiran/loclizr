@@ -11,6 +11,7 @@ export const sidebar: SidebarGroup[] = [
     items: [
       { label: 'Introduction', slug: 'start/introduction' },
       { label: 'Quickstart', slug: 'start/quickstart' },
+      { label: 'Playground', slug: 'start/playground' },
       { label: 'How it works', slug: 'start/how-it-works' },
       { label: 'Coding agents', slug: 'start/agents' },
     ],

@@ -16,6 +16,9 @@ importers:
       astro:
         specifier: ^7.3.3
         version: 7.3.3(@emnapi/core@1.11.1)(@emnapi/runtime@1.11.1)(@types/node@26.6.2)(jiti@2.7.0)
+      loclizr:
+        specifier: workspace:*
+        version: link:../../packages/loclizr
       sharp:
         specifier: ^0.34.0
         version: 0.34.5

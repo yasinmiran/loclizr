@@ -1,0 +1,579 @@
+{
+  "schema": 1,
+  "sourceLocale": "en",
+  "locales": [
+    "ar",
+    "de",
+    "en",
+    "es",
+    "fr",
+    "hi",
+    "it",
+    "ja",
+    "ko",
+    "pl",
+    "pt",
+    "uk",
+    "zh"
+  ],
+  "messages": [
+    {
+      "key": "demo.greeting",
+      "id": "demo_greeting",
+      "module": "messages/demo.js",
+      "kind": "text",
+      "source": "Hello, {name}!",
+      "sourceHash": "48e1645a3bf4c08f",
+      "description": null,
+      "args": [
+        {
+          "name": "name",
+          "type": "text",
+          "options": null,
+          "note": null
+        }
+      ],
+      "variants": [],
+      "markup": [],
+      "translations": [
+        {
+          "locale": "ar",
+          "status": "translated",
+          "from": null,
+          "reason": null
+        },
+        {
+          "locale": "de",
+          "status": "translated",
+          "from": null,
+          "reason": null
+        },
+        {
+          "locale": "en",
+          "status": "translated",
+          "from": null,
+          "reason": null
+        },
+        {
+          "locale": "es",
+          "status": "translated",
+          "from": null,
+          "reason": null
+        },
+        {
+          "locale": "fr",
+          "status": "translated",
+          "from": null,
+          "reason": null
+        },
+        {
+          "locale": "hi",
+          "status": "translated",
+          "from": null,
+          "reason": null
+        },
+        {
+          "locale": "it",
+          "status": "translated",
+          "from": null,
+          "reason": null
+        },
+        {
+          "locale": "ja",
+          "status": "translated",
+          "from": null,
+          "reason": null
+        },
+        {
+          "locale": "ko",
+          "status": "translated",
+          "from": null,
+          "reason": null
+        },
+        {
+          "locale": "pl",
+          "status": "translated",
+          "from": null,
+          "reason": null
+        },
+        {
+          "locale": "pt",
+          "status": "translated",
+          "from": null,
+          "reason": null
+        },
+        {
+          "locale": "uk",
+          "status": "translated",
+          "from": null,
+          "reason": null
+        },
+        {
+          "locale": "zh",
+          "status": "translated",
+          "from": null,
+          "reason": null
+        }
+      ],
+      "usage": [
+        {
+          "file": "src/components/language-demo.ts",
+          "scope": "demoLines"
+        }
+      ]
+    },
+    {
+      "key": "demo.items",
+      "id": "demo_items",
+      "module": "messages/demo.js",
+      "kind": "text",
+      "source": "{count, plural, =0 {Your cart is empty} one {# item in your cart} other {# items in your cart}}",
+      "sourceHash": "a826cf6a40d3293e",
+      "description": null,
+      "args": [
+        {
+          "name": "count",
+          "type": "number",
+          "options": null,
+          "note": null
+        }
+      ],
+      "variants": [
+        {
+          "arg": "count",
+          "kind": "plural",
+          "matches": [
+            "=0",
+            "one",
+            "other"
+          ]
+        }
+      ],
+      "markup": [],
+      "translations": [
+        {
+          "locale": "ar",
+          "status": "translated",
+          "from": null,
+          "reason": null
+        },
+        {
+          "locale": "de",
+          "status": "translated",
+          "from": null,
+          "reason": null
+        },
+        {
+          "locale": "en",
+          "status": "translated",
+          "from": null,
+          "reason": null
+        },
+        {
+          "locale": "es",
+          "status": "translated",
+          "from": null,
+          "reason": null
+        },
+        {
+          "locale": "fr",
+          "status": "translated",
+          "from": null,
+          "reason": null
+        },
+        {
+          "locale": "hi",
+          "status": "translated",
+          "from": null,
+          "reason": null
+        },
+        {
+          "locale": "it",
+          "status": "translated",
+          "from": null,
+          "reason": null
+        },
+        {
+          "locale": "ja",
+          "status": "translated",
+          "from": null,
+          "reason": null
+        },
+        {
+          "locale": "ko",
+          "status": "translated",
+          "from": null,
+          "reason": null
+        },
+        {
+          "locale": "pl",
+          "status": "translated",
+          "from": null,
+          "reason": null
+        },
+        {
+          "locale": "pt",
+          "status": "translated",
+          "from": null,
+          "reason": null
+        },
+        {
+          "locale": "uk",
+          "status": "translated",
+          "from": null,
+          "reason": null
+        },
+        {
+          "locale": "zh",
+          "status": "translated",
+          "from": null,
+          "reason": null
+        }
+      ],
+      "usage": [
+        {
+          "file": "src/components/language-demo.ts",
+          "scope": "demoLines"
+        },
+        {
+          "file": "src/components/language-demo.ts",
+          "scope": "gridRows"
+        }
+      ]
+    },
+    {
+      "key": "demo.status",
+      "id": "demo_status",
+      "module": "messages/demo.js",
+      "kind": "text",
+      "source": "{state, select, packing {Being packed} shipped {On its way} delivered {Delivered} other {Processing}}",
+      "sourceHash": "0277ce5c835efb7e",
+      "description": null,
+      "args": [
+        {
+          "name": "state",
+          "type": "select",
+          "options": [
+            "packing",
+            "shipped",
+            "delivered"
+          ],
+          "note": null
+        }
+      ],
+      "variants": [
+        {
+          "arg": "state",
+          "kind": "select",
+          "matches": [
+            "packing",
+            "shipped",
+            "delivered",
+            "other"
+          ]
+        }
+      ],
+      "markup": [],
+      "translations": [
+        {
+          "locale": "ar",
+          "status": "translated",
+          "from": null,
+          "reason": null
+        },
+        {
+          "locale": "de",
+          "status": "translated",
+          "from": null,
+          "reason": null
+        },
+        {
+          "locale": "en",
+          "status": "translated",
+          "from": null,
+          "reason": null
+        },
+        {
+          "locale": "es",
+          "status": "translated",
+          "from": null,
+          "reason": null
+        },
+        {
+          "locale": "fr",
+          "status": "translated",
+          "from": null,
+          "reason": null
+        },
+        {
+          "locale": "hi",
+          "status": "translated",
+          "from": null,
+          "reason": null
+        },
+        {
+          "locale": "it",
+          "status": "translated",
+          "from": null,
+          "reason": null
+        },
+        {
+          "locale": "ja",
+          "status": "translated",
+          "from": null,
+          "reason": null
+        },
+        {
+          "locale": "ko",
+          "status": "translated",
+          "from": null,
+          "reason": null
+        },
+        {
+          "locale": "pl",
+          "status": "translated",
+          "from": null,
+          "reason": null
+        },
+        {
+          "locale": "pt",
+          "status": "translated",
+          "from": null,
+          "reason": null
+        },
+        {
+          "locale": "uk",
+          "status": "translated",
+          "from": null,
+          "reason": null
+        },
+        {
+          "locale": "zh",
+          "status": "translated",
+          "from": null,
+          "reason": null
+        }
+      ],
+      "usage": [
+        {
+          "file": "src/components/language-demo.ts",
+          "scope": "demoLines"
+        }
+      ]
+    },
+    {
+      "key": "demo.total",
+      "id": "demo_total",
+      "module": "messages/demo.js",
+      "kind": "text",
+      "source": "Total: {amount, number, ::currency/EUR}",
+      "sourceHash": "57fb4231197e1a1c",
+      "description": null,
+      "args": [
+        {
+          "name": "amount",
+          "type": "number",
+          "options": null,
+          "note": null
+        }
+      ],
+      "variants": [],
+      "markup": [],
+      "translations": [
+        {
+          "locale": "ar",
+          "status": "translated",
+          "from": null,
+          "reason": null
+        },
+        {
+          "locale": "de",
+          "status": "translated",
+          "from": null,
+          "reason": null
+        },
+        {
+          "locale": "en",
+          "status": "translated",
+          "from": null,
+          "reason": null
+        },
+        {
+          "locale": "es",
+          "status": "translated",
+          "from": null,
+          "reason": null
+        },
+        {
+          "locale": "fr",
+          "status": "translated",
+          "from": null,
+          "reason": null
+        },
+        {
+          "locale": "hi",
+          "status": "translated",
+          "from": null,
+          "reason": null
+        },
+        {
+          "locale": "it",
+          "status": "translated",
+          "from": null,
+          "reason": null
+        },
+        {
+          "locale": "ja",
+          "status": "translated",
+          "from": null,
+          "reason": null
+        },
+        {
+          "locale": "ko",
+          "status": "translated",
+          "from": null,
+          "reason": null
+        },
+        {
+          "locale": "pl",
+          "status": "translated",
+          "from": null,
+          "reason": null
+        },
+        {
+          "locale": "pt",
+          "status": "translated",
+          "from": null,
+          "reason": null
+        },
+        {
+          "locale": "uk",
+          "status": "translated",
+          "from": null,
+          "reason": null
+        },
+        {
+          "locale": "zh",
+          "status": "translated",
+          "from": null,
+          "reason": null
+        }
+      ],
+      "usage": [
+        {
+          "file": "src/components/language-demo.ts",
+          "scope": "demoLines"
+        },
+        {
+          "file": "src/components/language-demo.ts",
+          "scope": "gridRows"
+        }
+      ]
+    },
+    {
+      "key": "demo.updated",
+      "id": "demo_updated",
+      "module": "messages/demo.js",
+      "kind": "text",
+      "source": "Updated {at, date, medium}",
+      "sourceHash": "0aba80bcb5e14646",
+      "description": null,
+      "args": [
+        {
+          "name": "at",
+          "type": "date",
+          "options": null,
+          "note": null
+        }
+      ],
+      "variants": [],
+      "markup": [],
+      "translations": [
+        {
+          "locale": "ar",
+          "status": "translated",
+          "from": null,
+          "reason": null
+        },
+        {
+          "locale": "de",
+          "status": "translated",
+          "from": null,
+          "reason": null
+        },
+        {
+          "locale": "en",
+          "status": "translated",
+          "from": null,
+          "reason": null
+        },
+        {
+          "locale": "es",
+          "status": "translated",
+          "from": null,
+          "reason": null
+        },
+        {
+          "locale": "fr",
+          "status": "translated",
+          "from": null,
+          "reason": null
+        },
+        {
+          "locale": "hi",
+          "status": "translated",
+          "from": null,
+          "reason": null
+        },
+        {
+          "locale": "it",
+          "status": "translated",
+          "from": null,
+          "reason": null
+        },
+        {
+          "locale": "ja",
+          "status": "translated",
+          "from": null,
+          "reason": null
+        },
+        {
+          "locale": "ko",
+          "status": "translated",
+          "from": null,
+          "reason": null
+        },
+        {
+          "locale": "pl",
+          "status": "translated",
+          "from": null,
+          "reason": null
+        },
+        {
+          "locale": "pt",
+          "status": "translated",
+          "from": null,
+          "reason": null
+        },
+        {
+          "locale": "uk",
+          "status": "translated",
+          "from": null,
+          "reason": null
+        },
+        {
+          "locale": "zh",
+          "status": "translated",
+          "from": null,
+          "reason": null
+        }
+      ],
+      "usage": [
+        {
+          "file": "src/components/language-demo.ts",
+          "scope": "demoLines"
+        }
+      ]
+    }
+  ]
+}

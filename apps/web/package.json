@@ -4,13 +4,16 @@
   "version": "0.0.0",
   "type": "module",
   "scripts": {
+    "predev": "loclizr build --no-fail",
     "dev": "astro dev",
+    "prebuild": "loclizr build",
     "build": "astro build",
     "preview": "astro preview"
   },
   "dependencies": {
     "@astrojs/starlight": "^0.42.2",
     "astro": "^7.3.3",
+    "loclizr": "workspace:*",
     "sharp": "^0.34.0"
   },
   "devDependencies": {

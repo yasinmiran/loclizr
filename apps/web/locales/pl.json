@@ -1,0 +1,9 @@
+{
+  "demo": {
+    "greeting": "Cześć, {name}!",
+    "items": "{count, plural, =0 {Twój koszyk jest pusty} one {# produkt w koszyku} few {# produkty w koszyku} many {# produktów w koszyku} other {# produktu w koszyku}}",
+    "total": "Razem: {amount, number, ::currency/EUR}",
+    "updated": "Zaktualizowano {at, date, medium}",
+    "status": "{state, select, packing {Pakowanie} shipped {W drodze} delivered {Dostarczono} other {W realizacji}}"
+  }
+}

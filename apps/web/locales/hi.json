@@ -1,0 +1,9 @@
+{
+  "demo": {
+    "greeting": "नमस्ते, {name}!",
+    "items": "{count, plural, =0 {आपकी कार्ट खाली है} one {आपकी कार्ट में # आइटम है} other {आपकी कार्ट में # आइटम हैं}}",
+    "total": "कुल: {amount, number, ::currency/EUR}",
+    "updated": "{at, date, medium} को अपडेट किया गया",
+    "status": "{state, select, packing {पैक किया जा रहा है} shipped {रास्ते में है} delivered {डिलीवर हो गया} other {प्रोसेस हो रहा है}}"
+  }
+}

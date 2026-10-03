@@ -1,0 +1,9 @@
+{
+  "demo": {
+    "greeting": "안녕하세요, {name}님!",
+    "items": "{count, plural, =0 {장바구니가 비어 있습니다} other {장바구니에 상품 #개가 있습니다}}",
+    "total": "합계: {amount, number, ::currency/EUR}",
+    "updated": "{at, date, medium}에 업데이트됨",
+    "status": "{state, select, packing {포장 중} shipped {배송 중} delivered {배송 완료} other {처리 중}}"
+  }
+}

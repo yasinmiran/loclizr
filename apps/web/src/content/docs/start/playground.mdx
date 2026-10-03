@@ -1,0 +1,85 @@
+---
+title: Playground
+description: Five messages in 13 languages, compiled by loclizr for this site and running in your browser.
+---
+
+import LanguageDemo from '../../../components/LanguageDemo.astro'
+import LocaleGrid from '../../../components/LocaleGrid.astro'
+
+This site compiles its own catalogs with `loclizr build`. The widgets below call the generated functions
+in your browser, with no ICU parser and no request to a server.
+
+## Switch the language
+
+<LanguageDemo />
+
+Every line is one generated function called with the chosen locale, as the line under the output shows.
+The page itself stays English, so the demo passes `{ locale }` per call instead of calling `setLocale`.
+
+## Every language at once
+
+<LocaleGrid />
+
+Try 1, 2, 5, 22 and 1000000. Polish and Ukrainian switch between `one`, `few` and `many`, Arabic has
+six forms, and Japanese, Chinese and Korean have one. `0` hits the exact `=0` branch in every language.
+
+## The catalogs behind it
+
+```ts title="loclizr.config.ts"
+import { defineConfig } from 'loclizr'
+
+export default defineConfig({
+  locales: ['en', 'de', 'fr', 'es', 'pt', 'it', 'pl', 'uk', 'ar', 'hi', 'ja', 'zh', 'ko'],
+  sourceLocale: 'en',
+})
+```
+
+```json title="locales/en.json"
+{
+  "demo": {
+    "greeting": "Hello, {name}!",
+    "items": "{count, plural, =0 {Your cart is empty} one {# item in your cart} other {# items in your cart}}",
+    "total": "Total: {amount, number, ::currency/EUR}",
+    "updated": "Updated {at, date, medium}",
+    "status": "{state, select, packing {Being packed} shipped {On its way} delivered {Delivered} other {Processing}}"
+  }
+}
+```
+
+```json title="locales/pl.json"
+{
+  "demo": {
+    "greeting": "Cześć, {name}!",
+    "items": "{count, plural, =0 {Twój koszyk jest pusty} one {# produkt w koszyku} few {# produkty w koszyku} many {# produktów w koszyku} other {# produktu w koszyku}}",
+    "total": "Razem: {amount, number, ::currency/EUR}",
+    "updated": "Zaktualizowano {at, date, medium}",
+    "status": "{state, select, packing {Pakowanie} shipped {W drodze} delivered {Dostarczono} other {W realizacji}}"
+  }
+}
+```
+
+```json title="locales/ar.json"
+{
+  "demo": {
+    "greeting": "مرحبًا، {name}!",
+    "items": "{count, plural, =0 {سلتك فارغة} zero {لا توجد منتجات في سلتك} one {منتج واحد في سلتك} two {منتجان في سلتك} few {# منتجات في سلتك} many {# منتجًا في سلتك} other {# منتج في سلتك}}",
+    "total": "المجموع: {amount, number, ::currency/EUR}",
+    "updated": "آخر تحديث: {at, date, medium}",
+    "status": "{state, select, packing {قيد التغليف} shipped {في الطريق} delivered {تم التوصيل} other {قيد المعالجة}}"
+  }
+}
+```
+
+Every translation lists exactly the plural categories `Intl.PluralRules` reports for its language.
+Drop `few` from the Polish plural and the build says so:
+
+```txt
+warn  LZ3007  plural-category-incomplete  locales/pl.json:4:15  pl  demo.items
+
+  pl selects few for some values of {count}, and this plural has no branch for it.
+
+  fix  add few {...} to {count, plural, ...} in locales/pl.json
+```
+
+See [Catalogs](/guides/catalogs/) for the message syntax and [Language switching](/guides/language-switching/)
+for `setLocale` in an app.

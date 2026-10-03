@@ -1,0 +1,9 @@
+{
+  "demo": {
+    "greeting": "Olá, {name}!",
+    "items": "{count, plural, =0 {Seu carrinho está vazio} one {# item no seu carrinho} many {# de itens no seu carrinho} other {# itens no seu carrinho}}",
+    "total": "Total: {amount, number, ::currency/EUR}",
+    "updated": "Atualizado em {at, date, medium}",
+    "status": "{state, select, packing {Sendo embalado} shipped {A caminho} delivered {Entregue} other {Em processamento}}"
+  }
+}
