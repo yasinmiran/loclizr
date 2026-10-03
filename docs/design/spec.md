@@ -178,8 +178,11 @@ argument, `{x, plural ...}`, `{x, select ...}`, `{x, selectordinal ...}`,
 `LZ1020 icu-in-i18next-file` at warn. The hint names what classified the file,
 verbatim: the first value holding a `{{`, or the first CLDR-suffixed key. It
 states that the run will render as literal text, and gives the fix: convert
-that file to ICU, or set `catalogFormat`. This is the one mistake `'auto'` can
-make invisible, so it is the one it reports.
+that file to ICU, or set `severity: { 'icu-in-i18next-file': 'off' }` if the
+literal text is what you meant. No `catalogFormat` value silences it, because
+it fires on every file read as i18next. Under `catalogFormat: 'i18next'` nothing
+classified the file, so the hint names the setting instead. This is the one
+mistake `'auto'` can make invisible, so it is the one it reports.
 
 A key path is the dotted join of its nesting. `{"nav": {"home": "Home"}}` is the
 key `nav.home`. A dotted key at any level flattens the same way, so
@@ -208,8 +211,11 @@ locale and no prefix is added.
 
 **Leaf shapes.** A string leaf is a message. An object leaf is nesting. A `null`
 leaf is a **missing translation**, not a shape error: several TMS exports write
-`null` for an untranslated unit, so it produces no entry and no diagnostic of
-its own and feeds the normal fallback chain and `LZ3001`. An array leaf is
+`null` for an untranslated unit, so it produces no entry. In a target catalog
+it raises no diagnostic of its own and feeds the normal fallback chain and
+`LZ3001`. In the source catalog there is no chain to feed, so it is
+`LZ1010 catalog-shape-invalid` naming the key, unless another route to the same
+key ends in a message string. An array leaf is
 `LZ1010 catalog-shape-invalid`, with a hint naming the deferred `format()`
 escape hatch. Flattening an array to `tips.0`, `tips.1` is tempting and wrong,
 because the app wants the array, not three messages. A number or boolean leaf is
@@ -394,7 +400,10 @@ changing meaning.
    post-fold key set, so a context under a folded base, `friend` beside
    `friend_male` folded from `friend_male_one` and `friend_male_other`, is
    caught, and the suffixes `plural`, `ordinal` and the six CLDR categories are
-   never contexts, because those are the two plural shapes above. i18next
+   never contexts, because those are the two plural shapes above. A suffix
+   holding a dot is never a context either: `user_settings.title` beside `user`
+   is a nested key under an underscored segment, and a dotted selector would not
+   parse in the rewrite. i18next
    selected contexts at run time with `t('friend', { context: gender })`, and
    after import they are `m.friend_male` and `m.friend_female` selected by
    nothing. The typed lookup tier is prefix based and cannot reach a suffix, so
@@ -448,8 +457,8 @@ code point of the name, then of the note. No diagnostic names the loser.
 Configuration is optional. With no config file, `npx loclizr build` expands the
 default `catalogs` pattern, takes `en` as the source locale, and writes
 `src/loclizr/`. That is the whole quickstart. If no `en.json` exists and the
-source locale cannot be inferred, `LZ1004 source-catalog-missing` prints the
-four-line config to paste.
+source locale cannot be inferred, `LZ1004 source-catalog-missing` prints a
+whole config file to paste, `defineConfig` import included.
 
 **Path semantics, one rule for the whole config.** `Config.root` is an absolute
 POSIX path. **Every other path-valued field of `Config` is POSIX and relative to
@@ -471,7 +480,8 @@ glob that swallowed `en.meta.json` would make the documented quickstart die the
 moment somebody writes a description, and would make the *second*
 `loclizr build` die with no user action at all, because build one wrote
 `loclizr.context.json` beside the catalogs. Belt and braces on top of the
-pattern: discovery excludes the resolved `meta` and `record` paths, and a
+pattern: a resolved `meta` or `record` path the pattern matches is
+`LZ1001 config-invalid`, discovery still excludes both paths, and a
 **discovered** basename that `Intl.getCanonicalLocales` rejects is skipped with
 `LZ1006 catalog-undeclared` at warn. `LZ1002 locale-tag-invalid` stays fatal for
 a locale the user **declared** in `locales`.
@@ -534,16 +544,23 @@ Defaults, applied field by field:
 | `identifiers` | `{}` |
 | `fallback` | `'bcp47'` |
 | `formats` | `{ number: {}, dateTime: {} }` |
-| `scan.include` | `['src/**/*.{ts,tsx,js,jsx,mts,mjs}']` |
+| `scan.include` | `['src/**/*.{ts,tsx,js,jsx,mts,mjs,svelte,vue,astro}']` |
 | `scan.exclude` | `['**/node_modules/**', '**/dist/**']` plus `outDir` |
 | `severity` | `{}` |
 
 `meta` and `record` accept `false` to switch the feature off. `outDir` must
 resolve inside the project root; anything else, the root itself included, is
 `LZ1007 outdir-unsafe`, because the prune step would otherwise walk the whole
-project. An `outDir` that holds the resolved `meta` or `record` path is
-`LZ1001 config-invalid` naming both fields: the self-ignoring `.gitignore` M6
-writes into it would stop the catalogs and the record being committed.
+project. An `outDir` that can hold a path the `catalogs` pattern matches (each
+`{locale}` or `{ns}` segment standing for any directory), or the resolved
+`meta` or `record` path, is `LZ1001 config-invalid` naming both fields: the
+self-ignoring `.gitignore` M6 writes into it would stop the catalogs and the
+record being committed. Paths compare without case, because macOS and Windows
+resolve both spellings to one directory. `{sourceLocale}` resolves to the
+declared `sourceLocale` when it is a valid tag, otherwise to the inferred
+source locale, so the check runs once before discovery and once more after
+inference. A resolved `meta` or `record` path that the `catalogs` pattern
+matches is also `LZ1001`: a file is a catalog or an artifact, never both.
 
 `resolveConfig` validates each field's shape and every one of these is
 `LZ1001 config-invalid` with a hint naming the field: a `catalogs` pattern
@@ -554,7 +571,9 @@ name with a space, `;`, `=` or comma, because M12 writes it verbatim into
 `document.cookie` and it never reads back; a `formats.timeZone` or a named
 style in `formats.number` or `formats.dateTime` that `Intl.DateTimeFormat` or
 `Intl.NumberFormat` refuses to construct, probed at the fixed locale `en` so
-the verdict is machine independent, with the `Intl` message as the hint; and a
+the verdict is machine independent, with the `Intl` message as the hint; a
+named style holding a non-finite number, which `Intl` would silently coerce
+rather than refuse (`hour12: NaN` builds); and a
 `sourceLocale` that `locales` does not declare. Declared locale tags are kept
 verbatim, never canonicalized through `Intl.getCanonicalLocales`, because
 canonicalizing would change `Config.locales`, the emitted arms and the
@@ -635,6 +654,9 @@ value renders:
   reach, such as `nb` and `no`. An entry naming a locale that is not declared
   contributes nothing: no catalog is read for it, so the walk continues past
   it.
+- The source locale's own chain is `[sourceLocale]` whatever `fallback` says,
+  because every chain ends there; an entry keyed by the source locale is
+  ignored.
 
 An ancestor whose own value fell back is skipped as a candidate, so `de-AT`
 inheriting from a `de` that is blank on a key falls to the source and records
@@ -738,7 +760,9 @@ Without the dedup, `Body.args` would carry two entries for one name and emit
 would print an arbitrary winner into a declaration whose body formats both
 ways. Argument names are normalized to NFC first, so an NFC and an NFD `café`
 are one argument here and do not produce a spurious `LZ3004` / `LZ3005` pair
-across locales later.
+across locales later. Select options are never normalized, because the runtime
+matches them verbatim; two options of one select that are equal under NFC but
+not byte-identical are `LZ2001`, at the second option.
 
 **`Message.args` is exactly the source locale's argument set, in
 first-appearance order in the source body, with types unified across locales.**
@@ -878,8 +902,15 @@ that arm still format with the requesting locale, so `de-AT` falling back to
 
 The set of categories a locale requires comes from
 `requiredCategories(locale, ordinal)`, which is
-`new Intl.PluralRules(locale, { type }).resolvedOptions().pluralCategories`, so
-there is no hand-maintained CLDR table. It lives in M1's `src/util` because M2's
+`new Intl.PluralRules(locale, { type }).resolvedOptions().pluralCategories`
+when `Intl.PluralRules.supportedLocalesOf(locale)` is non-empty and `[]`
+otherwise, so there is no hand-maintained CLDR table and a locale `Intl` has no
+data for never borrows the build machine's default locale's categories. `[]`
+means unknown, not none: M2 folds no lone `_other` and keeps `_zero` as `=0`
+for such a locale, and M5 would read every keyword branch of it as `LZ3013`,
+including `other`, which is correct only because M10 drops `LZ3007` and
+`LZ3013` for every locale without plural data before reporting (section 16,
+M10 step 0). It lives in M1's `src/util` because M2's
 suffix folding and M5's checks both need it; M3 never calls it, because
 `LZ2006` tests the universal CLDR keyword set and every locale-specific rule is
 M5's. A locale missing one of its required categories raises
@@ -923,9 +954,12 @@ differently from every other ICU implementation the user's TMS validates
 against. We follow the parser, because inventing a second pound resolution would
 make our output disagree with the parse tree we ship diagnostics against, and we
 raise `LZ2008 pound-literal` at warn for any literal text node containing `#`
-lexically inside a plural body. The check is free during lowering, fires exactly
-on the mistake, and the hint is: move the `#` out of the nested select, or write
-`{a, number}`.
+lexically inside a plural body. The check is free during lowering and fires
+exactly on the mistake. The hint names the construct that fired it, in the
+file's own syntax: inside a nested select, move the `#` out of the select or
+write `{a, number}`; a quoted `'#'` with no select, write `#` without the quotes
+or `{a, number}`; in an i18next file, `#` is always the character, so write
+`{{a}}` for the count.
 
 ### 5.4 Markup
 
@@ -1071,7 +1105,10 @@ one cache entry. Each hoisted const is individually tree-shakeable, so an unused
 format drops with its message.
 
 **Each hoisted const is named `$f` plus `hash16(stableStringify(options))`, not
-`$f1`, `$f2`, `$f3`.** A positional ordinal renumbers every later const whenever
+`$f1`, `$f2`, `$f3`,** with any non-finite number first replaced by a
+one-element array of its `String` spelling, because JSON writes `NaN`,
+`Infinity` and `-Infinity` alike as `null` and no option value is ever an
+array. A positional ordinal renumbers every later const whenever
 a format is added anywhere in the project, which turns one new currency style
 into a whole-file diff for every team that commits `outDir` and makes
 `LZ5002 output-stale` report churn instead of staleness. The hash is stable
@@ -1197,15 +1234,18 @@ team that would rather commit the tree deletes that one `.gitignore`;
 only when the files exist on disk.
 
 **M6 owns that `.gitignore` and returns it as an `EmittedFile` like any other**,
-so nothing in the layout has two authors. M10 writes it **only when the path
-does not already exist**, and excludes it from both the write-if-changed
-comparison and `LZ5002`. That is what makes deleting it an escape hatch rather
-than a wish: recreating it unconditionally would let the documented escape
-survive exactly one build.
+so nothing in the layout has two authors. M10 writes it **only when `outDir`
+itself does not exist at the start of the run**, and excludes it from both the
+write-if-changed comparison and `LZ5002`. That is what makes deleting it an
+escape hatch rather than a wish: recreating it unconditionally would let the
+documented escape survive exactly one build.
 
 **Every emitted file except the `.gitignore` begins with the generated header**,
 `// @generated by loclizr abi=1. Do not edit; run \`loclizr build\`.`, byte for
 byte, as line 1. That includes every `.d.ts`, where it sits above the imports.
+Every `.js` carries `// @ts-nocheck` as line 2, so a project that typechecks
+JavaScript (`checkJs`, `svelte-check`, `astro check`) never checks generated
+code; the `.d.ts` files carry the types and stay fully checked.
 The header is not decoration; it is the token the prune step keys on.
 
 **`build` prunes, and it prunes only what it wrote.** After writing, it deletes
@@ -1226,8 +1266,8 @@ than merely annoying someone. So a headerless file is reported as
 path, the write is skipped and the same diagnostic is raised: the generated tree
 is then incomplete and the app's own build will say so, which is recoverable,
 while silently clobbering a hand-written file is not. The `.gitignore` is
-outside this entirely, per the paragraph above: written only when absent, never
-compared, never pruned.
+outside this entirely, per the paragraph above: written only into an `outDir`
+the run creates, never compared, never pruned.
 
 Two more things the prune leaves alone. A symlink or any other non-regular
 entry under `outDir` is neither read, deleted nor reported: following one
@@ -1239,8 +1279,8 @@ the wrong answer for a leftover. `severity: { 'outdir-foreign-file': 'off' }`
 therefore silences the undeletable case too.
 
 `messages/_formats.js` and `messages/_formats.d.ts` are always emitted,
-header-only when no message uses a number, date or `#` node, because the
-layout above lists them unconditionally.
+holding only their leading comment lines when no message uses a number, date
+or `#` node, because the layout above lists them unconditionally.
 
 `check` reports a **headered** file that emit did not produce as `LZ5002` with
 reason `orphaned`, and a headerless one as `LZ1021`, so `check` never fails on a
@@ -1263,7 +1303,8 @@ Mangling, in order:
    `then` matters because a `then` export makes the module namespace thenable
    and breaks `await import()`.
 5. If `config.identifiers` has an entry for this key, that value replaces the
-   whole result and is validated against steps 3 and 4.
+   whole result and then passes through steps 2, 3 and 4, so an override can
+   never carry a character that is illegal in an identifier.
 
 Namespace **filenames** are mangled the same way, so a key such as `../x.y`
 cannot write outside `outDir`.
@@ -1280,9 +1321,13 @@ or adding an `identifiers` entry. Message identifiers collide **globally**, not
 per namespace, because the barrel star-exports every namespace module into one
 namespace object. Two groups whose `id`s or whose `typeBase`s collide are the
 same code, checked inside `groups.d.ts` and reported once per pair, naming
-whichever clashed first, because `pascalCase(id)` makes the second derivative;
-a group id and a message id never collide, because groups live in `groups.js`
-and messages in `messages.js` and nothing imports both into one namespace. Two
+whichever clashed first, because `pascalCase(id)` makes the second derivative.
+A group id equal to the id of any group member, in that group or another, is
+the same code, because `groups.js` imports every member id into the scope that
+declares the groups and a second declaration of one name is a `SyntaxError`; it
+is reported once per group, anchored on the first such member's key. A group id
+and an ungrouped message id never collide, because nothing imports both into
+one namespace. Two
 keys of one group whose suffixes mangle to one member property are also
 `LZ4001`, reported only where their message ids differ (equal ids are the
 global collision already named), and the hint says to rename the key: section
@@ -1292,14 +1337,19 @@ can reach it.
 `LZ4002 identifier-reserved`, fatal, covers two sets. An **identifier** that
 enters the internal `$` namespace (matching `/^\$[a-z]/`), or that is
 `__proto__`, `constructor`, `prototype`, `locales`, `sourceLocale`,
-`getLocale`, `setLocale` or `subscribe`. The `$` test runs on the identifier
+`getLocale`, `setLocale` or `subscribe`. `__proto__`, `constructor` and
+`prototype` are reserved because they are built-in properties of every
+JavaScript object, so loclizr never exports a message under them; only the last
+five are tied to the barrel. The `$` test runs on the identifier
 **before** step 4's guard, so the guard's own output, `$then`, `$new`,
 `$class`, is the intended result and not reserved; only a key or an override
 that itself starts with `$` and a lowercase letter is. A group member property
 that mangles to `__proto__` is the same code, because section 7.4's group
-literal already defines `__proto__: null` and a second `__proto__` in one
-object literal is a `SyntaxError`. The last five are the barrel's own
-exports, and their failure mode is silent: verified in Node,
+literal spends that name on `__proto__: null` to give each group a null
+prototype, so no member can take it. A group id of `Object`, or a member id of
+`Object`, is the same code, because the groups module calls the bare global
+`Object.freeze` and either binding would shadow it. A key that takes one of
+the five barrel names fails silently: verified in Node,
 `export { locales } from './_locale.js'` beside `export * from './_root.js'`
 shadows the star export with no error and no ambiguity warning, so a root-level
 key named `locales` produces a working export nobody can reach while
@@ -1318,10 +1368,11 @@ replaces every `*/` in doc-comment text with `*\/` and replaces CR and LF with a
 single space.
 
 Two keys whose confusable skeletons are equal but whose text differs are
-`LZ4003 confusable-key`. The skeleton is NFKC plus a small built-in
-Cyrillic-and-Greek-to-Latin fold, no ICU dependency. The rule is pairwise, so a
-wholly Cyrillic key never fires on its own; it fires only when two keys differ
-by a homoglyph, which is almost always a typo.
+`LZ4003 confusable-key`. The skeleton is NFKC with U+200C, U+200D, U+2060 and
+U+FEFF removed, plus a small built-in Cyrillic-and-Greek-to-Latin fold, no ICU
+dependency. The rule is pairwise, so a wholly Cyrillic key never fires on its
+own; it fires only when two keys differ by a homoglyph or an invisible joiner,
+which is almost always a typo.
 
 ### 7.3 Call shape
 
@@ -1424,7 +1475,10 @@ export declare const terms: Readonly<{
 ```
 
 `<Base>Return` adds no collision surface: it collides only when two groups
-share a `typeBase`, which `LZ4001` already makes fatal.
+share a `typeBase`, which `LZ4001` already makes fatal. A `typeBase` of `Empty`
+prints `EmptyArgs`, the name `groups.d.ts` imports from `loclizr`; the import
+then binds under a `$`-prefixed alias no local type takes
+(`import type { EmptyArgs as $EmptyArgs, MessageOptions } from 'loclizr'`).
 
 The group literal is emitted with `__proto__: null` so a member named
 `constructor` or `prototype` cannot reach `Object.prototype`. A group whose
@@ -1602,6 +1656,7 @@ Now the output.
 
 ```js
 // @generated by loclizr abi=1. Do not edit; run `loclizr build`.
+// @ts-nocheck
 import { $configure1 } from 'loclizr'
 
 export const locales = /*#__PURE__*/ Object.freeze(['de', 'de-AT', 'en'])
@@ -1623,6 +1678,7 @@ export declare const $l: LocaleResolver
 
 ```js
 // @generated by loclizr abi=1. Do not edit; run `loclizr build`.
+// @ts-nocheck
 export const $f44136fa355b3678a = /*#__PURE__*/ Object.freeze({})
 export const $f56d532f63ea89042 = /*#__PURE__*/ Object.freeze({ currency: 'USD', style: 'currency' })
 export const $f67d978756bf2d048 = /*#__PURE__*/ Object.freeze({ dateStyle: 'medium' })
@@ -1637,6 +1693,7 @@ produces different names is not producing this output.
 
 ```js
 // @generated by loclizr abi=1. Do not edit; run `loclizr build`.
+// @ts-nocheck
 import { $l } from './_locale.js'
 
 export function nav_cart(args, opts) {
@@ -1679,6 +1736,7 @@ export declare function nav_home(args?: EmptyArgs, opts?: MessageOptions): strin
 
 ```js
 // @generated by loclizr abi=1. Do not edit; run `loclizr build`.
+// @ts-nocheck
 import { $dateTime1, $number1, $plural1 } from 'loclizr'
 import { $f44136fa355b3678a, $f56d532f63ea89042, $f67d978756bf2d048 } from './_formats.js'
 import { $l } from './_locale.js'
@@ -1822,6 +1880,7 @@ export declare function cart_updated(args: { at: Date | number }, opts?: Message
 
 ```js
 // @generated by loclizr abi=1. Do not edit; run `loclizr build`.
+// @ts-nocheck
 import { $l } from './_locale.js'
 
 export function order_status(args, opts) {
@@ -1862,6 +1921,7 @@ export declare function order_status(args: { state: 'delivered' | 'shipped' }, o
 
 ```js
 // @generated by loclizr abi=1. Do not edit; run `loclizr build`.
+// @ts-nocheck
 import { $l } from './_locale.js'
 
 export function terms_accept(args, opts) {
@@ -1905,6 +1965,7 @@ acceptance set, because it is the shape any real catalog reaches.
 
 ```js
 // @generated by loclizr abi=1. Do not edit; run `loclizr build`.
+// @ts-nocheck
 import { $number1 } from 'loclizr'
 import { $f44136fa355b3678a } from './_formats.js'
 import { $l } from './_locale.js'
@@ -1945,6 +2006,7 @@ export function errors_rate_limited(args, opts) {
 
 ```js
 // @generated by loclizr abi=1. Do not edit; run `loclizr build`.
+// @ts-nocheck
 import { errors_forbidden, errors_not_found, errors_rate_limited } from './messages/errors.js'
 
 export const errors = /*#__PURE__*/ Object.freeze({
@@ -1976,6 +2038,7 @@ export declare const errors: Readonly<{
 
 ```js
 // @generated by loclizr abi=1. Do not edit; run `loclizr build`.
+// @ts-nocheck
 export { getLocale, setLocale, subscribe } from 'loclizr'
 export { locales, sourceLocale } from './messages/_locale.js'
 export * from './messages/cart.js'
@@ -2140,9 +2203,10 @@ the second bullet below, and it could not express a per-message failure at all.
 - **The exit code is the contract.** `loclizr init` prints the CI snippet that
   checks it, and the build summary names how many messages fell back and to
   which locale.
-- A fatal rule turned down to `warn` prints as a warning and still blocks
-  output: a rule scoped `always` says no correct artifact exists, and a label
-  cannot make one. A run that blocked output exits 1 even when every printed
+- A fatal rule turned down to `warn` or to `off` prints as a warning and still
+  blocks output: a rule scoped `always` says no correct artifact exists, and a
+  label cannot make one, and `off` cannot hide the one reason the run wrote
+  nothing and exited 1. A run that blocked output exits 1 even when every printed
   diagnostic is a warning, so nothing ever exits 0 having written nothing. The
   three rules that exit 2 are not re-levelable at all (section 3).
 
@@ -2157,9 +2221,11 @@ Argument parsing uses `node:util.parseArgs`. No argument-parsing dependency.
 | `loclizr check` | everything `build` does, with no writes, plus `LZ5002` and `LZ5003`. Does **not** take `--no-fail`: it is the gate |
 
 Global flags: `--cwd <dir>`, `--config <path>`, `--reporter human|json`,
-`--max-warnings <n>`, `--quiet`, and `--help` or `-h`, which prints the one
-usage text to stdout and exits 0. There is no `--version` and no per-command
-help: `loclizr build --help` prints the same usage. Invalid usage prints the
+`--max-warnings <n>`, `--quiet`, `--version` or `-v`, which prints the version
+from the package's own `package.json` and a newline to stdout and exits 0, and
+`--help` or `-h`, which prints the one usage text to stdout and exits 0 and
+wins when both are given. There is no per-command help: `loclizr build --help`
+prints the same usage. Invalid usage prints the
 message and the usage to stderr and exits 2. Reporter output, human and JSON,
 and `init`'s text go to stdout, so `loclizr check --reporter json | jq
 '.summary'` works; the catch-all error path goes to stderr.
@@ -2205,27 +2271,30 @@ There is no `--watch`. Section 1 says why, and the README documents both
 that section 16's M13 ships, for anyone who wants the loop today.
 
 `loclizr init` reads the tree before it writes. It looks for catalog layouts
-already on disk under the usual directories, and when it finds one the config
-it writes names that layout in `catalogs`, best match first, listing any others
-it saw so the user can pick a different one. `sourceLocale` is `en` when that
-locale is on disk, otherwise the first discovered locale by code point, which
-is exactly what `LZ1004`'s hint pastes; declaring `en` over a project whose
-only catalog is `locales/de.json` would turn a working tree into one
+already on disk under the usual directories, and when it finds one the config it
+writes names that layout in `catalogs`, best match first, listing any others it
+saw so the user can pick a different one. `sourceLocale` is `en` when that
+locale is on disk, otherwise the first discovered locale by code point, which is
+exactly what `LZ1004`'s hint pastes; declaring `en` over a project whose only
+catalog is `locales/de.json` would turn a working tree into one
 missing-translation error per key. With nothing on disk the config names the
-default layout and `en`. The written config always carries `sourceLocale`,
-`catalogs` and `outDir: 'src/loclizr'`.
+default layout and `en`. A layout under a directory no `catalogs` pattern can
+spell (a glob metacharacter, or a backslash on POSIX) is listed after every
+other layout with a note to move it; when it is all there is, the config names
+the default layout with `sourceLocale` taken from that layout, the
+`ambiguous-source` line commented out, and no seed catalog. The written config
+always carries `sourceLocale`, `catalogs` and `outDir: 'src/loclizr'`.
 
 The seed catalog is written only when `init` wrote the config in the same run
-and the layout is the default one. When a config is already on disk, whichever
-of the four discovery filenames it has, `sourceLocale` and `catalogs` are that
-config's to declare, so `init` writes no seed and prints why rather than
-guessing a path the existing config may never read; and over a discovered
-non-default layout, `locales/en.json` beside a
+and the layout it found is the default one, or it found none. When a config is
+already on disk, whichever of the four discovery filenames it has,
+`sourceLocale` and `catalogs` are that config's to declare, so `init` writes no
+seed and prints why rather than guessing a path the existing config may never
+read; and over a discovered non-default layout, `locales/en.json` beside a
 `public/locales/{locale}/{ns}.json` tree would compile the demo strings and
-leave every real catalog invisible.
-`init --config <path>` is the config write target, resolved against `--cwd`,
-and it skips the four-filename shadow check because the user pointed somewhere
-explicitly.
+leave every real catalog invisible. `init --config <path>` is the config write
+target, resolved against `--cwd`, and it skips the four-filename shadow check
+because the user pointed somewhere explicitly.
 
 `init` makes two decisions inside the config skeleton. It sets
 `augmentLocale: false` when it finds an existing generated tree in the
@@ -2363,9 +2432,11 @@ Every module emits a `Diagnostic` at its rule's **default** severity, stamping
 `Diagnostic.severity` is `'warn' | 'error'` and a default-`off` rule has no
 representable stamp. **No analysis module re-levels a diagnostic, and M10 alone
 applies `config.severity`.** It runs `applySeverity` over the whole set once,
-before reporting: the effective severity is
-`overrides[rule] ?? RULES[rule].severity`, the diagnostic is dropped when that
-is `off`, and otherwise its severity is rewritten to it. That is what makes a
+before reporting: the effective severity is `overrides[rule] ??
+RULES[rule].severity`, the diagnostic is dropped when that is `off` unless it is
+fatal (`Diagnostic.fatal` true), in which case it is kept at `warn`, because
+`off` cannot unblock the tree and so must not hide why a run wrote nothing and
+exited 1; otherwise its severity is rewritten to it. That is what makes a
 default-`off` rule work with no severity decision reaching its producing module:
 M7 always emits `LZ5005`, and M10 always drops it unless the user asked for it.
 
@@ -2513,7 +2584,8 @@ rely on `Vary` alone**: Cloudflare and most CDNs ignore it outside
 `Accept-Encoding`, so the documentation states the real requirement, which is
 that a response whose locale came from the cookie must not enter a shared cache.
 Either `Cache-Control: private`, or a CDN cache key that includes the locale
-cookie.
+cookie. A network error from `Response.error()` has neither mutable headers nor
+a status a rebuilt response can carry, so `withLocale` returns it unchanged.
 
 `getLocale()` on the server outside any scope returns the source locale and
 warns once per process outside production. It does **not** throw. Static
@@ -2558,7 +2630,12 @@ either one guarantees a hydration mismatch.
 only persistence channel, because it is the only one the server can read.
 `setLocale(locale, { persist: false })` skips the cookie write only;
 `document.documentElement.lang` is still updated, because `lang` is live
-document state rather than persistence.
+document state rather than persistence. When step 1 of client detection finds
+the cookie, the store makes the same `document.documentElement.lang` write
+with the locale the cookie resolves to, with no cookie write and no listener
+notification. If no generated module has registered a locale list yet, the
+write waits for the first registration; if `setLocale` runs first, its own
+write stands and the pending one is dropped.
 
 **The hydration agreement is a single invariant: the client reads the same
 cookie the server negotiated from, and the server renders `<html lang={locale}>`.**
@@ -2585,10 +2662,15 @@ cookie exists, and a Vite SSR template ships a hardcoded `<html lang="en">`; wit
 English, and nothing in the library says a word. `useLocale` therefore runs one
 `useEffect`, **outside production only**, that compares
 `document.documentElement.lang` against the resolved locale, warns once when
-they differ naming the `Content-Language` header `withLocale` already set, and
-assigns it. The same effect fixes case 3, where a SPA reload with cookie `de`
-renders German under a frozen `lang="en"` because only `setLocale` updates
-`lang` and initial detection does not.
+they differ other than in letter case naming the `Content-Language` header
+`withLocale` already set, and assigns it. Case 3 needs no effect: on a SPA
+reload with cookie `de`, detection assigns `lang` itself when it resolves the
+cookie, so the effect finds the two in agreement and stays silent. The cost is
+that a visitor with a cookie never surfaces a template that hardcodes
+`<html lang="en">`: the store has already corrected `lang` before the effect
+runs, although the server HTML still paints with the template's value. The
+no-cookie disagreement above still warns and remains the signal that points at
+the template.
 
 ### 11.4 React
 
@@ -2656,7 +2738,8 @@ comments, block comments, all three string kinds with `${}` nesting depth,
 regular-expression literals resolved by a previous-token heuristic, and brace
 depth. Skipping those kills nearly every false positive without an AST.
 
-**In `.jsx` and `.tsx`, string lexing is narrowed, not skipped.** JSX text is
+**In `.jsx`, `.tsx`, `.svelte`, `.vue` and `.astro`, string lexing is narrowed,
+not skipped.** JSX text is
 not a string to any JS tokenizer, so `<p>Don't forget</p>` presents a bare
 apostrophe that a full lexer reads as an opening quote and does not close until
 the next apostrophe, possibly hundreds of lines later, and every `m.*`
@@ -2665,7 +2748,7 @@ and `LZ5004` fires only when no matched file imports the generated tree at
 all. Usage sites are the record's highest-value field and the payload the
 thesis is sold on, so the trade goes the other way here: a false positive
 costs one extra usage site, which is still a real source location a translator
-can read, and a false negative costs the payload. So in those two extensions a
+can read, and a false negative costs the payload. So in those extensions a
 quote opens a literal only in expression position, where the previous
 significant character is one of `= ( [ { , : ; ?`, an `=>`, or a keyword that
 ends in expression position such as `return`, **and** only when it closes
@@ -2674,10 +2757,13 @@ lexed there, because `<p>a</p><p>b</p>` offers `/p><p>b</` as one. A `//`
 immediately preceded by `:` does not open a comment, or `href="https://x"` in
 JSX text would blank the rest of its line and every usage beside the link, and
 an unterminated block comment ends at the end of its own line instead of the
-end of the file. Three residuals remain and are accepted: a `//` in JSX text
+end of the file. Four residuals remain and are accepted: a `//` in JSX text
 with no `:` before it still blanks its line, a `/*` in JSX text still loses its
-own line, and an apostrophe in JSX text that follows a comma or colon and
-closes on the same line past a usage loses that usage. Full string lexing
+own line, an apostrophe in JSX text that follows a comma or colon and closes on
+the same line past a usage loses that usage, and in `.vue` and `.svelte` a
+quoted attribute value is still a string, so a usage inside a directive such as
+`:title="m.nav_home()"` or `title="{m.nav_home()}"` is lost; interpolation and
+`<script>` are found. Full string lexing
 stays for `.ts`, `.js`, `.mts` and `.mjs`.
 
 Pass one binds the generated module per file: `import * as m from '<spec>'`
@@ -2777,17 +2863,17 @@ claim one. Ranges are thematic and a range may span two owners.
 | LZ1004 | `source-catalog-missing` | error | always | M9 | no catalog file for the source locale, or the source locale could not be inferred |
 | LZ1005 | `catalog-missing` | error | never | M9 | a declared locale has no catalog file |
 | LZ1006 | `catalog-undeclared` | warn | never | M9 | a catalog file exists for a locale absent from `locales`; a discovered basename is not a valid locale tag and was skipped, `en_US.json` included; a discovered locale's primary subtag is five to eight letters while `locales` is unset; or a `.json` file under the pattern's base directory matches neither the pattern nor `meta` nor `record` (section 3) |
-| LZ1007 | `outdir-unsafe` | error | always, exit 2 | M9 | `outDir` resolves outside the project root |
+| LZ1007 | `outdir-unsafe` | error | always, exit 2 | M9 | `outDir` resolves outside the project root, or to the root itself |
 | LZ1008 | `catalog-unreadable` | error | ifSource | M2 | the file exists and could not be read. A missing file is `LZ1005`. Never fatal for the meta sidecar |
 | LZ1009 | `catalog-json-syntax` | error | ifSource | M2 | the JSON scan failed, or the file nests more than 256 levels deep. Never fatal for the meta sidecar |
-| LZ1010 | `catalog-shape-invalid` | error | never | M2 | non-object root, or an array, number or boolean leaf, in a catalog; a root, entry, `description`, `placeholders` map or note of the wrong shape in the meta sidecar. A `null` leaf is a missing translation, not this |
+| LZ1010 | `catalog-shape-invalid` | error | never | M2 | non-object root, or an array, number or boolean leaf, in a catalog; a root, entry, `description`, `placeholders` map or note of the wrong shape in the meta sidecar. A `null` leaf in a target catalog is a missing translation, not this; in the source catalog it is this, unless another route to the same key ends in a message string |
 | LZ1011 | `duplicate-key` | error | never | M2 | the same flat key path from a nested and a dotted form where both end in a message string, from a JSON key written twice in one object whatever the values, from a bare `X` beside a group that folds to `X`, or from two namespace files of one locale. `JSON.parse` silently keeps the last one, which is how a translation disappears with no diff |
 | LZ1012 | `i18next-nesting-unsupported` | error | never | M2 | a value contains `$t(` |
 | LZ1013 | `i18next-format-unsupported` | error | never | M2 | a placeholder carries an inline formatter, `{{val, fmt}}`, or a name ICU cannot read as an argument, `{{user.name}}` |
 | LZ1014 | `plural-suffix-orphan` | warn | never | M2 | a CLDR-suffixed key with no `_other` sibling, or an `X_plural` beside a bare `X` (i18next JSON v3). A lone `X_other` is not this: i18next selects it for every count |
 | LZ1015 | `meta-orphan` | warn | never | M2 | a meta entry for a key absent from the source catalog |
 | LZ1016 | `i18next-markup-literal` | warn | never | M2 | an i18next value contained tag-shaped text, which was escaped to literal text |
-| LZ1017 | `i18next-context-detected` | warn | never | M2 | a key set `X_<suffix>` beside a bare `X`, which i18next selected at run time and nothing selects now |
+| LZ1017 | `i18next-context-detected` | warn | never | M2 | a key set `X_<suffix>` beside a bare `X`, which i18next selected at run time and nothing selects now. A suffix that is `plural`, `ordinal`, a CLDR category or holds a dot is not a context |
 | LZ1018 | `locale-base-missing` | warn | never | M9 | a declared non-source locale carries a subtag, region or script, whose base tag is not also declared |
 | LZ1019 | `icu-data-incomplete` | warn | never | M10 | the build machine's `Intl` has truncated ICU data |
 | LZ1020 | `icu-in-i18next-file` | warn | never | M2 | a file read as i18next contains a single-brace run shaped like a typed ICU argument, which will render as literal text |
@@ -2796,11 +2882,13 @@ claim one. Ranges are thematic and a range may span two owners.
 `LZ1020` is the one mistake `catalogFormat: 'auto'` can make invisible, so it is
 the one it reports. A run is any `{`, not doubled, followed by an argument name,
 a comma and one of `plural`, `select`, `selectordinal`, `number`, `date` or
-`time`. The hint names what classified the file, the first value holding a
-`{{` or the first CLDR-suffixed key, verbatim, which is **why** the file
-classified as i18next, states that the run will render as
-literal text because section 2.1 step 1 quoted it, and gives the fix: convert
-that file to ICU, or pin `catalogFormat` if the literal text is what you meant.
+`time`. Under `'auto'` the hint names what classified the file, the first value
+holding a `{{` or the first CLDR-suffixed key, verbatim, which is **why** the
+file classified as i18next; under `catalogFormat: 'i18next'` nothing classified
+it, so the hint names the setting instead. Either way it states that the run will
+render as literal text because section 2.1 step 1 quoted it, and gives the fix:
+convert that file to ICU, or set `severity: { 'icu-in-i18next-file': 'off' }` if
+the literal text is what you meant. No `catalogFormat` value silences it.
 It is a warning rather than an error because the output is well defined and
 matches what i18next itself rendered; it is not silent because nobody writes
 `{count, plural, ...}` meaning it literally.
@@ -2824,7 +2912,7 @@ so a truncated ICU makes **no** category claims rather than wrong ones.
 
 | Code | Rule | Default | Fatal | Owner | Trigger |
 | --- | --- | --- | --- | --- | --- |
-| LZ2001 | `icu-syntax` | error | message | M3 | any parser `ErrorKind` other than the two below |
+| LZ2001 | `icu-syntax` | error | message | M3 | any parser `ErrorKind` other than the two below, or two options of one select equal under NFC |
 | LZ2002 | `icu-style-unknown` | error | never | M3 | a named style absent from the built-in table and from `config.formats` |
 | LZ2003 | `icu-skeleton-invalid` | error | never | M3 | a `::` skeleton the parser rejects or resolves to no options, or `::currency` with no code; the node falls back to its bare form (section 5.2) |
 | LZ2004 | `plural-other-missing` | error | message | M3 | `MISSING_OTHER_CLAUSE` on a plural or selectordinal |
@@ -2907,8 +2995,8 @@ retrofit. Section 10 has the exact behaviour.
 
 | Code | Rule | Default | Fatal | Owner | Trigger |
 | --- | --- | --- | --- | --- | --- |
-| LZ4001 | `identifier-collision` | error | always | M4 | two keys mangle to one identifier, two groups share an `id` or a `typeBase`, or two keys of one group mangle to one member property |
-| LZ4002 | `identifier-reserved` | error | always | M4 | a mangled identifier is reserved, a group member property is `__proto__`, or a namespace filename is `_locale`, `_formats` or `_root` (section 7.2) |
+| LZ4001 | `identifier-collision` | error | always | M4 | two keys mangle to one identifier, two groups share an `id` or a `typeBase`, a group `id` equals a member's id, or two keys of one group mangle to one member property |
+| LZ4002 | `identifier-reserved` | error | always | M4 | a mangled identifier is reserved, a group id or group member id is `Object`, a group member property is `__proto__`, or a namespace filename is `_locale`, `_formats` or `_root` (section 7.2) |
 | LZ4003 | `confusable-key` | error | never | M4 | two keys differ but share a confusable skeleton |
 | LZ4004 | `group-empty` | error | never | M4 | a group prefix matched zero keys; the group is still emitted with `Key = never` (section 7.4) |
 | LZ4005 | `nondeterministic-output` | error | always | M6 | the replayed re-emit differs byte-wise |
@@ -2918,12 +3006,12 @@ retrofit. Section 10 has the exact behaviour.
 
 | Code | Rule | Default | Fatal | Owner | Trigger |
 | --- | --- | --- | --- | --- | --- |
-| LZ5001 | `output-unwritable` | error | always, exit 2 | M10 | a generated file or the record could not be written |
+| LZ5001 | `output-unwritable` | error | always, exit 2 | M10 | a generated file or the record could not be written, or the record path holds a file that is not a context record (section 16, M10 step 9) |
 | LZ5002 | `output-stale` | error | never | M10 | `check` only: an emitted file that exists on disk differs, or a headered file under `outDir` this emit did not produce, reason `orphaned` |
 | LZ5003 | `record-stale` | error | never | M10 | `check` only: the committed context record is absent, or differs from the record this build would write, **compared with every message's `usage` and `translations` projected out** |
 | LZ5004 | `scan-found-nothing` | warn | never | M7 | the scan matched files but found zero generated-module imports anywhere. A glob that matched no file at all stays silent |
 | LZ5005 | `unused-message` | off | never | M7 | a message the scan never saw referenced |
-| LZ5006 | `missing-description` | off | never | M8 | a message with arguments or markup and no description; the message says `takes a, b` for values and `carries markup b, link` where every argument is a tag |
+| LZ5006 | `missing-description` | off | never | M8 | a message with arguments or markup and no description (absent, empty or whitespace only, as for LZ3012); the message says `takes a, b` for values and `carries markup b, link` where every argument is a tag |
 | LZ5007 | `record-rewritten` | warn | never | M10 | `build` only: a committed record existed and differed from the one this build just wrote, under the same projection as `LZ5003`. A first build has nothing to rewrite and stays silent |
 
 `LZ5003` is what makes "context lands in the same pull request as the string
@@ -3113,7 +3201,9 @@ Schema, with the worked example's `cart.items` and `nav.home`:
 
 `source` is `printIcu(nodes)` per section 5.5, so an i18next catalog and an
 ICU-native catalog with the same meaning produce the same record. `sourceHash`
-is sha256 of `source`, truncated to 16 hex characters, from `node:crypto`. The
+is sha256 of `source` encoded as UTF-8, with an unpaired surrogate written as
+its own three-byte WTF-8 sequence (`ED A0 80` for U+D800) rather than as
+U+FFFD, truncated to 16 hex characters, from `node:crypto`. The
 two values above are the real hashes of the two strings printed beside them and
 are normative: an implementation producing different ones is printing a
 different canonical form.
@@ -3326,6 +3416,9 @@ export interface Body {
   readonly nodes: readonly Node[]
   readonly args: readonly Arg[]
   readonly markupTags: readonly string[]
+  // RawCatalog.format of the file this body came from, so a hint can speak that
+  // file's syntax under catalogFormat 'auto'.
+  readonly format: 'icu' | 'i18next'
 }
 
 export interface LocaleOrigin {
@@ -3793,7 +3886,8 @@ it emit against a source catalog it could not read. `hasFatal` is
 `d.fatal && d.severity === 'error'`.
 
 `applySeverity` resolves each diagnostic's effective severity as
-`overrides[rule] ?? RULES[rule].severity`, drops it when that is `off`, and
+`overrides[rule] ?? RULES[rule].severity`, drops it when that is `off` and the
+diagnostic is not fatal, rewrites a fatal one asked for `off` to `warn`, and
 otherwise rewrites `severity` to it. It never consults the stamped severity, so
 a default-`off` rule stays silent without its producing module knowing anything
 about configuration. It skips `config-invalid`, `outdir-unsafe` and
@@ -3801,13 +3895,20 @@ about configuration. It skips `config-invalid`, `outdir-unsafe` and
 naming one of them.
 
 `exitCodeFor` receives `Number.POSITIVE_INFINITY` when `--max-warnings` is
-absent. `renderHuman` uses `picocolors`, honours `NO_COLOR`, and takes no `root`
-option because `Diagnostic.file` is already relative to it.
+absent, and treats any negative cap the same way, so `-1` passed through
+`build({ maxWarnings })` is no cap rather than a cap of minus one.
+`renderHuman` uses `picocolors`, honours `NO_COLOR`, and takes no `root` option
+because `Diagnostic.file` is already relative to it.
 
 `stableStringify` sorts object keys by code point and emits standard
 `JSON.stringify` output with no whitespace. It is what canonicalizes format
 option sets, and `hash16` of its output is what names them, so its exact output
 is part of the generated bytes.
+
+`hash16` hashes the same bytes `sourceHash` does: UTF-8, with each unpaired
+surrogate as its three-byte WTF-8 sequence, so two sources that differ only in
+a lone surrogate never share a hash and every well-formed string hashes as
+plain UTF-8.
 
 `escapeIcuLiteral` implements section 2.1 step 1 and lives here because M2 needs
 it for conversion and M3 needs it for `printIcu`, and M3 may not import M2.
@@ -3820,7 +3921,8 @@ quoting a `#` the parser reads as literal. Both default to the conservative
 choice, `inPlural: false` and `markup: 'literal'`, so a one-argument call is
 still correct for top-level text.
 `requiredCategories` is
-`new Intl.PluralRules(locale, { type }).resolvedOptions().pluralCategories` and
+`new Intl.PluralRules(locale, { type }).resolvedOptions().pluralCategories`, or
+`[]` (unknown) when `Intl.PluralRules.supportedLocalesOf(locale)` is empty, and
 lives here for the same reason: M2's suffix folding and M5's checks both call
 it, and neither may import the other.
 
@@ -3917,9 +4019,11 @@ has no locale in hand, so a lone `X_other` never decides the format even where
 `foldPluralSuffixes` would later fold it (section 2).
 
 Section 2.1 and `LZ1012` through `LZ1014`, `LZ1016` and `LZ1017` therefore apply
-to a file classified as i18next and to no other. `readCatalogs` raises `LZ1020`
-per entry of such a file whose value holds a single-brace run shaped like a
-typed ICU argument, with `because` in the hint.
+to a file read as i18next and to no other. `readCatalogs` raises `LZ1020` per
+entry of every file read as i18next whose value holds a single-brace run shaped
+like a typed ICU argument. Under `'auto'` the hint carries `because`; under
+`catalogFormat: 'i18next'` `because` is null and the hint names the setting
+instead.
 
 `RawEntry.value` is always ICU: M2 has converted it before anyone downstream
 sees it, and M4, which does not depend on M2, never calls `toIcu` itself.
@@ -4091,7 +4195,10 @@ print: `config.catalogs` for `LZ3001`'s `file`, `config.meta` for the path
 `LZ3011`, and `config.severity['ambiguous-source']` to pick the `or` pair in
 `LZ3012`'s hint (section 10.1). It stamps every diagnostic at the rule's default
 severity and re-levels nothing. The source locale comes from
-`Program.sourceLocale`, not from the config.
+`Program.sourceLocale`, not from the config. Every message or hint that spells
+an argument or a plural fix reads `Body.format` and spells it in that file's
+syntax, so under `catalogFormat: 'auto'` an i18next file is told `{{count}}`
+where an ICU file is told `{count}`.
 
 `Message.bodies` is sparse by design (section 5), so every comparison here
 iterates `bodies` rather than `locales` and a locale with no entry is simply not
@@ -4118,9 +4225,10 @@ Returns every file in section 7.1 as `{ path, contents }` with `path` relative
 to `config.outDir`, POSIX separators, **including the self-ignoring
 `.gitignore`**, which is an `EmittedFile` like any other so that nothing in the
 layout has two authors, and including `messages/_formats.js` and its `.d.ts`
-even when they are header-only. Every file except that `.gitignore` starts
-with the generated header of section 7.1 as line 1, `.d.ts` files included,
-because M10's prune keys on it. A group holding a markup member prints the
+even when they hold only their leading comment lines. Every file except that
+`.gitignore` starts with the generated header of section 7.1 as line 1, `.d.ts`
+files included, because M10's prune keys on it, and every `.js` carries
+`// @ts-nocheck` as line 2. A group holding a markup member prints the
 generic tier of section 7.4; an argument name outside `LZ2007`'s predicate is
 reached by subscript (section 7.2).
 
@@ -4304,6 +4412,10 @@ export type {
 } from '../types'
 ```
 
+`maxWarnings` absent means no cap, and so does any negative value, the
+programmatic spelling of `--max-warnings=-1`: `build` and `check` pass
+`Number.POSITIVE_INFINITY` to `exitCodeFor` in both cases.
+
 The type re-export is not decoration. This entry exists so a programmatic
 consumer can call `build()`, and without it that consumer cannot name the return
 type or write a function taking a `Diagnostic`. It is M10 re-exporting M1's
@@ -4351,15 +4463,21 @@ decided. Sequence:
    is harmless. A path already occupied by a file that does **not** carry the
    generated header is not written: the write is skipped and
    `LZ1021 outdir-foreign-file` names it. The `.gitignore` M6 emitted is
-   written **only when the path does not already exist** and is excluded from
-   both the changed comparison and `LZ5002`. Then prune: delete every regular
-   file under `outDir` that **carries the generated header** and that this emit
+   written **only when `outDir` did not exist before this step began** and is
+   excluded from both the changed comparison and `LZ5002`. Then prune: delete
+   every regular file under `outDir` that **carries the generated header** and
+   that this emit
    did not produce, excluding that `.gitignore`; a headerless file is left
    alone and reported as `LZ1021`, an orphan that will not delete is `LZ1021`
    too, and a symlink is neither read, deleted nor reported (section 7.1). The
    record is compared against what is on disk before it is written, and a
    difference under the section 13 projection is `LZ5007`; with no committed
-   record there is nothing to rewrite and nothing is raised. `emit: false`
+   record there is nothing to rewrite and nothing is raised. `build` writes
+   over a committed file only when it parses (a leading byte order mark is
+   allowed) to an object with `schema: 1`, or when it carries merge conflict
+   markers, which is how a conflicted record heals under `LZ5007`. Any other
+   file at the record path, a catalog, a tsconfig, a source file, is not
+   written over: the write is skipped and `LZ5001` names it. `emit: false`
    skips this whole step in both modes, so `check` with `emit: false` runs no
    on-disk comparison.
 10. Resolve the exit code. `exitCodeFor` gives the ordinary answer; when
@@ -4384,7 +4502,9 @@ gate's job is to say so. `check` ignores `failOnError`.
 to write and the byte comparison decides *whether to write*. `LZ5003` and
 `LZ5007` are decided separately: parse the committed record, drop every
 message's `usage` and `translations` from both it and the fresh one, compare
-what is left. A committed record that fails to parse counts as differing. The
+what is left. A committed record that fails to parse counts as differing:
+under `check` that is `LZ5003`, and under `build` only a record carrying merge
+conflict markers takes the `LZ5007` rewrite (step 9). The
 projection is M10's own, inline, and adds nothing to M8's signatures.
 
 Integration assertions that belong here and nowhere else, because this is the
