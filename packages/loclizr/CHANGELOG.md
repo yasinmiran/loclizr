@@ -5,7 +5,7 @@ All notable changes to `loclizr` are recorded here. The format follows
 numbers follow [Semantic Versioning](https://semver.org/) with the 0.x caveat:
 a minor release may break an invariant, and this file says so when it does.
 
-## 0.1.1
+## 0.1.1 - 2026-10-03
 
 Fixes, plus a few changes in what a build accepts. A project that built clean
 under 0.1.0 can stop at one of the behaviour changes below.
@@ -40,7 +40,7 @@ under 0.1.0 can stop at one of the behaviour changes below.
   project that typechecks JavaScript (`checkJs`, `svelte-check`,
   `astro check`) skips generated code. The `.d.ts` files carry the types and
   stay checked. A committed generated tree is stale under `loclizr check`
-  until it is rebuilt (#51).
+  until it is rebuilt: run `loclizr build` once and commit the tree (#51).
 - The default `scan.include` is
   `src/**/*.{ts,tsx,js,jsx,mts,mjs,svelte,vue,astro}`, so usage sites in
   Svelte, Vue and Astro components reach the context record with no config.
@@ -111,6 +111,9 @@ under 0.1.0 can stop at one of the behaviour changes below.
 
 #### Checks and hints
 
+- A date skeleton the resolver rejects, next to another syntax error, gives
+  `LZ2003` for the skeleton and an `LZ2001` at the real error, not the
+  skeleton's text over the whole entry (#56).
 - In an i18next file, the `LZ3004`, `LZ3005`, `LZ3007` and `LZ3013` messages
   and hints use i18next spellings: `{{name}}`, and plural keys such as
   `"items_few"` instead of ICU branches. This holds under the default
@@ -136,6 +139,8 @@ under 0.1.0 can stop at one of the behaviour changes below.
   nesting used to double the build time (#23).
 - Format options that differ only in a non-finite number get distinct hoisted
   names (#23).
+- A `fallback` map entry keyed by the source locale is ignored: the source
+  locale's chain is the source alone.
 - An argument named `__proto__` is read by subscript in the `.js` and quoted
   in the `.d.ts` (#23).
 

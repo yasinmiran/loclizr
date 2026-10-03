@@ -4,7 +4,7 @@ loclizr is a CLI that turns JSON translation catalogs into typed message
 functions, checks the catalogs on every build, and writes a context record for
 translators.
 
-**Status: 0.1.0 is on npm.** While the version is `0.x` a minor may break one of
+**Status: 0.1.1 is on npm.** While the version is `0.x` a minor may break one of
 the invariants, and the changelog says when it does.
 
 ## A 60-second example
