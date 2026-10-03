@@ -234,3 +234,58 @@ describe('requiredCategories at the edges', () => {
   })
 })
 
+
+describe('hash16 on a lone surrogate', () => {
+  test('hashes a lone surrogate apart from U+FFFD and from the other half', () => {
+    expect(hash16('\ud800')).not.toBe(hash16('�'))
+    expect(hash16('\ud800')).not.toBe(hash16('\udc00'))
+    expect(hash16('a\ud800 b')).not.toBe(hash16('a� b'))
+  })
+
+  test('encodes a lone surrogate as its own three bytes, ED A0 80 for D800', () => {
+    expect(hash16('\ud800')).toBe('91a681b998555fb4')
+  })
+
+  test('hashes a well-formed pair as plain UTF-8, as before', () => {
+    expect(hash16('\u{1f600}')).toBe('f0443a342c5ef547')
+    expect(hash16('�')).toBe('83d544ccc223c057')
+  })
+})
+
+describe('stableStringify where JSON.stringify fills in or converts', () => {
+  test('prints a hole in a sparse array as null', () => {
+    const sparse: unknown[] = [, 1]
+    expect(stableStringify(sparse)).toBe(JSON.stringify(sparse))
+  })
+
+  test('honours toJSON, with the key JSON.stringify passes it', () => {
+    expect(stableStringify({ d: new Date(0) })).toBe(JSON.stringify({ d: new Date(0) }))
+    const keyed = { toJSON: (key: string) => `at ${key}` }
+    expect(stableStringify({ a: keyed, b: [keyed] })).toBe(JSON.stringify({ a: keyed, b: [keyed] }))
+    expect(stableStringify(keyed)).toBe(JSON.stringify(keyed))
+  })
+
+  test('unwraps boxed primitives, after toJSON', () => {
+    const boxed = { a: new Number(1), b: new String('ab'), c: [new Boolean(false)], d: Object(1n) as unknown }
+    const { d, ...json } = boxed
+    expect(stableStringify(json)).toBe(JSON.stringify(json))
+    expect(stableStringify(new String('x'))).toBe('"x"')
+    expect(() => stableStringify(d)).toThrow(TypeError)
+    const boxedToJson = Object.assign(new Number(1), { toJSON: () => 'via toJSON' })
+    expect(stableStringify([boxedToJson])).toBe(JSON.stringify([boxedToJson]))
+  })
+})
+
+describe('requiredCategories for a locale Intl has no plural data for', () => {
+  test('answers no categories rather than the build machine default locale', () => {
+    for (const locale of ['xx', 'shared', 'und', 'tlh']) {
+      expect(requiredCategories(locale, false)).toEqual([])
+      expect(requiredCategories(locale, true)).toEqual([])
+    }
+  })
+
+  test('still answers for a locale Intl reaches through its language or canonical form', () => {
+    expect(requiredCategories('de-AT', false)).toEqual(['one', 'other'])
+    expect(requiredCategories('tl', false)).toEqual(requiredCategories('fil', false))
+  })
+})

@@ -39,8 +39,9 @@ afterEach(() => {
 describe('applySeverity over every rule in the catalog', () => {
   test('turns off every rule the user is allowed to turn off, and no other', () => {
     for (const rule of Object.values(RULES)) {
-      const kept = applySeverity([diag(rule.name, { message: rule.name })], only(rule.name, 'off'))
-      expect(kept.length === 0).toBe(!NOT_RELEVELABLE.has(rule.code))
+      const produced = diag(rule.name, { message: rule.name, fatal: false })
+      const kept = applySeverity([produced], only(rule.name, 'off'))
+      expect(kept.length === 0).toBe(!NOT_RELEVELABLE.has(rule.code) && !produced.fatal)
     }
   })
 
@@ -93,7 +94,14 @@ describe('applySeverity over every rule in the catalog', () => {
       Object.values(RULES).map((rule) => [rule.name, 'off']),
     ) as Config['severity']
     const kept = applySeverity(produced, overrides)
-    expect(kept.map((diagnostic) => diagnostic.code)).toEqual(['LZ1001', 'LZ1007', 'LZ5001'])
+    expect(kept.map((diagnostic) => diagnostic.code)).toEqual(
+      produced.filter((diagnostic) => diagnostic.fatal).map((diagnostic) => diagnostic.code),
+    )
+    expect(kept.filter((diagnostic) => diagnostic.severity === 'error').map((diagnostic) => diagnostic.code)).toEqual([
+      'LZ1001',
+      'LZ1007',
+      'LZ5001',
+    ])
     expect(hasFatal(kept)).toBe(true)
     expect(exitCodeFor(kept, Number.POSITIVE_INFINITY)).toBe(2)
   })

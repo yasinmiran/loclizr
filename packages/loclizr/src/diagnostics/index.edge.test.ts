@@ -561,3 +561,31 @@ describe('renderJson at the edges', () => {
     expect(renderJson(produced, SUMMARY)).toBe(renderJson(produced, SUMMARY))
   })
 })
+
+describe('exitCodeFor under a negative cap', () => {
+  test('reads a negative cap as no cap, the way --max-warnings=-1 does', () => {
+    expect(exitCodeFor([], -1)).toBe(0)
+    expect(exitCodeFor([diag('ambiguous-source', { message: 'Open' })], -1)).toBe(0)
+    expect(exitCodeFor([diag('arg-missing', { message: 'x' })], -1)).toBe(1)
+  })
+})
+
+describe('applySeverity on a fatal rule turned off', () => {
+  test('keeps a diagnostic that blocks output, at warn, so the run says why it wrote nothing', () => {
+    const blocking = diag('locale-tag-invalid', { message: 'en_US is not a locale' })
+    const kept = applySeverity([blocking], { 'locale-tag-invalid': 'off' })
+    expect(kept).toEqual([{ ...blocking, severity: 'warn' }])
+    expect(kept[0]?.fatal).toBe(true)
+  })
+
+  test('keeps an unreadable source catalog and drops an unreadable target one', () => {
+    const source = diag('catalog-json-syntax', { message: 'en.json' })
+    const target = diag('catalog-json-syntax', { message: 'de.json', fatal: false })
+    const kept = applySeverity([source, target], { 'catalog-json-syntax': 'off' })
+    expect(kept.map((diagnostic) => diagnostic.message)).toEqual(['en.json'])
+  })
+
+  test('drops a message-scoped rule, which blocks nothing', () => {
+    expect(applySeverity([diag('plural-other-missing', { message: 'a' })], { 'plural-other-missing': 'off' })).toEqual([])
+  })
+})

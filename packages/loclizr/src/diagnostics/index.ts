@@ -107,7 +107,10 @@ export function applySeverity(
       kept.push(diagnostic)
       continue
     }
-    const effective: Severity = overrides[diagnostic.rule] ?? RULES[diagnostic.rule].severity
+    const requested: Severity = overrides[diagnostic.rule] ?? RULES[diagnostic.rule].severity
+    // 'off' cannot unblock the tree, so it cannot hide why the run wrote
+    // nothing and exited 1 either; a fatal diagnostic is heard at warn.
+    const effective: Severity = requested === 'off' && diagnostic.fatal ? 'warn' : requested
     if (effective === 'off') continue
     kept.push(diagnostic.severity === effective ? diagnostic : { ...diagnostic, severity: effective })
   }
@@ -137,7 +140,8 @@ export function exitCodeFor(diagnostics: readonly Diagnostic[], maxWarnings: num
     if (RULES[diagnostic.rule].exitTwo) return 2
     errors += 1
   }
-  return errors > 0 || warnings > maxWarnings ? 1 : 0
+  // A negative cap is eslint's no-cap spelling, `--max-warnings=-1`.
+  return errors > 0 || (maxWarnings >= 0 && warnings > maxWarnings) ? 1 : 0
 }
 
 export function renderHuman(

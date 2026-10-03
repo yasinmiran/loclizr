@@ -1,13 +1,28 @@
 import { createHash } from 'node:crypto'
 
 const pluralCategoryCache = new Map<string, readonly string[]>()
+// Under the `u` flag a paired surrogate is one astral code point, so only an
+// unpaired half matches.
+const LONE_SURROGATE = /\p{Cs}/gu
 
+// UTF-8 writes every lone surrogate as the bytes of U+FFFD, so two different
+// sources would share a hash. Each one gets its own three bytes instead (WTF-8),
+// a sequence no well-formed string encodes to, so every other input hashes
+// exactly as plain UTF-8 and no committed name moves.
 export function hash16(input: string): string {
-  return createHash('sha256').update(input, 'utf8').digest('hex').slice(0, 16)
+  const hash = createHash('sha256')
+  let start = 0
+  for (const lone of input.matchAll(LONE_SURROGATE)) {
+    const unit = lone[0].charCodeAt(0)
+    hash.update(input.slice(start, lone.index), 'utf8')
+    hash.update(Uint8Array.of(0xe0 | (unit >> 12), 0x80 | ((unit >> 6) & 0x3f), 0x80 | (unit & 0x3f)))
+    start = lone.index + 1
+  }
+  return hash.update(input.slice(start), 'utf8').digest('hex').slice(0, 16)
 }
 
 export function stableStringify(value: unknown): string {
-  return encode(value) ?? 'null'
+  return encode(value, '') ?? 'null'
 }
 
 export function compareCodepoint(a: string, b: string): number {
@@ -73,8 +88,13 @@ export function requiredCategories(locale: string, ordinal: boolean): readonly s
   const cacheKey = `${locale}\u0000${type}`
   const cached = pluralCategoryCache.get(cacheKey)
   if (cached !== undefined) return cached
+  // Intl answers a locale it has no data for with the build machine's default
+  // locale, which would make the fold and the checks a function of $LANG.
+  // Empty means unknown: no lone `_other` folds and `_zero` stays `=0`.
   const categories = Object.freeze(
-    new Intl.PluralRules(locale, { type }).resolvedOptions().pluralCategories.slice(),
+    Intl.PluralRules.supportedLocalesOf(locale).length === 0
+      ? []
+      : new Intl.PluralRules(locale, { type }).resolvedOptions().pluralCategories.slice(),
   )
   pluralCategoryCache.set(cacheKey, categories)
   return categories
@@ -92,16 +112,26 @@ function emitRun(run: string, quoted: boolean): string {
   return quoted ? `'${doubled}'` : doubled
 }
 
-function encode(value: unknown): string | undefined {
+function encode(raw: unknown, property: string): string | undefined {
+  const value: unknown =
+    typeof raw === 'object' && raw !== null && 'toJSON' in raw && typeof raw.toJSON === 'function'
+      ? raw.toJSON(property)
+      : raw
   if (value === null) return 'null'
   if (Array.isArray(value)) {
-    return `[${value.map((item: unknown) => encode(item) ?? 'null').join(',')}]`
+    // Array.from visits holes, which map skips, and JSON.stringify prints null.
+    return `[${Array.from(value, (item: unknown, index) => encode(item, String(index)) ?? 'null').join(',')}]`
   }
+  // The coercions JSON.stringify applies to a boxed primitive: ToNumber,
+  // ToString, then the wrapped value itself.
+  if (value instanceof Number) return JSON.stringify(Number(value))
+  if (value instanceof String) return JSON.stringify(String(value))
+  if (value instanceof Boolean || value instanceof BigInt) return JSON.stringify(value.valueOf())
   if (typeof value === 'object') {
     const entries = value as Record<string, unknown>
     const fields: string[] = []
     for (const key of Object.keys(entries).sort(compareCodepoint)) {
-      const encoded = encode(entries[key])
+      const encoded = encode(entries[key], key)
       if (encoded !== undefined) fields.push(`${JSON.stringify(key)}:${encoded}`)
     }
     return `{${fields.join(',')}}`
