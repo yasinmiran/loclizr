@@ -56,29 +56,7 @@ binding.
    `typecheck` is `vue-tsc -b`, as in the template's own `build`. The root `tsconfig.json` has
    `"files": []`, so `npx vue-tsc --noEmit` there exits 0 on a broken template.
 
-3. ### Scan `.vue` files
-
-   ```ts title="loclizr.config.ts" {8}
-   import { defineConfig } from 'loclizr'
-
-   export default defineConfig({
-     sourceLocale: 'en',
-     catalogs: 'locales/{locale}.json',
-     outDir: 'src/loclizr',
-     severity: { 'ambiguous-source': 'error' },
-     scan: { include: ['src/**/*.{ts,vue}'] },
-   })
-   ```
-
-   The default `scan.include` reads script extensions only. Without this line every message called
-   from a `.vue` file has an empty `usage` in the context record.
-
-   <Aside type="caution">
-   A `.vue` file is lexed as script. An apostrophe in template text drops a usage later on the same
-   line: `<p>Don't forget: {{ m.nav_cart() }}</p>` records nothing for `nav_cart`.
-   </Aside>
-
-4. ### Write the composable
+3. ### Write the composable
 
    ```ts title="src/useLocale.ts"
    import { onScopeDispose, shallowRef, type ShallowRef } from 'vue'
@@ -100,7 +78,7 @@ binding.
    `./loclizr/messages` resolves once a build has run: `npm run dev`, `npm test` or
    `npx loclizr build` writes it.
 
-5. ### Read the ref where you call a message
+4. ### Read the ref where you call a message
 
    ```vue title="src/App.vue"
    <script setup lang="ts">
@@ -133,6 +111,12 @@ binding.
    Passing `{ locale: locale.value }` is what makes the `computed` depend on the ref. A message call
    reads the store, which Vue does not track: `computed(() => m.nav_home())` stays `Home` after a switch.
 
+   <Aside type="caution">
+   The context record misses a call inside a quoted attribute value: `:title="m.nav_home()"`
+   records no usage for `nav_home`. Move the call into `<script setup>`, as `greeting` is here;
+   `{{ }}` interpolation and `<script>` are both found.
+   </Aside>
+
    ```vue title="src/components/Cart.vue"
    <script setup lang="ts">
    import * as m from '../loclizr/messages'
@@ -148,7 +132,7 @@ binding.
    `Cart` reads no ref and its prop does not change, so after a switch it still says
    `3 items in your cart`.
 
-6. ### Key the root on the locale
+5. ### Key the root on the locale
 
    ```vue title="src/Root.vue"
    <script setup lang="ts">
@@ -172,9 +156,9 @@ binding.
    ```
 
    The key remounts `App` on a switch, so `Cart` renders German too. A remount drops component
-   state below the key; keep what must survive above it, or use step 5's `computed` form.
+   state below the key; keep what must survive above it, or use step 4's `computed` form.
 
-7. ### Test it
+6. ### Test it
 
    ```bash
    npm i -D vitest @vue/test-utils jsdom

@@ -53,32 +53,7 @@ request. There is no Astro entry: a middleware wraps each render in `runWithLoca
 
    The three hooks `init` printed, plus `typecheck` running `astro check`.
 
-3. ### Scan `.astro` files
-
-   ```ts title="loclizr.config.ts" {7}
-   import { defineConfig } from 'loclizr'
-
-   export default defineConfig({
-     sourceLocale: 'en',
-     catalogs: 'locales/{locale}.json',
-     outDir: 'src/loclizr',
-     scan: { include: ['src/**/*.{ts,tsx,js,jsx,mts,mjs,astro}'] },
-     severity: { 'ambiguous-source': 'error' },
-   })
-   ```
-
-   ```json title="tsconfig.json" {4}
-   {
-     "extends": "astro/tsconfigs/strict",
-     "include": [".astro/types.d.ts", "**/*"],
-     "exclude": ["dist", "src/loclizr/**/*.js"]
-   }
-   ```
-
-   The default globs skip `.astro`, so the build warns `LZ5004 scan-found-nothing`. The exclude
-   stops `astro check` hinting about unused `args` in the generated `.js`.
-
-4. ### Add a route per locale
+3. ### Add a route per locale
 
    ```astro title="src/pages/[lang]/index.astro"
    ---
@@ -112,7 +87,7 @@ request. There is no Astro entry: a middleware wraps each render in `runWithLoca
    <p>{m.cart_items({ count })}</p>
    ```
 
-5. ### Scope each render with middleware
+4. ### Scope each render with middleware
 
    ```ts title="src/middleware.ts"
    import { defineMiddleware } from 'astro:middleware'

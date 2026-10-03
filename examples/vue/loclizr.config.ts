@@ -5,5 +5,4 @@ export default defineConfig({
   catalogs: 'locales/{locale}.json',
   outDir: 'src/loclizr',
   severity: { 'ambiguous-source': 'error' },
-  scan: { include: ['src/**/*.{ts,vue}'] },
 })

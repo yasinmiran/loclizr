@@ -54,41 +54,7 @@ A Vite and Svelte 5 app whose markup follows `setLocale`, with a test that prove
    The template calls its type check `check`; renaming it `typecheck` lets `pretypecheck` run
    first. `pretest` generates `src/loclizr` before the mount test in the last step.
 
-3. ### Scan `.svelte` files
-
-   ```ts title="loclizr.config.ts" {8}
-   import { defineConfig } from 'loclizr'
-
-   export default defineConfig({
-     sourceLocale: 'en',
-     catalogs: 'locales/{locale}.json',
-     outDir: 'src/loclizr',
-     severity: { 'ambiguous-source': 'error' },
-     scan: { include: ['src/**/*.{ts,js,svelte}'] },
-   })
-   ```
-
-   The default `scan.include` reads script extensions only. Without this line every message called
-   from a `.svelte` file has an empty `usage` in the context record.
-
-   <Aside type="caution">
-   A `.svelte` file is lexed as script. An apostrophe in markup text drops a usage later on the
-   same line: `<p>Don't forget: {m.nav_cart()}</p>` records nothing for `nav_cart`.
-   </Aside>
-
-4. ### Keep the type check off the generated JavaScript
-
-   ```json title="tsconfig.app.json" {2}
-     "include": ["src/**/*.ts", "src/**/*.js", "src/**/*.svelte"],
-     "exclude": ["src/loclizr"]
-   }
-   ```
-
-   The template sets `checkJs`, so `svelte-check` type-checks the generated `.js` files and fails
-   on `implicitly has an 'any' type`, twice per message. Excluded, imports still resolve to the
-   generated `.d.ts`, and a wrong argument or locale is still an error.
-
-5. ### Wrap the store in a rune
+3. ### Wrap the store in a rune
 
    ```ts title="src/locale.svelte.ts"
    import { createSubscriber } from 'svelte/reactivity'
@@ -108,7 +74,7 @@ A Vite and Svelte 5 app whose markup follows `setLocale`, with a test that prove
    it passes straight in. Any `$derived`, effect or markup that reads `locale.current` reruns on a
    switch.
 
-6. ### Add a switcher
+4. ### Add a switcher
 
    ```svelte title="src/Switcher.svelte"
    <script lang="ts">
@@ -125,7 +91,7 @@ A Vite and Svelte 5 app whose markup follows `setLocale`, with a test that prove
    </div>
    ```
 
-7. ### Make the markup follow
+5. ### Make the markup follow
 
    ```svelte title="src/App.svelte"
    <script lang="ts">
@@ -163,7 +129,13 @@ A Vite and Svelte 5 app whose markup follows `setLocale`, with a test that prove
    | `{#key locale.current}` | remounts the block; component state inside it resets |
    | `{ locale: locale.current }` per call | reruns that expression in place; state survives |
 
-8. ### Test the switch
+   <Aside type="caution">
+   The context record misses a call inside a quoted attribute value: `title="{m.nav_home()}"`
+   records no usage for `nav_home`. Write `title={m.nav_home()}`; markup text and `<script>` are
+   both found.
+   </Aside>
+
+6. ### Test the switch
 
    ```bash
    npm i -D vitest jsdom
