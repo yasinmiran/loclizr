@@ -116,13 +116,17 @@ const CONTINUES_STATEMENT: ReadonlySet<string> = new Set([
   '^',
 ])
 
-const CLOSERS: Readonly<Record<string, string>> = { ')': '(', ']': '[', '}': '{' }
+const CLOSERS: Readonly<Record<')' | ']' | '}', '(' | '[' | '{'>> = { ')': '(', ']': '[', '}': '{' }
 
+// Every frame carries the index of the nearest frame at or below it with a scope,
+// and of the nearest `(`, so neither lookup walks the stack.
 interface Frame {
   readonly open: '(' | '[' | '{'
   readonly callee: string | null
   readonly typePosition: boolean
   readonly scope: string | null
+  readonly scopeAt: number
+  readonly callAt: number
 }
 
 // A name in hand, with the bracket depth it was written at, so every slot below
@@ -159,7 +163,12 @@ export function collectSites(input: {
   const lineStarts = lineStartsOf(code)
   const sites: FoundSite[] = []
   const frames: Frame[] = []
+  const openCounts: Record<'(' | '[' | '{', number> = { '(': 0, '[': 0, '{': 0 }
   let index = 0
+  // Kept per step rather than walked back from each newline, because after
+  // `const x =` a run of blank lines would otherwise cost its length squared.
+  let lastSignificant = -1
+  let stepStart = 0
   let pending: Named | null = null
   // A declaration whose body is an expression rather than a block, which is every
   // arrow component written `const Cart = () => <p/>`. It has no bracket to live
@@ -197,6 +206,14 @@ export function collectSites(input: {
   }
 
   while (index < code.length) {
+    for (let at = index - 1; at >= stepStart; at -= 1) {
+      const prior = code.charAt(at)
+      if (prior !== ' ' && prior !== '\t' && prior !== '\n' && prior !== '\r') {
+        lastSignificant = at
+        break
+      }
+    }
+    stepStart = index
     const char = code.charAt(index)
     const dotted = afterDot
     afterDot = false
@@ -317,7 +334,7 @@ export function collectSites(input: {
     if (isLineTerminator(char)) {
       const atPending = pending !== null && frames.length === pending.depth
       const atDeclaration = declaration !== null && frames.length === declaration.depth
-      if ((atPending || atDeclaration) && !continuesStatement(code, index)) {
+      if ((atPending || atDeclaration) && !continuesStatement(code, lastSignificant)) {
         if (atPending) pending = null
         if (atDeclaration) declaration = null
       }
@@ -348,12 +365,16 @@ export function collectSites(input: {
       classBody = null
       pending = null
     }
+    const parent = frames[frames.length - 1]
     frames.push({
       open: char,
       callee: char === '(' ? lastIdent : null,
       typePosition: char === '{' && code.charAt(previousSignificant(code, at)) === ':',
       scope,
+      scopeAt: scope !== null ? frames.length : (parent?.scopeAt ?? -1),
+      callAt: char === '(' ? frames.length : (parent?.callAt ?? -1),
     })
+    openCounts[char] += 1
   }
 
   function closeFrame(char: ')' | ']' | '}', at: number): void {
@@ -361,9 +382,14 @@ export function collectSites(input: {
     let matching = frames.length - 1
     // A closer with nothing to match is ignored rather than unwinding the stack,
     // because a file of stray punctuation must not cost the scopes above it.
+    if (openCounts[open] === 0) return
     while (matching >= 0 && frames[matching]?.open !== open) matching -= 1
     if (matching < 0) return
     const frame = frames[matching]
+    for (let at = matching; at < frames.length; at += 1) {
+      const popped = frames[at]
+      if (popped !== undefined) openCounts[popped.open] -= 1
+    }
     frames.length = matching
     if (pending !== null && frames.length < pending.depth) pending = null
     if (loose !== null && frames.length < loose.depth) loose = null
@@ -413,11 +439,7 @@ export function collectSites(input: {
   }
 
   function innermostCall(): Frame | null {
-    for (let at = frames.length - 1; at >= 0; at -= 1) {
-      const frame = frames[at]
-      if (frame?.open === '(') return frame
-    }
-    return null
+    return frames[frames[frames.length - 1]?.callAt ?? -1] ?? null
   }
 }
 
@@ -458,8 +480,7 @@ function breaksLine(code: string, from: number): boolean {
   return /[\n\r]/u.test(code.slice(from, skipSpace(code, from)))
 }
 
-function continuesStatement(code: string, at: number): boolean {
-  const before = previousSignificant(code, at)
+function continuesStatement(code: string, before: number): boolean {
   if (before === -1) return false
   const char = code.charAt(before)
   if (char === '>' && code.charAt(before - 1) === '=') return true
@@ -580,11 +601,10 @@ function siteAt(
 }
 
 function scopeOf(frames: readonly Frame[], loose: Named | null): string | null {
-  for (let at = frames.length - 1; at >= 0; at -= 1) {
-    const scope = frames[at]?.scope
-    if (scope !== null && scope !== undefined) {
-      return loose !== null && loose.depth > at ? loose.name : scope
-    }
+  const at = frames[frames.length - 1]?.scopeAt ?? -1
+  const scope = frames[at]?.scope
+  if (scope !== null && scope !== undefined) {
+    return loose !== null && loose.depth > at ? loose.name : scope
   }
   return loose?.name ?? null
 }

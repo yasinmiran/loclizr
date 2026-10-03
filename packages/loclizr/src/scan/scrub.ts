@@ -20,6 +20,11 @@ const IDENT_PART = /[\p{ID_Continue}$]/u
 const NUMBER_PART = /[0-9A-Za-z_$.]/u
 const WORD_BEFORE = /[\p{ID_Start}$_][\p{ID_Continue}$]*$/u
 const WORD_WINDOW = 32
+// A failed literal attempt scans to the end of its line, so a line of them would
+// cost its length squared. Past this many failures a line opens no more literals.
+// The line is the attempt's own, so a break swallowed by a comment, string or
+// template still starts a fresh budget.
+const FAILED_ATTEMPTS_PER_LINE = 64
 
 // Expression position: a `/` here opens a regular expression rather than a
 // division, and a quote here opens a string rather than prose.
@@ -117,6 +122,8 @@ function lexJsx(text: string): Lexed {
   const comments: Range[] = []
   const literals: Range[] = []
   let index = 0
+  let failedAttempts = 0
+  let budgetCheckedTo = 0
   while (index < text.length) {
     const char = text.charAt(index)
     if (char === '/' && text.charAt(index + 1) === '/') {
@@ -137,12 +144,17 @@ function lexJsx(text: string): Lexed {
       comments.push([start, index])
       continue
     }
-    if ((char === '"' || char === "'" || char === '`') && opensJsxLiteral(text, index)) {
-      const literal = readSameLineLiteral(text, index)
-      if (literal !== null) {
-        literals.push(...literal.chunks)
-        index = literal.end
-        continue
+    if (char === '"' || char === "'" || char === '`') {
+      if (crossesLine(text, budgetCheckedTo, index)) failedAttempts = 0
+      budgetCheckedTo = index
+      if (failedAttempts < FAILED_ATTEMPTS_PER_LINE && opensJsxLiteral(text, index)) {
+        const literal = readSameLineLiteral(text, index)
+        if (literal !== null) {
+          literals.push(...literal.chunks)
+          index = literal.end
+          continue
+        }
+        failedAttempts += 1
       }
     }
     index += 1
@@ -218,6 +230,8 @@ function lex(text: string): Lexed {
   let inTemplate = false
   let chunkStart = 0
   let afterValue = false
+  let failedAttempts = 0
+  let budgetCheckedTo = 0
   while (index < text.length) {
     if (inTemplate) {
       const char = text.charAt(index)
@@ -258,13 +272,16 @@ function lex(text: string): Lexed {
       continue
     }
     if (char === '/' && !afterValue) {
-      const end = readRegex(text, index)
+      if (crossesLine(text, budgetCheckedTo, index)) failedAttempts = 0
+      budgetCheckedTo = index
+      const end = failedAttempts < FAILED_ATTEMPTS_PER_LINE ? readRegex(text, index) : null
       if (end !== null) {
         literals.push([index + 1, end])
         index = end
         afterValue = true
         continue
       }
+      failedAttempts += 1
       index += 1
       afterValue = false
       continue
@@ -373,6 +390,12 @@ function readQuoted(text: string, start: number): { readonly contentEnd: number;
   return { contentEnd: end, end }
 }
 
+// Each caller moves `from` up to `to` after asking, so the walks never overlap.
+function crossesLine(text: string, from: number, to: number): boolean {
+  for (let at = from; at < to; at += 1) if (isLineTerminator(text.charAt(at))) return true
+  return false
+}
+
 // Returns the index after the flags, or null when the `/` was not a regular
 // expression after all, in which case nothing is blanked.
 function readRegex(text: string, start: number): number | null {
@@ -382,6 +405,9 @@ function readRegex(text: string, start: number): number | null {
   while (index < text.length) {
     const char = text.charAt(index)
     if (char === '\\') {
+      // A regular expression cannot escape a line break, and letting it would
+      // carry a failed attempt across every line below it.
+      if (isLineTerminator(text.charAt(index + 1))) return null
       index += 2
       continue
     }
