@@ -1,0 +1,32 @@
+{
+  "name": "svelte-example",
+  "private": true,
+  "version": "0.0.0",
+  "type": "module",
+  "scripts": {
+    "predev": "loclizr build --no-fail",
+    "dev": "vite",
+    "prebuild": "loclizr build",
+    "build": "vite build",
+    "preview": "vite preview",
+    "pretypecheck": "loclizr build",
+    "typecheck": "svelte-check --tsconfig ./tsconfig.app.json && tsc -p tsconfig.node.json",
+    "pretest": "loclizr build",
+    "test": "vitest run",
+    "check": "loclizr check"
+  },
+  "dependencies": {
+    "loclizr": "workspace:*"
+  },
+  "devDependencies": {
+    "@sveltejs/vite-plugin-svelte": "^7.3.0",
+    "@tsconfig/svelte": "^5.0.8",
+    "@types/node": "^24.13.3",
+    "jsdom": "^30.1.1",
+    "svelte": "^5.57.0",
+    "svelte-check": "^4.7.6",
+    "typescript": "~6.0.2",
+    "vite": "^8.3.0",
+    "vitest": "^5.0.3"
+  }
+}

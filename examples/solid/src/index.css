@@ -1,0 +1,10 @@
+:root {
+  font: 18px/1.45 system-ui, sans-serif;
+  color-scheme: light dark;
+}
+
+body {
+  margin: 0 auto;
+  max-width: 40rem;
+  padding: 2rem 1rem;
+}

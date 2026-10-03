@@ -189,6 +189,7 @@ unwritable output).
 | --- | --- |
 | `packages/loclizr` | the SDK: compiler, CLI, runtime, React and server bindings |
 | `examples/vite-react` | a Vite and React app built against the package |
+| `examples/{svelte,vue,solid,astro,vanilla}` | one sample app per framework guide, each with a test |
 | `apps/web` | the documentation site |
 | `docs/design/spec.md` | the v0.1 specification; every API name and rule code lives there |
 
@@ -204,7 +205,8 @@ pnpm test           # vitest, package only
 pnpm typecheck      # package and the example
 pnpm example:dev    # run the Vite example
 pnpm web:dev        # run the docs site
-pnpm check          # build, typecheck, test, example build, docs build
+pnpm examples       # build, typecheck, test and loclizr check every example
+pnpm check          # build, typecheck, test, every example, docs build
 ```
 
 ## License

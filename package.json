@@ -12,8 +12,9 @@
     "typecheck": "pnpm --filter loclizr --filter vite-react-example typecheck",
     "example:dev": "pnpm --filter vite-react-example dev",
     "example:build": "pnpm --filter vite-react-example build",
+    "examples": "pnpm --filter \"./examples/*\" build && pnpm --filter \"./examples/*\" --if-present typecheck && pnpm --filter \"./examples/*\" --if-present test && pnpm --filter \"./examples/*\" --if-present check",
     "web:dev": "pnpm --filter web dev",
     "web:build": "pnpm --filter web build",
-    "check": "pnpm build && pnpm typecheck && pnpm test && pnpm example:build && pnpm web:build"
+    "check": "pnpm build && pnpm typecheck && pnpm test && pnpm examples && pnpm web:build"
   }
 }

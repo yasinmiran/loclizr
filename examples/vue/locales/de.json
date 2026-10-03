@@ -1,0 +1,10 @@
+{
+  "nav": {
+    "home": "Startseite",
+    "cart": "Warenkorb"
+  },
+  "cart": {
+    "greeting": "Hallo {name}, dein Warenkorb ist bereit",
+    "items": "{count, plural, =0 {Dein Warenkorb ist leer} one {# Artikel in deinem Warenkorb} other {# Artikel in deinem Warenkorb}}"
+  }
+}

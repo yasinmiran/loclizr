@@ -1,0 +1,10 @@
+{
+  "nav": {
+    "home": "Home",
+    "cart": "Cart"
+  },
+  "cart": {
+    "greeting": "Hi {name}, your cart is ready",
+    "items": "{count, plural, =0 {Your cart is empty} one {# item in your cart} other {# items in your cart}}"
+  }
+}

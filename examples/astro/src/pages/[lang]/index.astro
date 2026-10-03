@@ -1,0 +1,19 @@
+---
+import * as m from '../../loclizr/messages'
+import CartBadge from '../../components/CartBadge.astro'
+
+export function getStaticPaths() {
+  return m.locales.map((lang) => ({ params: { lang } }))
+}
+---
+
+<html lang={m.getLocale()}>
+  <head>
+    <meta charset="utf-8" />
+    <title>{m.nav_cart()}</title>
+  </head>
+  <body>
+    <h1>{m.cart_greeting({ name: 'Ada' })}</h1>
+    <CartBadge count={3} />
+  </body>
+</html>

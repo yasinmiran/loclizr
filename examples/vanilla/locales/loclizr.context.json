@@ -1,0 +1,157 @@
+{
+  "schema": 1,
+  "sourceLocale": "en",
+  "locales": [
+    "de",
+    "en"
+  ],
+  "messages": [
+    {
+      "key": "cart.greeting",
+      "id": "cart_greeting",
+      "module": "messages/cart.js",
+      "kind": "text",
+      "source": "Hi {name}, your cart is ready",
+      "sourceHash": "54db56b1aeaf77ae",
+      "description": null,
+      "args": [
+        {
+          "name": "name",
+          "type": "text",
+          "options": null,
+          "note": null
+        }
+      ],
+      "variants": [],
+      "markup": [],
+      "translations": [
+        {
+          "locale": "de",
+          "status": "translated",
+          "from": null,
+          "reason": null
+        },
+        {
+          "locale": "en",
+          "status": "translated",
+          "from": null,
+          "reason": null
+        }
+      ],
+      "usage": [
+        {
+          "file": "src/main.ts",
+          "scope": "render"
+        }
+      ]
+    },
+    {
+      "key": "cart.items",
+      "id": "cart_items",
+      "module": "messages/cart.js",
+      "kind": "text",
+      "source": "{count, plural, =0 {Your cart is empty} one {# item in your cart} other {# items in your cart}}",
+      "sourceHash": "a826cf6a40d3293e",
+      "description": null,
+      "args": [
+        {
+          "name": "count",
+          "type": "number",
+          "options": null,
+          "note": null
+        }
+      ],
+      "variants": [
+        {
+          "arg": "count",
+          "kind": "plural",
+          "matches": [
+            "=0",
+            "one",
+            "other"
+          ]
+        }
+      ],
+      "markup": [],
+      "translations": [
+        {
+          "locale": "de",
+          "status": "translated",
+          "from": null,
+          "reason": null
+        },
+        {
+          "locale": "en",
+          "status": "translated",
+          "from": null,
+          "reason": null
+        }
+      ],
+      "usage": [
+        {
+          "file": "src/main.ts",
+          "scope": "render"
+        }
+      ]
+    },
+    {
+      "key": "nav.cart",
+      "id": "nav_cart",
+      "module": "messages/nav.js",
+      "kind": "text",
+      "source": "Cart",
+      "sourceHash": "6d2d59aed44f1efa",
+      "description": null,
+      "args": [],
+      "variants": [],
+      "markup": [],
+      "translations": [
+        {
+          "locale": "de",
+          "status": "translated",
+          "from": null,
+          "reason": null
+        },
+        {
+          "locale": "en",
+          "status": "translated",
+          "from": null,
+          "reason": null
+        }
+      ],
+      "usage": [
+        {
+          "file": "src/main.ts",
+          "scope": "render"
+        }
+      ]
+    },
+    {
+      "key": "nav.home",
+      "id": "nav_home",
+      "module": "messages/nav.js",
+      "kind": "text",
+      "source": "Home",
+      "sourceHash": "3a78695388b38b5c",
+      "description": null,
+      "args": [],
+      "variants": [],
+      "markup": [],
+      "translations": [
+        {
+          "locale": "de",
+          "status": "translated",
+          "from": null,
+          "reason": null
+        },
+        {
+          "locale": "en",
+          "status": "translated",
+          "from": null,
+          "reason": null
+        }
+      ],
+      "usage": []
+    }
+  ]
+}

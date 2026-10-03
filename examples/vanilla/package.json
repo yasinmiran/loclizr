@@ -1,0 +1,27 @@
+{
+  "name": "vanilla-example",
+  "private": true,
+  "version": "0.0.0",
+  "type": "module",
+  "scripts": {
+    "predev": "loclizr build --no-fail",
+    "dev": "vite",
+    "prebuild": "loclizr build",
+    "build": "tsc && vite build",
+    "preview": "vite preview",
+    "pretypecheck": "loclizr build",
+    "typecheck": "tsc",
+    "pretest": "loclizr build",
+    "test": "vitest run",
+    "check": "loclizr check"
+  },
+  "dependencies": {
+    "loclizr": "workspace:*"
+  },
+  "devDependencies": {
+    "jsdom": "^30.1.1",
+    "typescript": "~6.0.2",
+    "vite": "^8.3.0",
+    "vitest": "^5.0.3"
+  }
+}

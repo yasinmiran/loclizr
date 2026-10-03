@@ -10,7 +10,8 @@
     "build": "vite build",
     "preview": "vite preview",
     "pretypecheck": "loclizr build",
-    "typecheck": "tsc -p tsconfig.json"
+    "typecheck": "tsc -p tsconfig.json",
+    "check": "loclizr check"
   },
   "dependencies": {
     "loclizr": "workspace:*",
