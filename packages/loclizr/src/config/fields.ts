@@ -264,6 +264,16 @@ function readOptionsRecord(
       issues.push(expected(`formats.${field}.${name}`, 'an object of Intl options', example))
       continue
     }
+    // Intl coerces a non-finite `hour12` to a boolean and builds, and the style's
+    // hoisted name would then collide with the same set holding any other
+    // non-finite value, since stableStringify writes all three as null.
+    const nonFinite = Object.keys(options).find(
+      (key) => typeof options[key] === 'number' && !Number.isFinite(options[key]),
+    )
+    if (nonFinite !== undefined) {
+      issues.push(expected(`formats.${field}.${name}.${nonFinite}`, 'a finite number', example))
+      continue
+    }
     const rejection = buildFailure(() => build(options as IntlOptions))
     if (rejection !== null) {
       issues.push({

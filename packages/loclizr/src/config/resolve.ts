@@ -33,7 +33,10 @@ export function resolveConfig(input: {
       config: null,
       diagnostics: [
         diag('outdir-unsafe', {
-          message: `\`outDir\` resolves to ${toPosix(outDirAbsolute)}, outside the project root ${root}.`,
+          message:
+            outDir === ''
+              ? `\`outDir\` resolves to the project root ${root} itself.`
+              : `\`outDir\` resolves to ${toPosix(outDirAbsolute)}, outside the project root ${root}.`,
           hint: "outDir must name a directory inside the project, such as 'src/loclizr'. The build prunes everything under it that this emit did not produce.",
         }),
       ],

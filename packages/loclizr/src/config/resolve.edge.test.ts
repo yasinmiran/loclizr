@@ -309,6 +309,17 @@ describe('numbers at the limits inside a named style', () => {
   })
 
   it.each([
+    ['NaN', Number.NaN],
+    ['Infinity', Number.POSITIVE_INFINITY],
+    ['-Infinity', Number.NEGATIVE_INFINITY],
+  ])('rejects hour12 %s, which Intl would coerce to a boolean and build', (_label, value) => {
+    const result = run({ formats: { dateTime: { x: { hour: 'numeric', hour12: value } } } })
+    expect(rejected(result, 'LZ1001').message).toBe(
+      '`formats.dateTime.x.hour12` must be a finite number.',
+    )
+  })
+
+  it.each([
     ['0', 0],
     ['-0', -0],
     ['100', 100],

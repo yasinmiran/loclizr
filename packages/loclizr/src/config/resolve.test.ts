@@ -248,6 +248,12 @@ describe('LZ1007 outdir-unsafe', () => {
     },
   )
 
+  it.each([['.'], ['src/..']])('names the root itself when outDir %s resolves to it', (outDir) => {
+    const diagnostic = only(run({ outDir }, [catalog('en')]).diagnostics, 'LZ1007')
+    expect(diagnostic.message).toBe('`outDir` resolves to the project root /project itself.')
+    expect(diagnostic.hint).toContain('inside the project')
+  })
+
   it('accepts a directory deep inside the root', () => {
     expect(config(run({ outDir: 'packages/app/src/loclizr' }, [catalog('en')])).outDir).toBe(
       'packages/app/src/loclizr',
