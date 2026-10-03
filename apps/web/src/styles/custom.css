@@ -196,3 +196,44 @@
   height: auto;
   align-items: flex-start;
 }
+
+/* The theme caps the link column at 224px inside a 300px pane and draws a
+   fading rule on the pane's far edge, so short labels wrapped beside 76px of
+   empty space and the rule floated apart from the list it bounds. Let the
+   list fill the pane and drop the rule: the gutter is the divider. */
+.sidebar-pane::after {
+  display: none;
+}
+.sidebar-content {
+  box-sizing: border-box;
+  width: 100%;
+  padding-inline: calc(var(--spacing) * 4) calc(var(--spacing) * 3);
+}
+.sidebar-content ul {
+  gap: 2px;
+}
+
+/* With the links muted, the group headings carry the structure. */
+.sidebar-content .entry-title {
+  color: var(--foreground);
+  font-weight: 600;
+}
+
+/* Full-width rows read as one list instead of a column of floating pills.
+   Inactive links sit a step back so the current page is the one that holds
+   the eye. */
+.sidebar-content a.entry-link {
+  width: 100%;
+  box-sizing: border-box;
+  color: var(--muted-foreground);
+  font-weight: 450;
+}
+.sidebar-content a.entry-link:hover {
+  color: var(--foreground);
+  background-color: color-mix(in oklab, var(--accent) 60%, transparent);
+}
+.sidebar-content a.entry-link[aria-current='page'] {
+  color: var(--foreground);
+  font-weight: 550;
+  background-color: var(--accent);
+}
