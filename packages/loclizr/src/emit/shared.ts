@@ -93,7 +93,7 @@ export function quoted(value: string): string {
 // A source string holding `*/` would close the comment early and print a .d.ts
 // no rule catches, because LZ4005 compares two equally broken passes.
 export function docComment(locale: string, source: string): string {
-  const text = withoutUnpairedSurrogates(source.replaceAll('*/', '*\\/').replace(/\r\n|\r|\n/gu, ' '))
+  const text = withoutUnpairedSurrogates(source.replaceAll('*/', '*\\/').replace(/\r\n|[\r\n\u2028\u2029]/gu, ' '))
   return `/** ${locale}: "${text}" */`
 }
 

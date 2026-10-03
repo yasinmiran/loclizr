@@ -120,6 +120,14 @@ describe('docComment', () => {
     expect(comment.indexOf('*/')).toBe(comment.length - 2)
   })
 
+  // TypeScript counts U+2028 and U+2029 as line breaks, so either would let the
+  // text after it open a comment line that reads as a directive or JSDoc tag.
+  test('turns U+2028 and U+2029 into a space, like CR and LF', () => {
+    expect(docComment('en', 'Save\u2028@ts-expect-error\u2029@deprecated')).toBe(
+      '/** en: "Save @ts-expect-error @deprecated" */',
+    )
+  })
+
   test('still closes when a CR or LF splits a terminator in the source', () => {
     for (const source of ['*\r\n/', '*\n/', '*\r/']) {
       const comment = docComment('en', source)
