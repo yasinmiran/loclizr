@@ -191,7 +191,6 @@ unwritable output).
 | `examples/vite-react` | a Vite and React app built against the package |
 | `apps/web` | the documentation site |
 | `docs/design/spec.md` | the v0.1 specification; every API name and rule code lives there |
-| `research/` | the landscape study the design came out of |
 
 ## Development
 
