@@ -855,7 +855,8 @@ resolves to an empty option set, `::currrency/USD`, `::percnt`, `::foo`, is the
 same code, so a typo is reported instead of rendering unformatted. Two limits:
 a multi-stem skeleton with one misspelled stem, `::percent scale/100` beside a
 typo, still resolves to something and stays silent, and a failure that survives
-the retry, `{x, number, ::}`, is `LZ2001`. `{x, number, ::currency}` with no
+the retry, such as an unclosed brace after the skeleton, is `LZ2001`; an empty
+skeleton, `{x, number, ::}`, is `LZ2003` like the typos above. `{x, number, ::currency}` with no
 code resolves to `{ style: 'currency' }`, which makes `Intl.NumberFormat` throw
 in the browser, so it is `LZ2003` carrying the `currency` row's hint above,
 with the bare number options as the fallback.
