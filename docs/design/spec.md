@@ -855,6 +855,15 @@ The compiler follows ICU precedence exactly.
 `{x, selectordinal, ...}` is the same node with `ordinal: true`, which selects
 `new Intl.PluralRules(locale, { type: 'ordinal' })`.
 
+The locale passed to `Intl.PluralRules` is the locale of the body the arm
+prints, never the requesting locale. Every emitted `$plural1` call names that
+locale as a literal: a translated arm names its own locale, and an inherited or
+fallback arm names the locale whose text it renders, so `ja` with no catalog
+renders the `en` body with English categories rather than selecting `other`
+for every count and printing "1 items". `#` and the number and date styles in
+that arm still format with the requesting locale, so `de-AT` falling back to
+`de` shows German text with Austrian number formatting.
+
 The set of categories a locale requires comes from
 `requiredCategories(locale, ordinal)`, which is
 `new Intl.PluralRules(locale, { type }).resolvedOptions().pluralCategories`, so
@@ -950,7 +959,7 @@ conditional, still one literal and still no helper:
 ```js
       return [
         'You have ',
-        ...($plural1(l, n0, false) === 'one'
+        ...($plural1('en', n0, false) === 'one'
           ? [args.b(['one file'])]
           : [args.b(['many files'])]),
         ' to read',
@@ -1683,7 +1692,7 @@ export function cart_items(args, opts) {
       return `${args.count} Artikel in deinem Warenkorb`
     default:
       if (n0 === 0) return `Your cart is empty`
-      switch ($plural1(l, n0, false)) {
+      switch ($plural1('en', n0, false)) {
         case 'one':
           return `${$number1(l, n0, $f44136fa355b3678a)} item in your cart`
         default:
@@ -1763,11 +1772,11 @@ export function cart_counts(args, opts) {
   switch (l) {
     default:
       return `${
-        $plural1(l, n0, false) === 'one'
+        $plural1('en', n0, false) === 'one'
           ? `${$number1(l, n0, $f44136fa355b3678a)} file`
           : `${$number1(l, n0, $f44136fa355b3678a)} files`
       } in ${
-        $plural1(l, n1, false) === 'one'
+        $plural1('en', n1, false) === 'one'
           ? `${$number1(l, n1, $f44136fa355b3678a)} folder`
           : `${$number1(l, n1, $f44136fa355b3678a)} folders`
       }`
