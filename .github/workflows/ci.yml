@@ -16,4 +16,9 @@ jobs:
           node-version: 22
           cache: pnpm
       - run: pnpm install --frozen-lockfile
+      # The example runs the loclizr binary from the workspace. pnpm links a
+      # bin only when its file exists, and dist does not exist on a fresh
+      # checkout, so build the package and link again before the gate.
+      - run: pnpm build
+      - run: pnpm install --frozen-lockfile --offline
       - run: pnpm check

@@ -199,6 +199,7 @@ Node 20.19 or newer, pnpm 9.
 ```sh
 pnpm install
 pnpm build          # build the package
+pnpm install --offline   # once, after the first build: links the example's loclizr bin
 pnpm test           # vitest, package only
 pnpm typecheck      # package and the example
 pnpm example:dev    # run the Vite example
