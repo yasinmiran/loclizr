@@ -104,6 +104,7 @@ function checkTranslations(program: Program, message: Message, out: Diagnostic[]
 
 function checkArgs(comparison: Comparison, folded: Map<string, FoldState>, out: Diagnostic[]): void {
   const { program, message, source, body, file, span } = comparison
+  const format = formatOf(program)
   const translatedArgs = new Map(body.args.map((arg) => [arg.name, arg.type] as const))
   const sourceNames = new Set(source.args.map((arg) => arg.name))
   for (const arg of source.args) {
@@ -112,8 +113,8 @@ function checkArgs(comparison: Comparison, folded: Map<string, FoldState>, out: 
       if (arg.type.kind === 'markup') continue
       out.push(
         diag('arg-missing', {
-          message: `The ${program.sourceLocale} text uses {${arg.name}} and the ${body.locale} translation does not.`,
-          hint: `add {${arg.name}} to "${message.key}" in ${file}`,
+          message: `The ${program.sourceLocale} text uses ${argRef(format, arg.name)} and the ${body.locale} translation does not.`,
+          hint: `add ${argRef(format, arg.name)} to "${message.key}" in ${file}`,
           file,
           locale: body.locale,
           key: message.key,
@@ -131,10 +132,10 @@ function checkArgs(comparison: Comparison, folded: Map<string, FoldState>, out: 
       diag('arg-extra', {
         message: tag
           ? `The ${body.locale} translation uses the tag <${arg.name}>, which the ${program.sourceLocale} text does not have, so this locale renders ${program.sourceLocale} text instead.`
-          : `The ${body.locale} translation uses {${arg.name}}, which the ${program.sourceLocale} text does not have, so this locale renders ${program.sourceLocale} text instead.`,
+          : `The ${body.locale} translation uses ${argRef(format, arg.name)}, which the ${program.sourceLocale} text does not have, so this locale renders ${program.sourceLocale} text instead.`,
         hint: tag
           ? `remove <${arg.name}> from "${message.key}" in ${file}, or add it to the ${program.sourceLocale} text`
-          : `check the spelling of {${arg.name}} in ${file}, or add it to the ${program.sourceLocale} text`,
+          : `check the spelling of ${argRef(format, arg.name)} in ${file}, or add it to the ${program.sourceLocale} text`,
         file,
         locale: body.locale,
         key: message.key,
@@ -242,9 +243,23 @@ function checkMarkup(comparison: Comparison, out: Diagnostic[]): void {
 }
 
 function checkPluralCategories(program: Program, message: Message, out: Diagnostic[]): void {
+  const format = formatOf(program)
   for (const body of byLocale(message.bodies)) {
     const file = catalogFile(program, message, body.locale)
     const span = spanOf(message, body.locale)
+    // File, locale, key and span are the body's, so two plurals on one argument
+    // with one gap would print the same line twice and neither says which it is.
+    const seen = new Set<string>()
+    const report = (
+      rule: 'plural-category-incomplete' | 'plural-category-unreachable',
+      text: string,
+      hint: string,
+    ): void => {
+      const id = `${rule}\u0000${text}\u0000${hint}`
+      if (seen.has(id)) return
+      seen.add(id)
+      out.push(diag(rule, { message: text, hint, file, locale: body.locale, key: message.key, span }))
+    }
     walk(body.nodes, (node) => {
       if (node.kind !== 'plural') return
       const keyword = node.ordinal ? 'selectordinal' : 'plural'
@@ -252,36 +267,62 @@ function checkPluralCategories(program: Program, message: Message, out: Diagnost
       const provided = new Set(node.branches.map((branch) => branch.keyword))
       const missing = CLDR_ORDER.filter((category) => required.includes(category) && !provided.has(category))
       if (missing.length > 0) {
-        out.push(
-          diag('plural-category-incomplete', {
-            message: `${body.locale} selects ${missing.join(', ')} for some values of {${node.name}}, and this ${keyword} has no branch for ${missing.length === 1 ? 'it' : 'them'}.`,
-            hint: `add ${missing.map((category) => `${category} {...}`).join(' ')} to {${node.name}, ${keyword}, ...} in ${file}`,
-            file,
-            locale: body.locale,
-            key: message.key,
-            span,
-          }),
+        report(
+          'plural-category-incomplete',
+          `${body.locale} selects ${missing.join(', ')} for some values of ${argRef(format, node.name)}, and this ${keyword} has no branch for ${missing.length === 1 ? 'it' : 'them'}.`,
+          format === 'i18next'
+            ? `add ${missing.map((category) => i18nextPluralKey(program, message, body.locale, node.ordinal, category)).join(', ')} to ${file}`
+            : `add ${missing.map((category) => `${category} {...}`).join(' ')} to {${node.name}, ${keyword}, ...} in ${file}`,
         )
       }
       for (const branch of node.branches) {
         if (!CLDR_CATEGORIES.has(branch.keyword)) continue
         if (required.includes(branch.keyword)) continue
-        out.push(
-          diag('plural-category-unreachable', {
-            message: `${body.locale} never selects "${branch.keyword}", so this branch of {${node.name}} never renders.`,
-            hint:
-              branch.keyword === 'zero'
-                ? `${body.locale} never selects zero; use the exact branch =0`
-                : `${body.locale} never selects ${branch.keyword}; delete the branch, or use an exact branch such as =2`,
-            file,
-            locale: body.locale,
-            key: message.key,
-            span,
-          }),
+        report(
+          'plural-category-unreachable',
+          `${body.locale} never selects "${branch.keyword}", so this branch of ${argRef(format, node.name)} never renders.`,
+          format === 'i18next'
+            ? `${body.locale} never selects ${branch.keyword}; delete ${i18nextPluralKey(program, message, body.locale, node.ordinal, branch.keyword)} from ${file}`
+            : branch.keyword === 'zero'
+              ? `${body.locale} never selects zero; use the exact branch =0`
+              : `${body.locale} never selects ${branch.keyword}; delete the branch, or use an exact branch such as =2`,
         )
       }
     })
   }
+}
+
+// Falls back to ICU under 'auto' because Program does not carry the format
+// each file was read as.
+function formatOf(program: Program): 'icu' | 'i18next' {
+  return program.config.catalogFormat === 'i18next' ? 'i18next' : 'icu'
+}
+
+function argRef(format: 'icu' | 'i18next', name: string): string {
+  return format === 'i18next' ? `{{${name}}}` : `{${name}}`
+}
+
+// The key the user types into the file. Under `{ns}` the namespace is the file
+// itself, not a segment of its keys. M2 folds an ordinal group to
+// `base_ordinal` only when that file also holds a cardinal group on `base`, and
+// to `base` otherwise, so a key ending in `_ordinal` alone is not that case.
+function i18nextPluralKey(
+  program: Program,
+  message: Message,
+  locale: string,
+  ordinal: boolean,
+  category: string,
+): string {
+  const key = program.config.catalogs.includes('{ns}')
+    ? message.key.slice(message.key.indexOf('.') + 1)
+    : message.key
+  const base = message.key.slice(0, -'_ordinal'.length)
+  const besideCardinal =
+    message.key.endsWith('_ordinal') &&
+    (program.messages.some((other) => other.key === base && bodyOf(other, locale) !== undefined) ||
+      program.extras.some((extra) => extra.key === base && extra.locale === locale))
+  const stem = ordinal && !besideCardinal ? `${key}_ordinal` : key
+  return `"${stem}_${category}"`
 }
 
 function checkTimeZone(program: Program, message: Message, out: Diagnostic[]): void {
