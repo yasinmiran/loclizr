@@ -16,15 +16,24 @@ export interface Bindings {
 // The clause cannot open on whitespace, so it can never re-consume what the
 // leading `\s+` took. Without that bound the two overlap and a keyword followed
 // by a long whitespace run, which is what a blanked banner comment leaves
-// behind, costs one pass per split of the run.
-const IMPORT = /\bimport\s+(?![('"`])([^\s'"`;][^'"`;]*?)?\bfrom\b\s*(['"])([^'"\n]*)\2/gu
+// behind, costs one pass per split of the run. Nor can the clause run past the
+// next keyword, where the next attempt starts, or a file of unterminated
+// `import x` costs one pass to the end per keyword. That keyword is bounded by
+// identifier characters rather than `\b`, which would find it inside `$import`.
+// `import{a}from'x'` needs no whitespace at all, so `{` and `*` may follow the
+// keyword directly.
+const IMPORT =
+  /\bimport(?:\s+(?![('"`])|(?=[{*]))([^\s'"`;](?:(?!(?<![\p{ID_Continue}$])import(?![\p{ID_Continue}$]))[^'"`;])*?)?\bfrom\b\s*(['"])([^'"\n]*)\2/gu
 // A re-export reaches the generated tree without binding anything callable here,
 // which keeps "renamed re-exports are not followed" true while LZ5004 stops
 // blaming the glob for a barrel.
-const REEXPORT = /\bexport\s+(?![('"`])(?:[^\s'"`;][^'"`;]*?)?\bfrom\b\s*(['"])([^'"\n]*)\1/gu
+const REEXPORT =
+  /\bexport(?:\s+(?![('"`])|(?=[{*]))(?:[^\s'"`;](?:(?!(?<![\p{ID_Continue}$])export(?![\p{ID_Continue}$]))[^'"`;])*?)?\bfrom\b\s*(['"])([^'"\n]*)\1/gu
 const SIDE_EFFECT = /\bimport\s*(['"])([^'"\n]*)\1/gu
 const NAMESPACE = /\*\s*as\s+([\p{ID_Start}$_][\p{ID_Continue}$]*)/u
-const NAMED_BLOCK = /\{([^}]*)\}/u
+// A named block never nests, so it cannot hold a `{` either, which keeps a run of
+// unclosed braces to one pass rather than one pass per brace.
+const NAMED_BLOCK = /\{([^{}]*)\}/u
 const NAMED_ENTRY =
   /^\s*(?:type\s+)?([\p{ID_Start}$_][\p{ID_Continue}$]*)(?:\s+as\s+([\p{ID_Start}$_][\p{ID_Continue}$]*))?\s*$/u
 const TYPE_ONLY = /^type\b/u

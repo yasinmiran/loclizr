@@ -1,11 +1,19 @@
 import type { UsageSite } from '../types'
 import type { Bindings } from './imports'
 import type { ScanGroup } from './index'
-import { isDigit, isIdentStartAt, previousSignificant, readIdentEnd, readNumberEnd } from './scrub'
+import {
+  isDigit,
+  isIdentStartAt,
+  isLineTerminator,
+  previousSignificant,
+  readIdentEnd,
+  readNumberEnd,
+} from './scrub'
 
 export type FoundSite = UsageSite & { readonly id: string }
 
 const SNIPPET_CAP = 160
+const LINE_BREAK = /\r\n|[\n\r\u2028\u2029]/gu
 // A return type annotation is walked rather than skipped, and the walk is bounded
 // so a file of unbalanced punctuation cannot make pass two quadratic.
 const ANNOTATION_CAP = 512
@@ -40,6 +48,20 @@ const NOT_A_SCOPE_NAME: ReadonlySet<string> = new Set([
   'while',
   'with',
   'yield',
+])
+
+// A body after the `)` of one of these is theirs, not a method's: `if (x) {`,
+// `function (x) {`, `async (x): T => {`. Every other reserved word is a legal
+// method name, `delete() {}` and `return() {}` included.
+const NOT_A_METHOD_NAME: ReadonlySet<string> = new Set([
+  'async',
+  'catch',
+  'for',
+  'function',
+  'if',
+  'switch',
+  'while',
+  'with',
 ])
 
 // Inside a type, a word from this set is an operator: what follows it is another
@@ -147,8 +169,14 @@ export function collectSites(input: {
   let body: Body | null = null
   let expectName = false
   let declarator: string | null = null
+  // An open `const`, `let` or `var` statement, whose commas at its own depth
+  // separate declarators that each name what they declare.
+  let declaration: Named | null = null
+  // `<T, U = X>` opens no frame, so its commas sit at the declaration's depth too.
+  let typeParameters = 0
   let lastIdent: string | null = null
   let afterDot = false
+  const snippets = new Map<number, string>()
 
   function endClause(): void {
     if (pending !== null && frames.length <= pending.depth) pending = null
@@ -157,6 +185,7 @@ export function collectSites(input: {
 
   function endStatement(): void {
     endClause()
+    if (declaration !== null && frames.length <= declaration.depth) declaration = null
     if (body !== null && frames.length <= body.depth) body = null
     if (classBody !== null && frames.length <= classBody.depth) classBody = null
   }
@@ -178,6 +207,10 @@ export function collectSites(input: {
       if (DECLARATION_KEYWORDS.has(word)) {
         expectName = true
         declarator = word
+        if (word !== 'class' && word !== 'function' && opensBinding(code, end)) {
+          declaration = { name: word, depth: frames.length }
+          typeParameters = 0
+        }
         lastIdent = word
         index = end
         continue
@@ -203,7 +236,7 @@ export function collectSites(input: {
       const access = dotted ? null : resolveAccess(word, end, code, input.bindings, input.ids)
       if (access !== null) {
         for (const id of access.ids) {
-          sites.push(siteAt(id, index, lineStarts, frames, loose, input))
+          sites.push(siteAt(id, index, lineStarts, frames, loose, input, snippets))
         }
         lastIdent = null
         index = access.end
@@ -230,10 +263,12 @@ export function collectSites(input: {
     }
 
     if (char === '.') {
-      afterDot = true
+      // The last dot of a spread is not a member access: `...m.nav_home()`.
+      const spread = code.startsWith('...', index)
+      afterDot = !spread
       lastIdent = null
       expectName = false
-      index += 1
+      index += spread ? 3 : 1
       continue
     }
 
@@ -269,17 +304,32 @@ export function collectSites(input: {
     if (char === ',') {
       if (!followsMarkup(code, index)) endClause()
       lastIdent = null
-      expectName = false
+      expectName =
+        declaration !== null &&
+        frames.length === declaration.depth &&
+        typeParameters === 0 &&
+        startsDeclarator(code, index + 1)
+      if (expectName && declaration !== null) declarator = declaration.name
       index += 1
       continue
     }
 
-    if (char === '\n') {
-      if (pending !== null && frames.length === pending.depth && !continuesStatement(code, index)) {
-        pending = null
+    if (isLineTerminator(char)) {
+      const atPending = pending !== null && frames.length === pending.depth
+      const atDeclaration = declaration !== null && frames.length === declaration.depth
+      if ((atPending || atDeclaration) && !continuesStatement(code, index)) {
+        if (atPending) pending = null
+        if (atDeclaration) declaration = null
       }
       index += 1
       continue
+    }
+
+    // Only a `<` where a value starts can open type parameters, which keeps a
+    // comparison such as `a < b, c = 1` from hiding the next declarator.
+    if (declaration !== null && frames.length === declaration.depth) {
+      if (char === '<' && (typeParameters > 0 || startsValue(code, index))) typeParameters += 1
+      if (char === '>' && typeParameters > 0) typeParameters -= 1
     }
 
     if (char !== ' ' && char !== '\t' && char !== '\r') {
@@ -317,6 +367,7 @@ export function collectSites(input: {
     frames.length = matching
     if (pending !== null && frames.length < pending.depth) pending = null
     if (loose !== null && frames.length < loose.depth) loose = null
+    if (declaration !== null && frames.length < declaration.depth) declaration = null
     // An object literal or a block that named nothing ends the statement's name
     // with it. A type annotation does not: `const render: { (): string } =
     // function () {}` is still naming `render` on the other side of the brace.
@@ -337,7 +388,13 @@ export function collectSites(input: {
 
   function closeParameterList(callee: string | null, at: number): void {
     if (callee !== null && STATEMENT_KEYWORDS.has(callee)) pending = null
-    const name = scopeNameOf(callee) ?? pending?.name ?? null
+    const method =
+      callee !== null &&
+      !NOT_A_METHOD_NAME.has(callee) &&
+      !(NOT_A_SCOPE_NAME.has(callee) && breaksLine(code, at + 1))
+        ? callee
+        : null
+    const name = method ?? pending?.name ?? null
     body = name === null ? null : bodyAfterParams(code, at + 1, name, frames.length)
   }
 
@@ -367,6 +424,38 @@ export function collectSites(input: {
 function followsMarkup(code: string, at: number): boolean {
   const char = code.charAt(previousSignificant(code, at))
   return char === '}' || char === '>'
+}
+
+// A comma inside type arguments sits at the declaration's depth too, since `<`
+// opens no frame, so only `Name =` or `Name:` after it starts a declarator.
+function startsDeclarator(code: string, from: number): boolean {
+  const start = skipSpace(code, from)
+  if (!isIdentStartAt(code, start)) return false
+  const after = skipSpace(code, readIdentEnd(code, start))
+  const char = code.charAt(after)
+  if (char === ':') return true
+  const next = code.charAt(after + 1)
+  return char === '=' && next !== '=' && next !== '>'
+}
+
+// `var` and `const` are legal keys, `{ var: 1 }` and `as const,`, and neither
+// is followed by the name or pattern a declaration binds.
+function opensBinding(code: string, from: number): boolean {
+  const start = skipSpace(code, from)
+  const char = code.charAt(start)
+  return char === '{' || char === '[' || isIdentStartAt(code, start)
+}
+
+function startsValue(code: string, at: number): boolean {
+  const before = code.charAt(previousSignificant(code, at))
+  return before === '=' || before === ':'
+}
+
+// `super()` and `return (x)` end their statement at a line break, so a brace on
+// the next line opens a plain block. Only on the same line is the word a method
+// name, as in `delete() {`.
+function breaksLine(code: string, from: number): boolean {
+  return /[\n\r]/u.test(code.slice(from, skipSpace(code, from)))
 }
 
 function continuesStatement(code: string, at: number): boolean {
@@ -470,15 +559,23 @@ function siteAt(
   frames: readonly Frame[],
   loose: Named | null,
   input: { readonly source: string; readonly file: string },
+  snippets: Map<number, string>,
 ): FoundSite {
   const at = positionOf(lineStarts, offset)
+  // Every site on a line shares one snippet, and building it walks the whole
+  // line, so a minified line of n usages would otherwise cost n squared.
+  let snippet = snippets.get(at.lineStart)
+  if (snippet === undefined) {
+    snippet = snippetOf(input.source, at.lineStart, at.lineEnd)
+    snippets.set(at.lineStart, snippet)
+  }
   return {
     id,
     file: input.file,
     line: at.line,
     column: at.column,
     scope: scopeOf(frames, loose),
-    snippet: snippetOf(input.source, at.lineStart),
+    snippet,
   }
 }
 
@@ -565,18 +662,19 @@ function skipSpace(code: string, from: number): number {
 
 function lineStartsOf(text: string): readonly number[] {
   const starts: number[] = [0]
-  let at = text.indexOf('\n')
-  while (at !== -1) {
-    starts.push(at + 1)
-    at = text.indexOf('\n', at + 1)
-  }
+  for (const match of text.matchAll(LINE_BREAK)) starts.push(match.index + match[0].length)
   return starts
 }
 
 function positionOf(
   lineStarts: readonly number[],
   offset: number,
-): { readonly line: number; readonly column: number; readonly lineStart: number } {
+): {
+  readonly line: number
+  readonly column: number
+  readonly lineStart: number
+  readonly lineEnd: number | undefined
+} {
   let low = 0
   let high = lineStarts.length - 1
   while (low < high) {
@@ -585,11 +683,11 @@ function positionOf(
     else high = mid - 1
   }
   const lineStart = lineStarts[low] ?? 0
-  return { line: low + 1, column: offset - lineStart + 1, lineStart }
+  return { line: low + 1, column: offset - lineStart + 1, lineStart, lineEnd: lineStarts[low + 1] }
 }
 
-function snippetOf(source: string, lineStart: number): string {
-  const end = source.indexOf('\n', lineStart)
-  const line = (end === -1 ? source.slice(lineStart) : source.slice(lineStart, end)).trim()
+// The slice runs to the next line's start, and trim drops the break that ends it.
+function snippetOf(source: string, lineStart: number, lineEnd: number | undefined): string {
+  const line = source.slice(lineStart, lineEnd).trim()
   return line.length <= SNIPPET_CAP ? line : Array.from(line).slice(0, SNIPPET_CAP).join('')
 }

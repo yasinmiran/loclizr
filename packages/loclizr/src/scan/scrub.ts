@@ -95,6 +95,12 @@ export function previousSignificant(text: string, at: number): number {
   return -1
 }
 
+// ECMAScript ends a line at all four, so a lone CR or a U+2028 must end a line
+// comment and a line number exactly as `\n` does.
+export function isLineTerminator(char: string): boolean {
+  return char === '\n' || char === '\r' || char === '\u2028' || char === '\u2029'
+}
+
 function codePointAt(text: string, index: number): string {
   const code = text.codePointAt(index)
   return code === undefined ? '' : String.fromCodePoint(code)
@@ -165,7 +171,7 @@ function readSameLineLiteral(text: string, start: number): Literal | null {
   let index = chunkStart
   while (index < text.length) {
     const char = text.charAt(index)
-    if (char === '\n') return null
+    if (isLineTerminator(char)) return null
     if (char === '\\') {
       index += 2
       continue
@@ -192,7 +198,7 @@ function endOfHole(text: string, from: number): number | null {
   let index = from
   while (index < text.length) {
     const char = text.charAt(index)
-    if (char === '\n') return null
+    if (isLineTerminator(char)) return null
     if (char === '{') depth += 1
     if (char === '}') {
       depth -= 1
@@ -311,6 +317,24 @@ function lex(text: string): Lexed {
       afterValue = true
       continue
     }
+    // `a++` and `done!` are still values, so the `/` after them divides. A prefix
+    // `++` leaves expression position as it found it, and so does `!` that is
+    // not stuck to an operand, which is `!/re/.test(s)` on a fresh line. A `)!`
+    // is left a logical not, since `if (a)!/re/` cannot be told from `f()!` here.
+    if ((char === '+' || char === '-') && text.charAt(index + 1) === char) {
+      index += 2
+      continue
+    }
+    if (
+      char === '!' &&
+      afterValue &&
+      text.charAt(index + 1) !== '=' &&
+      text.charAt(index - 1) !== ')' &&
+      previousSignificant(text, index) === index - 1
+    ) {
+      index += 1
+      continue
+    }
     if (char !== ' ' && char !== '\t' && char !== '\n' && char !== '\r') afterValue = false
     index += 1
   }
@@ -320,7 +344,7 @@ function lex(text: string): Lexed {
 
 function endOfLineComment(text: string, start: number): number {
   let index = start + 2
-  while (index < text.length && text.charAt(index) !== '\n') index += 1
+  while (index < text.length && !isLineTerminator(text.charAt(index))) index += 1
   return index
 }
 
@@ -328,8 +352,7 @@ function endOfBlockComment(text: string, start: number, capUnterminated: boolean
   const close = text.indexOf('*/', start + 2)
   if (close !== -1) return close + 2
   if (!capUnterminated) return text.length
-  const newline = text.indexOf('\n', start + 2)
-  return newline === -1 ? text.length : newline
+  return endOfLineComment(text, start)
 }
 
 function readQuoted(text: string, start: number): { readonly contentEnd: number; readonly end: number } {
@@ -342,7 +365,8 @@ function readQuoted(text: string, start: number): { readonly contentEnd: number;
       continue
     }
     if (char === quote) return { contentEnd: index, end: index + 1 }
-    if (char === '\n') break
+    // U+2028 and U+2029 are legal inside a string literal, so only CR joins LF.
+    if (char === '\n' || char === '\r') break
     index += 1
   }
   const end = Math.min(index, text.length)
@@ -361,7 +385,7 @@ function readRegex(text: string, start: number): number | null {
       index += 2
       continue
     }
-    if (char === '\n') return null
+    if (isLineTerminator(char)) return null
     if (char === '[') {
       inClass = true
       index += 1
@@ -390,7 +414,7 @@ function blank(text: string, ranges: readonly Range[]): string {
     const from = Math.max(0, start)
     const to = Math.min(end, units.length)
     for (let index = from; index < to; index += 1) {
-      if (units[index] !== '\n') units[index] = ' '
+      if (!isLineTerminator(units[index] ?? '')) units[index] = ' '
     }
   }
   return units.join('')

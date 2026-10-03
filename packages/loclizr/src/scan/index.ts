@@ -25,7 +25,9 @@ interface FileScan {
   readonly importedGenerated: boolean
 }
 
-const JSX_EXTENSIONS: ReadonlySet<string> = new Set(['.jsx', '.tsx'])
+// Template text in a component file is prose to a JS lexer exactly as JSX text
+// is, so a bare apostrophe there needs the same narrowed string lexing.
+const JSX_EXTENSIONS: ReadonlySet<string> = new Set(['.jsx', '.tsx', '.svelte', '.vue', '.astro'])
 const TRAILING_SLASHES = /\/+$/u
 
 export async function scan(input: {
