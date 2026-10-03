@@ -9,23 +9,29 @@ import { getLocale, setLocale, subscribe } from '../runtime/store'
 export function useLocale(): Locale {
   const locale = useSyncExternalStore(subscribe, getLocale, getLocale)
   useEffect(() => {
-    if (typeof document === 'undefined' || process.env.NODE_ENV === 'production') return
-    const declared = document.documentElement.lang
-    if (declared === locale) return
-    document.documentElement.lang = locale
-    // A missing attribute is not a server versus client disagreement, so it
-    // keeps its own key and leaves the disagreement warning unspent.
-    if (declared === '') {
+    // The whole body sits in the try because a minifier drops the code after a
+    // folded return only within the same block.
+    try {
+      if (typeof document === 'undefined' || process.env.NODE_ENV === 'production') return
+      const declared = document.documentElement.lang
+      if (declared === locale) return
+      document.documentElement.lang = locale
+      // A missing attribute is not a server versus client disagreement, so it
+      // keeps its own key and leaves the disagreement warning unspent.
+      if (declared === '') {
+        warnOnce(
+          'html-lang-missing',
+          '<html> carries no lang attribute, so a client with no cookie has nothing to read. Render lang from the Content-Language header withLocale sets.',
+        )
+        return
+      }
+      // Tags compare case-insensitively, as matchLocale does when it reads lang.
+      if (declared.toLowerCase() === locale.toLowerCase()) return
       warnOnce(
-        'html-lang-missing',
-        '<html> carries no lang attribute, so a client with no cookie has nothing to read. Render lang from the Content-Language header withLocale sets.',
+        'html-lang',
+        `<html lang="${declared}"> disagrees with the resolved locale "${locale}". Render lang from the Content-Language header withLocale sets.`,
       )
-      return
-    }
-    warnOnce(
-      'html-lang',
-      `<html lang="${declared}"> disagrees with the resolved locale "${locale}". Render lang from the Content-Language header withLocale sets.`,
-    )
+    } catch {}
   }, [locale])
   return locale
 }

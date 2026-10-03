@@ -392,6 +392,32 @@ describe('html lang agreement', () => {
     )
   })
 
+  test('stays quiet when lang names the resolved locale in another case', () => {
+    const warn = quiet()
+    document.documentElement.lang = 'de-at'
+    $configure1(SETUP)
+    render(<Label />)
+    expect(warn).not.toHaveBeenCalled()
+    expect(document.documentElement.lang).toBe('de-AT')
+  })
+
+  test('with no process at all renders and skips the check instead of throwing', () => {
+    const warn = quiet()
+    document.documentElement.lang = 'fr'
+    $configure1(SETUP)
+    const host = globalThis as unknown as Record<string, unknown>
+    const original = host['process']
+    Reflect.deleteProperty(globalThis, 'process')
+    try {
+      const { getByTestId } = render(<Label />)
+      expect(shown('locale', getByTestId)).toBe('en')
+    } finally {
+      host['process'] = original
+    }
+    expect(warn).not.toHaveBeenCalled()
+    expect(document.documentElement.lang).toBe('fr')
+  })
+
   test('in production adds no lang to a document that has none', () => {
     vi.stubEnv('NODE_ENV', 'production')
     const warn = quiet()

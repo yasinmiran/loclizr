@@ -4,6 +4,7 @@ import { fileURLToPath } from 'node:url'
 import { afterEach, describe, expect, test, vi } from 'vitest'
 import { $configure1 } from './abi'
 import { resetRuntime } from './__fixtures__/reset'
+import { setLocaleScope } from './state'
 import { getLocale, getRawLocale, registerDefaults, setLocale, subscribe } from './store'
 
 const SETUP = { locales: ['de', 'de-AT', 'en'], sourceLocale: 'en', cookie: 'locale' } as const
@@ -96,6 +97,23 @@ describe('production', () => {
     } finally {
       host['process'] = original
     }
+  })
+
+  test('skips every warning with no process at all instead of throwing', () => {
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {})
+    const host = globalThis as unknown as Record<string, unknown>
+    const original = host['process']
+    Reflect.deleteProperty(globalThis, 'process')
+    try {
+      expect(getLocale()).toBe('en')
+      registerDefaults(SETUP)
+      registerDefaults({ locales: ['en', 'fr'], sourceLocale: 'fr', cookie: 'lang' })
+      setLocaleScope({ getStore: () => undefined })
+      expect(getLocale()).toBe('en')
+    } finally {
+      host['process'] = original
+    }
+    expect(warn).not.toHaveBeenCalled()
   })
 
   test('silences the unregistered warning without changing the answer', () => {

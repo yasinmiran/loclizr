@@ -98,6 +98,9 @@ function announce(response: Response, locale: string): Response {
     stamp(response.headers, locale)
     return response
   } catch {
+    // A network error carries no headers to stamp and status 0, which the
+    // Response constructor rejects.
+    if (response.type === 'error') return response
     const headers = new Headers(response.headers)
     stamp(headers, locale)
     return new Response(response.body, {
@@ -110,11 +113,10 @@ function announce(response: Response, locale: string): Response {
 
 function stamp(headers: Headers, locale: string): void {
   headers.set('Content-Language', locale)
-  const vary = headers.get('Vary')
-  if (vary === null) {
-    headers.set('Vary', 'Accept-Language')
-    return
-  }
-  const lists = vary.split(',').some((field) => field.trim().toLowerCase() === 'accept-language')
-  if (!lists) headers.set('Vary', `${vary}, Accept-Language`)
+  const fields = (headers.get('Vary') ?? '')
+    .split(',')
+    .map((field) => field.trim())
+    .filter((field) => field !== '')
+  const lists = fields.some((field) => field.toLowerCase() === 'accept-language')
+  if (!lists) headers.set('Vary', [...fields, 'Accept-Language'].join(', '))
 }

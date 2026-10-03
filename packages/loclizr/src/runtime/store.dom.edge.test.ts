@@ -2,7 +2,7 @@
 import { afterEach, describe, expect, test, vi } from 'vitest'
 import { $configure1 } from './abi'
 import { resetRuntime } from './__fixtures__/reset'
-import { getLocale, getRawLocale, registerDefaults, setLocale } from './store'
+import { getLocale, getRawLocale, registerDefaults, setLocale, subscribe } from './store'
 
 const SETUP = { locales: ['de', 'de-AT', 'en'], sourceLocale: 'en', cookie: 'locale' } as const
 
@@ -143,6 +143,20 @@ describe('setLocale in a browser', () => {
     resetRuntime()
     document.documentElement.lang = 'de'
     expect(getRawLocale()).toBe('de')
+  })
+
+  test('moves the store, lang and subscribers together for a tag with a lone surrogate', () => {
+    registerDefaults(SETUP)
+    setLocale('de')
+    const listener = vi.fn()
+    subscribe(listener)
+    expect(() => setLocale('\uD800')).not.toThrow()
+    expect(listener).toHaveBeenCalledTimes(1)
+    expect(getLocale()).toBe('en')
+    expect(document.documentElement.lang).toBe('\uD800')
+    resetRuntime()
+    registerDefaults(SETUP)
+    expect(getLocale()).toBe('en')
   })
 
   test('overwrites the earlier cookie rather than adding a second one', () => {

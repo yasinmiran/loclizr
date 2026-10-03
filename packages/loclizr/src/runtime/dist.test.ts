@@ -2,7 +2,8 @@ import { existsSync, readFileSync } from 'node:fs'
 import { dirname, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { gzipSync } from 'node:zlib'
-import { describe, expect, test } from 'vitest'
+import { describe, expect, test, vi } from 'vitest'
+import { resetRuntime } from './__fixtures__/reset'
 
 // The published budget for the client entry, which the shipped artifact does
 // not fit and no change available in this module can reach: the entry and its
@@ -105,6 +106,23 @@ describe.skipIf(!existsSync(CLIENT_ENTRY))('the published client entry', () => {
         `${chunk.file}: a typeof guard short-circuits in the browser before the substituted literal, so every warning ships to production`,
       ).not.toMatch(/typeof\s+process/)
     }
+  })
+
+  test('answers getLocale with no process at all, as a page with no bundler runs it', async () => {
+    const { getLocale } = (await import(CLIENT_ENTRY)) as { getLocale: () => string }
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {})
+    const host = globalThis as unknown as Record<string, unknown>
+    const original = host['process']
+    resetRuntime()
+    Reflect.deleteProperty(globalThis, 'process')
+    try {
+      expect(getLocale()).toBe('en')
+    } finally {
+      host['process'] = original
+      resetRuntime()
+      warn.mockRestore()
+    }
+    expect(warn).not.toHaveBeenCalled()
   })
 
   test('gives every warning in the entry its own comparison the define folds away', () => {

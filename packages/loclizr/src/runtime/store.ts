@@ -10,20 +10,24 @@ export function getLocale(): Locale {
   const raw = getRawLocale()
   // The define read comes last so a build that never substituted it is only
   // reached on the path that was about to warn.
-  if (raw === '' && detached() && process.env.NODE_ENV !== 'production') {
-    warnOnce(
-      'detached',
-      'getLocale() ran outside a request scope, so it returned the source locale. Wrap the render in runWithLocale().',
-    )
-  }
-  const { setup } = state
-  if (setup === null) {
-    if (process.env.NODE_ENV !== 'production') {
+  try {
+    if (raw === '' && detached() && process.env.NODE_ENV !== 'production') {
       warnOnce(
-        'unregistered',
-        'getLocale() ran before any generated message module was imported, so no locale list is registered. Import from your generated messages.',
+        'detached',
+        'getLocale() ran outside a request scope, so it returned the source locale. Wrap the render in runWithLocale().',
       )
     }
+  } catch {}
+  const { setup } = state
+  if (setup === null) {
+    try {
+      if (process.env.NODE_ENV !== 'production') {
+        warnOnce(
+          'unregistered',
+          'getLocale() ran before any generated message module was imported, so no locale list is registered. Import from your generated messages.',
+        )
+      }
+    } catch {}
     // The stored tag alone, never a detected one: setLocale took a declared
     // locale, while a cookie is whatever the wire carried.
     return state.raw ?? 'en'
@@ -41,7 +45,11 @@ export function setLocale(locale: Locale, options?: SetLocaleOptions): void {
   state.raw = locale
   if (typeof document !== 'undefined') {
     if (options?.persist !== false) {
-      document.cookie = `${cookieName()}=${encodeURIComponent(locale)}; path=/; max-age=${ONE_YEAR}; SameSite=Lax`
+      // A lone surrogate is the one string encodeURIComponent rejects; written
+      // as U+FFFD it reads back as an unknown tag, which resolves exactly as the
+      // stored one does.
+      const encoded = encodeURIComponent(locale.replace(/\p{Cs}/gu, '\uFFFD'))
+      document.cookie = `${cookieName()}=${encoded}; path=/; max-age=${ONE_YEAR}; SameSite=Lax`
     }
     document.documentElement.lang = locale
   }
@@ -84,12 +92,14 @@ export function registerDefaults(setup: {
     registered.locales.length === setup.locales.length &&
     registered.locales.every((tag, index) => tag === setup.locales[index])
   if (same) return
-  if (process.env.NODE_ENV !== 'production') {
-    warnOnce(
-      'reregistered',
-      `a second generated directory registered [${setup.locales.join(', ')}]; the first registration keeps getLocale().`,
-    )
-  }
+  try {
+    if (process.env.NODE_ENV !== 'production') {
+      warnOnce(
+        'reregistered',
+        `a second generated directory registered [${setup.locales.join(', ')}]; the first registration keeps getLocale().`,
+      )
+    }
+  } catch {}
 }
 
 export function matchLocale(requested: string, known: readonly string[], fallback: string): string {

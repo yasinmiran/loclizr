@@ -57,7 +57,11 @@ export function scopedLocale(): string | undefined {
 // rather than calling a helper, because the guard is what a bundler's define
 // turns into a constant, and only a constant lets the branch and its message
 // text drop out of a production bundle. Wrapping the read costs every app the
-// full text of every warning it can never print.
+// full text of every warning it can never print. Each guarded statement sits in
+// a try instead: with neither a define nor a `process` (a page with no bundler,
+// an isolate) the read throws, and a skipped warning beats a crash. A `typeof
+// process` test would also skip it in a browser dev build, where only the
+// define exists.
 export function warnOnce(key: string, message: string): void {
   const { warned } = storeState()
   if (warned.has(key)) return

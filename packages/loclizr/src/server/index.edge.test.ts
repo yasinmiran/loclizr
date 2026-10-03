@@ -396,6 +396,12 @@ describe('withLocale on Vary', () => {
     )
   })
 
+  test('writes no empty list element around an empty or comma-padded Vary', async () => {
+    expect(await varyAfter({ Vary: '' })).toBe('Accept-Language')
+    expect(await varyAfter({ Vary: 'Cookie,' })).toBe('Cookie, Accept-Language')
+    expect(await varyAfter({ Vary: ' , Cookie' })).toBe('Cookie, Accept-Language')
+  })
+
   test('finds Accept-Language listed in a second Vary field', async () => {
     const headers = new Headers()
     headers.append('Vary', 'Cookie')
@@ -423,6 +429,12 @@ describe('withLocale on a response with immutable headers', () => {
     expect(response.headers.get('X-Trace')).toBe('abc')
     expect(response.headers.get('Content-Language')).toBe('fr')
     expect(response.headers.get('Vary')).toBe('Cookie, Accept-Language')
+  })
+
+  test('hands back a network error unchanged rather than rejecting', async () => {
+    const error = Response.error()
+    const response = await withLocale(() => error, OPTIONS)(request({ cookie: 'locale=de' }))
+    expect(response).toBe(error)
   })
 
   test('rebuilds every redirect status', async () => {
