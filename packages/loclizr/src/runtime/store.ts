@@ -1,6 +1,7 @@
 import type { Locale, LocaleListener, SetLocaleOptions } from '../types'
 import { readCookie } from './cookie'
 import { localeScope, scopedLocale, storeState, warnOnce } from './state'
+import type { StoreState } from './state'
 
 const PLAUSIBLE_TAG = /^[A-Za-z]{2,8}(?:-[A-Za-z0-9]{1,8})*$/
 const ONE_YEAR = 31536000
@@ -84,6 +85,7 @@ export function registerDefaults(setup: {
   const registered = state.setup
   if (registered === null) {
     state.setup = setup
+    declarePendingLang(state)
     return
   }
   const same =
@@ -123,9 +125,24 @@ function detached(): boolean {
 function detect(): string {
   if (typeof document === 'undefined') return ''
   const fromCookie = readCookie(document.cookie, cookieName())
-  if (fromCookie !== null) return fromCookie
+  if (fromCookie !== null) {
+    // Only a cookie can name a locale the document does not already declare.
+    const state = storeState()
+    state.pendingLang = fromCookie
+    declarePendingLang(state)
+    return fromCookie
+  }
   const declared = document.documentElement.lang
   return PLAUSIBLE_TAG.test(declared) ? declared : ''
+}
+
+// Once setLocale has run it owns lang, so a late registration leaves it alone.
+// An older copy's store has no pendingLang at all, hence the loose test.
+function declarePendingLang(state: StoreState): void {
+  if (state.pendingLang == null || state.setup === null || state.raw !== null) return
+  const { locales, sourceLocale } = state.setup
+  document.documentElement.lang = matchLocale(state.pendingLang, locales, sourceLocale)
+  state.pendingLang = null
 }
 
 function cookieName(): string {

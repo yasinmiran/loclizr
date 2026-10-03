@@ -27,6 +27,22 @@ function countCookieReads(): () => number {
   return () => reads
 }
 
+// A rewrite of the same value leaves the cookie string as it was, so only the
+// setter can show one happened.
+function countCookieWrites(): () => number {
+  let writes = 0
+  const real = Object.getOwnPropertyDescriptor(Document.prototype, 'cookie')
+  Object.defineProperty(document, 'cookie', {
+    configurable: true,
+    get: () => real?.get?.call(document) ?? '',
+    set: (value: string) => {
+      writes += 1
+      real?.set?.call(document, value)
+    },
+  })
+  return () => writes
+}
+
 afterEach(() => {
   Reflect.deleteProperty(document, 'cookie')
   clearCookies()
@@ -57,6 +73,70 @@ describe('client detection reads the document once', () => {
 })
 
 describe('the detected cookie', () => {
+  test('sets html lang to the resolved locale, with no cookie write and no notification', () => {
+    document.cookie = 'locale=de; path=/'
+    document.documentElement.lang = 'en'
+    $configure1({ locales: ['en', 'de'], sourceLocale: 'en', cookie: 'locale' })
+    const listener = vi.fn()
+    subscribe(listener)
+    const writes = countCookieWrites()
+    expect(getLocale()).toBe('de')
+    expect(document.documentElement.lang).toBe('de')
+    expect(writes()).toBe(0)
+    expect(listener).not.toHaveBeenCalled()
+  })
+
+  test('sets html lang when the locale list registers after the first read', () => {
+    document.cookie = 'locale=de; path=/'
+    document.documentElement.lang = 'en'
+    const listener = vi.fn()
+    subscribe(listener)
+    const writes = countCookieWrites()
+    expect(getRawLocale()).toBe('de')
+    expect(document.documentElement.lang).toBe('en')
+    $configure1(SETUP)
+    expect(getLocale()).toBe('de')
+    expect(document.documentElement.lang).toBe('de')
+    expect(writes()).toBe(0)
+    expect(listener).not.toHaveBeenCalled()
+  })
+
+  test('leaves html lang to setLocale when it ran before the list registered', () => {
+    document.cookie = 'locale=de; path=/'
+    getRawLocale()
+    setLocale('en', { persist: false })
+    $configure1(SETUP)
+    expect(document.documentElement.lang).toBe('en')
+  })
+
+  test('registers into a store an older copy created without the pending field', () => {
+    document.cookie = 'locale=de; path=/'
+    document.documentElement.lang = 'en'
+    Reflect.set(globalThis, Symbol.for('loclizr.store'), {
+      raw: null,
+      detected: 'de',
+      setup: null,
+      listeners: new Set(),
+      warned: new Set(),
+    })
+    expect(() => $configure1(SETUP)).not.toThrow()
+    expect(getLocale()).toBe('de')
+  })
+
+  test('is the only detection that writes html lang on registration', () => {
+    document.documentElement.lang = 'fr'
+    expect(getRawLocale()).toBe('fr')
+    $configure1(SETUP)
+    expect(document.documentElement.lang).toBe('fr')
+  })
+
+  test('sets html lang to the declared form of the tag it resolves to', () => {
+    document.cookie = 'locale=DE-at-u-nu-latn; path=/'
+    document.documentElement.lang = 'en'
+    expect($configure1(SETUP)()).toBe('de-AT')
+    expect(document.documentElement.lang).toBe('de-AT')
+  })
+
   test('falls through to html lang when it is present but empty', () => {
     document.cookie = 'locale=; path=/'
     document.documentElement.lang = 'de'

@@ -162,7 +162,7 @@ describe('Parts', () => {
 })
 
 describe('production', () => {
-  test('leaves html lang alone and says nothing about it', () => {
+  test('leaves html lang to the store and says nothing about it', () => {
     vi.stubEnv('NODE_ENV', 'production')
     const warn = vi.spyOn(console, 'warn').mockImplementation(() => {})
     document.documentElement.lang = 'en'
@@ -173,7 +173,7 @@ describe('production', () => {
     }
     const { getByTestId } = render(createElement(Label))
     expect(getByTestId('locale').textContent).toBe('de')
-    expect(document.documentElement.lang).toBe('en')
+    expect(document.documentElement.lang).toBe('de')
     expect(warn).not.toHaveBeenCalled()
   })
 })

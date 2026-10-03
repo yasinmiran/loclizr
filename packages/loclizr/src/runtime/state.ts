@@ -11,6 +11,9 @@ export interface StoreState {
   // Kept apart from `raw` so a stored tag and a detected one stay
   // distinguishable: only the first is a locale somebody asked for.
   detected: string | null
+  // A detected cookie's <html lang> write, held until a locale list registers
+  // to resolve it against, since a lazy chunk can register after the first read.
+  pendingLang: string | null
   setup: LocaleSetup | null
   readonly listeners: Set<() => void>
   readonly warned: Set<string>
@@ -33,6 +36,7 @@ export function storeState(): StoreState {
   const created: StoreState = {
     raw: null,
     detected: null,
+    pendingLang: null,
     setup: null,
     listeners: new Set(),
     warned: new Set(),

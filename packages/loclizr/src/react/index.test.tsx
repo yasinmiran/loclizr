@@ -79,12 +79,11 @@ describe('useLocale', () => {
 
   test('warns once and repairs html lang when the document disagrees', () => {
     const warn = vi.spyOn(console, 'warn').mockImplementation(() => {})
-    document.documentElement.lang = 'en'
-    document.cookie = 'locale=de; path=/'
+    document.documentElement.lang = 'fr'
     $configure1(SETUP)
     const { getByTestId, rerender } = render(<Label />)
-    expect(getByTestId('locale').textContent).toBe('de')
-    expect(document.documentElement.lang).toBe('de')
+    expect(getByTestId('locale').textContent).toBe('en')
+    expect(document.documentElement.lang).toBe('en')
     expect(warn).toHaveBeenCalledTimes(1)
     rerender(<Label />)
     expect(warn).toHaveBeenCalledTimes(1)
@@ -103,6 +102,17 @@ describe('useLocale', () => {
     expect(document.documentElement.lang).toBe('en')
     expect(warn).toHaveBeenCalledTimes(2)
     expect(warn.mock.calls[1]?.[0]).toContain('disagrees with the resolved locale')
+  })
+
+  test('says nothing when detection already set html lang from the cookie', () => {
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {})
+    document.documentElement.lang = 'en'
+    document.cookie = 'locale=de; path=/'
+    $configure1(SETUP)
+    const { getByTestId } = render(<Label />)
+    expect(getByTestId('locale').textContent).toBe('de')
+    expect(document.documentElement.lang).toBe('de')
+    expect(warn).not.toHaveBeenCalled()
   })
 
   test('says nothing when the document already agrees', () => {
