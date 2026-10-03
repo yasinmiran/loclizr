@@ -1,4 +1,5 @@
 import starlight from '@astrojs/starlight'
+import react from '@astrojs/react'
 import { defineConfig } from 'astro/config'
 import starlightLlmsTxt from 'starlight-llms-txt'
 import starlightThemeBlack from 'starlight-theme-black'
@@ -50,6 +51,7 @@ export default defineConfig({
   base,
   integrations: [
     baseLinks(),
+    react(),
     starlight({
       title: 'loclizr',
       plugins: [

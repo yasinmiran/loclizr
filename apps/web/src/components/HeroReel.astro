@@ -1,0 +1,40 @@
+---
+---
+
+<figure class="hero-reel not-content">
+  <div class="frame" data-hero-reel></div>
+  <figcaption>
+    One catalog line, one build, one typed call: <code>m.demo_items</code> renders in all 13 locales, and a wrong argument type fails <code>tsc</code>.
+  </figcaption>
+</figure>
+
+<script>
+  // Mounted from a plain script rather than a framework island: the llms-full.txt
+  // route renders every page through a container that has no React renderer.
+  for (const root of document.querySelectorAll<HTMLElement>('[data-hero-reel]')) {
+    const observer = new IntersectionObserver((entries) => {
+      if (!entries.some((entry) => entry.isIntersecting)) return
+      observer.disconnect()
+      void import('./hero/mount').then(({ mountHeroReel }) => mountHeroReel(root))
+    })
+    observer.observe(root)
+  }
+</script>
+
+<style>
+  .hero-reel {
+    margin: 0 0 2.5rem;
+  }
+  .frame {
+    aspect-ratio: 16 / 9;
+    border: 1px solid var(--border);
+    border-radius: 0.5rem;
+    overflow: hidden;
+  }
+  figcaption {
+    margin-top: 0.75rem;
+    font-size: var(--sl-text-sm);
+    color: var(--muted-foreground);
+    max-width: 65ch;
+  }
+</style>
