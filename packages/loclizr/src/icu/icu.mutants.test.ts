@@ -29,6 +29,24 @@ describe('a rejected skeleton beside another problem', () => {
     expect(codes(result.diagnostics)).toContain('LZ2005')
     expect(codes(result.diagnostics)).not.toContain('LZ2001')
   })
+
+  it.each([['{n, number, ::currency/} {'], ['{d, date, ::qqqq} {']])(
+    'in %s reports the unclosed brace at the brace, and the skeleton as LZ2003',
+    (value) => {
+      const result = lower(value, icuContext())
+      expect(codes(result.diagnostics)).toStrictEqual(['LZ2001', 'LZ2003'])
+      const syntax = only(result.diagnostics, 'LZ2001')
+      expect(syntax.message).toContain('EXPECT_ARGUMENT_CLOSING_BRACE')
+      expect(syntax.span).toMatchObject({ offset: SPAN.offset + value.lastIndexOf('{'), length: 1 })
+      const skeleton = only(result.diagnostics, 'LZ2003')
+      expect(skeleton.span?.offset).toBe(SPAN.offset + value.indexOf('::'))
+    },
+  )
+
+  it('raises LZ2003 for the skeleton beside the missing other branch', () => {
+    const result = lower('{d, date, ::qqqq} {s, select, a {x}}', icuContext())
+    expect(codes(result.diagnostics)).toStrictEqual(['LZ2005', 'LZ2003'])
+  })
 })
 
 describe('the span of each rejected skeleton', () => {

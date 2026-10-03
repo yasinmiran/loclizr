@@ -80,10 +80,11 @@ function recover(text: string, rejected: readonly RejectedSkeleton[]): ParseOutc
   if (degraded.ok) {
     return { ok: true, elements: degraded.elements, skeletonsResolved: false, rejected }
   }
+  const blanked =
+    blankSkeleton(text, degraded) ?? (full.location === null ? blankUnresolved(text) : null)
+  if (blanked !== null) return recover(blanked.text, [...rejected, blanked.rejected])
   if (degraded.detail === MISSING_OTHER) return missingOther(text, degraded, rejected)
-  const blanked = blankSkeleton(text, degraded)
-  if (blanked === null) return syntaxFailure(full, rejected)
-  return recover(blanked.text, [...rejected, blanked.rejected])
+  return syntaxFailure(degraded, rejected)
 }
 
 export function probeSkeleton(form: SkeletonForm, token: string): IntlOptions | null {
@@ -144,13 +145,29 @@ interface Blanked {
   readonly rejected: RejectedSkeleton
 }
 
-// The separating comma goes with the style run, or the copy still fails to parse,
-// and spaces replace both so every other offset in the value stays where it was.
 function blankSkeleton(text: string, failure: AttemptFailure): Blanked | null {
   const location = failure.location
   if (location === null || !SKELETON_FAILURES.has(failure.detail)) return null
   const marker = text.indexOf('::', location.start.offset)
   if (marker === -1 || marker >= location.end.offset) return null
+  return blankRun(text, marker)
+}
+
+// The resolver throws with no location, so the run it refused is found by
+// probing each one.
+function blankUnresolved(text: string): Blanked | null {
+  for (let marker = text.indexOf('::'); marker !== -1; marker = text.indexOf('::', marker + 2)) {
+    const blanked = blankRun(text, marker)
+    if (blanked !== null && probeSkeleton(blanked.rejected.form, blanked.rejected.token) === null) {
+      return blanked
+    }
+  }
+  return null
+}
+
+// The separating comma goes with the style run, or the copy still fails to parse,
+// and spaces replace both so every other offset in the value stays where it was.
+function blankRun(text: string, marker: number): Blanked | null {
   let comma = marker
   while (comma > 0 && isSpace(text.charAt(comma - 1))) comma -= 1
   if (text.charAt(comma - 1) !== ',') return null
