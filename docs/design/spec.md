@@ -283,7 +283,13 @@ changing meaning.
    set for the whole catalog set. That is the escape's second parameter,
    `markup`: `toIcu` passes the configured mode through so the mode is
    expressible in the one implementation of this step rather than forcing M2 to
-   fork it. A file read as ICU is unaffected by any of this.
+   fork it. Under `'tags'` a value holding a tag the parser would reject, a
+   numbered `<1>` tag, a tag with attributes, an unclosed or mismatched tag, or
+   a name cut by an argument, is escaped to literal text as a whole and raises
+   `LZ1016`, so its return type stays `string` and the message survives. The
+   output of `toIcu` is parseable ICU in both modes; the importer never hands
+   M3 a value whose rejection would drop a source message. A file read as ICU
+   is unaffected by any of this.
 
 2. **Rewrite placeholders.** `{{ name }}` becomes `{name}`. Surrounding
    whitespace inside the braces is trimmed. A placeholder carrying an i18next
@@ -296,8 +302,14 @@ changing meaning.
    holds a brace, `{{}}`, `{{ }}`, `{{{name}}`, is text i18next rendered as
    written: it stays inside the literal run around it, that run is not cut at
    it, and step 1 escapes the whole stretch in one pass rather than closing a
-   quote and reopening it between two braces. A run whose name ICU rejects,
-   `{{user.name}}`, is converted as written and reported by M3.
+   quote and reopening it between two braces. The unescape prefix, `{{- name}}`,
+   converts to `{name}` with no diagnostic: loclizr never HTML-escapes an
+   argument, so the two spellings are the same message after import. A run
+   whose name ICU rejects, `{{user.name}}`, stays literal text, escaped in the
+   same pass, and is `LZ1013 i18next-format-unsupported` from M2 with a hint
+   naming the flat name to write; the function exists and renders the text as
+   i18next did for a missing interpolation value. The compiler never invents an
+   argument name.
 
 3. **`{{count}}` stays a plain argument.** It becomes `{count}`, typed
    `string | number` in a message that step 4 does not fold. Where the key does
@@ -2771,7 +2783,7 @@ claim one. Ranges are thematic and a range may span two owners.
 | LZ1010 | `catalog-shape-invalid` | error | never | M2 | non-object root, or an array, number or boolean leaf, in a catalog; a root, entry, `description`, `placeholders` map or note of the wrong shape in the meta sidecar. A `null` leaf is a missing translation, not this |
 | LZ1011 | `duplicate-key` | error | never | M2 | the same flat key path from a nested and a dotted form where both end in a message string, from a JSON key written twice in one object whatever the values, from a bare `X` beside a group that folds to `X`, or from two namespace files of one locale. `JSON.parse` silently keeps the last one, which is how a translation disappears with no diff |
 | LZ1012 | `i18next-nesting-unsupported` | error | never | M2 | a value contains `$t(` |
-| LZ1013 | `i18next-format-unsupported` | error | never | M2 | a placeholder carries an inline formatter, `{{val, fmt}}` |
+| LZ1013 | `i18next-format-unsupported` | error | never | M2 | a placeholder carries an inline formatter, `{{val, fmt}}`, or a name ICU cannot read as an argument, `{{user.name}}` |
 | LZ1014 | `plural-suffix-orphan` | warn | never | M2 | a CLDR-suffixed key with no `_other` sibling, or an `X_plural` beside a bare `X` (i18next JSON v3). A lone `X_other` is not this: i18next selects it for every count |
 | LZ1015 | `meta-orphan` | warn | never | M2 | a meta entry for a key absent from the source catalog |
 | LZ1016 | `i18next-markup-literal` | warn | never | M2 | an i18next value contained tag-shaped text, which was escaped to literal text |
