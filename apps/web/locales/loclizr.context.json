@@ -232,6 +232,18 @@
       ],
       "usage": [
         {
+          "file": "src/components/hero/HeroReel.tsx",
+          "scope": "Output"
+        },
+        {
+          "file": "src/components/hero/HeroReel.tsx",
+          "scope": "TypeErrorScene"
+        },
+        {
+          "file": "src/components/hero/HeroReel.tsx",
+          "scope": "cycle"
+        },
+        {
           "file": "src/components/language-demo.ts",
           "scope": "demoLines"
         },
@@ -572,6 +584,5346 @@
         {
           "file": "src/components/language-demo.ts",
           "scope": "demoLines"
+        }
+      ]
+    },
+    {
+      "key": "home.badge",
+      "id": "home_badge",
+      "module": "messages/home.js",
+      "kind": "text",
+      "source": "Open source, MIT licensed",
+      "sourceHash": "768f59c48f11b5cf",
+      "description": null,
+      "args": [],
+      "variants": [],
+      "markup": [],
+      "translations": [
+        {
+          "locale": "ar",
+          "status": "translated",
+          "from": null,
+          "reason": null
+        },
+        {
+          "locale": "de",
+          "status": "translated",
+          "from": null,
+          "reason": null
+        },
+        {
+          "locale": "en",
+          "status": "translated",
+          "from": null,
+          "reason": null
+        },
+        {
+          "locale": "es",
+          "status": "translated",
+          "from": null,
+          "reason": null
+        },
+        {
+          "locale": "fr",
+          "status": "translated",
+          "from": null,
+          "reason": null
+        },
+        {
+          "locale": "hi",
+          "status": "translated",
+          "from": null,
+          "reason": null
+        },
+        {
+          "locale": "it",
+          "status": "translated",
+          "from": null,
+          "reason": null
+        },
+        {
+          "locale": "ja",
+          "status": "translated",
+          "from": null,
+          "reason": null
+        },
+        {
+          "locale": "ko",
+          "status": "translated",
+          "from": null,
+          "reason": null
+        },
+        {
+          "locale": "pl",
+          "status": "translated",
+          "from": null,
+          "reason": null
+        },
+        {
+          "locale": "pt",
+          "status": "translated",
+          "from": null,
+          "reason": null
+        },
+        {
+          "locale": "uk",
+          "status": "translated",
+          "from": null,
+          "reason": null
+        },
+        {
+          "locale": "zh",
+          "status": "translated",
+          "from": null,
+          "reason": null
+        }
+      ],
+      "usage": [
+        {
+          "file": "src/components/Landing.astro",
+          "scope": null
+        },
+        {
+          "file": "src/components/site-language.ts",
+          "scope": "applySiteLocale"
+        }
+      ]
+    },
+    {
+      "key": "home.checksBody",
+      "id": "home_checksBody",
+      "module": "messages/home.js",
+      "kind": "text",
+      "source": "Missing translations, ICU syntax errors and arguments that differ between locales fail the build.",
+      "sourceHash": "52817736ba3e3e48",
+      "description": null,
+      "args": [],
+      "variants": [],
+      "markup": [],
+      "translations": [
+        {
+          "locale": "ar",
+          "status": "translated",
+          "from": null,
+          "reason": null
+        },
+        {
+          "locale": "de",
+          "status": "translated",
+          "from": null,
+          "reason": null
+        },
+        {
+          "locale": "en",
+          "status": "translated",
+          "from": null,
+          "reason": null
+        },
+        {
+          "locale": "es",
+          "status": "translated",
+          "from": null,
+          "reason": null
+        },
+        {
+          "locale": "fr",
+          "status": "translated",
+          "from": null,
+          "reason": null
+        },
+        {
+          "locale": "hi",
+          "status": "translated",
+          "from": null,
+          "reason": null
+        },
+        {
+          "locale": "it",
+          "status": "translated",
+          "from": null,
+          "reason": null
+        },
+        {
+          "locale": "ja",
+          "status": "translated",
+          "from": null,
+          "reason": null
+        },
+        {
+          "locale": "ko",
+          "status": "translated",
+          "from": null,
+          "reason": null
+        },
+        {
+          "locale": "pl",
+          "status": "translated",
+          "from": null,
+          "reason": null
+        },
+        {
+          "locale": "pt",
+          "status": "translated",
+          "from": null,
+          "reason": null
+        },
+        {
+          "locale": "uk",
+          "status": "translated",
+          "from": null,
+          "reason": null
+        },
+        {
+          "locale": "zh",
+          "status": "translated",
+          "from": null,
+          "reason": null
+        }
+      ],
+      "usage": [
+        {
+          "file": "src/components/Landing.astro",
+          "scope": null
+        },
+        {
+          "file": "src/components/site-language.ts",
+          "scope": "applySiteLocale"
+        }
+      ]
+    },
+    {
+      "key": "home.checksTitle",
+      "id": "home_checksTitle",
+      "module": "messages/home.js",
+      "kind": "text",
+      "source": "Checks that are already on",
+      "sourceHash": "6d1c36e3eedc2f5d",
+      "description": null,
+      "args": [],
+      "variants": [],
+      "markup": [],
+      "translations": [
+        {
+          "locale": "ar",
+          "status": "translated",
+          "from": null,
+          "reason": null
+        },
+        {
+          "locale": "de",
+          "status": "translated",
+          "from": null,
+          "reason": null
+        },
+        {
+          "locale": "en",
+          "status": "translated",
+          "from": null,
+          "reason": null
+        },
+        {
+          "locale": "es",
+          "status": "translated",
+          "from": null,
+          "reason": null
+        },
+        {
+          "locale": "fr",
+          "status": "translated",
+          "from": null,
+          "reason": null
+        },
+        {
+          "locale": "hi",
+          "status": "translated",
+          "from": null,
+          "reason": null
+        },
+        {
+          "locale": "it",
+          "status": "translated",
+          "from": null,
+          "reason": null
+        },
+        {
+          "locale": "ja",
+          "status": "translated",
+          "from": null,
+          "reason": null
+        },
+        {
+          "locale": "ko",
+          "status": "translated",
+          "from": null,
+          "reason": null
+        },
+        {
+          "locale": "pl",
+          "status": "translated",
+          "from": null,
+          "reason": null
+        },
+        {
+          "locale": "pt",
+          "status": "translated",
+          "from": null,
+          "reason": null
+        },
+        {
+          "locale": "uk",
+          "status": "translated",
+          "from": null,
+          "reason": null
+        },
+        {
+          "locale": "zh",
+          "status": "translated",
+          "from": null,
+          "reason": null
+        }
+      ],
+      "usage": [
+        {
+          "file": "src/components/Landing.astro",
+          "scope": null
+        },
+        {
+          "file": "src/components/site-language.ts",
+          "scope": "applySiteLocale"
+        }
+      ]
+    },
+    {
+      "key": "home.github",
+      "id": "home_github",
+      "module": "messages/home.js",
+      "kind": "text",
+      "source": "View on GitHub",
+      "sourceHash": "20672423d7169088",
+      "description": null,
+      "args": [],
+      "variants": [],
+      "markup": [],
+      "translations": [
+        {
+          "locale": "ar",
+          "status": "translated",
+          "from": null,
+          "reason": null
+        },
+        {
+          "locale": "de",
+          "status": "translated",
+          "from": null,
+          "reason": null
+        },
+        {
+          "locale": "en",
+          "status": "translated",
+          "from": null,
+          "reason": null
+        },
+        {
+          "locale": "es",
+          "status": "translated",
+          "from": null,
+          "reason": null
+        },
+        {
+          "locale": "fr",
+          "status": "translated",
+          "from": null,
+          "reason": null
+        },
+        {
+          "locale": "hi",
+          "status": "translated",
+          "from": null,
+          "reason": null
+        },
+        {
+          "locale": "it",
+          "status": "translated",
+          "from": null,
+          "reason": null
+        },
+        {
+          "locale": "ja",
+          "status": "translated",
+          "from": null,
+          "reason": null
+        },
+        {
+          "locale": "ko",
+          "status": "translated",
+          "from": null,
+          "reason": null
+        },
+        {
+          "locale": "pl",
+          "status": "translated",
+          "from": null,
+          "reason": null
+        },
+        {
+          "locale": "pt",
+          "status": "translated",
+          "from": null,
+          "reason": null
+        },
+        {
+          "locale": "uk",
+          "status": "translated",
+          "from": null,
+          "reason": null
+        },
+        {
+          "locale": "zh",
+          "status": "translated",
+          "from": null,
+          "reason": null
+        }
+      ],
+      "usage": [
+        {
+          "file": "src/components/Landing.astro",
+          "scope": null
+        },
+        {
+          "file": "src/components/site-language.ts",
+          "scope": "applySiteLocale"
+        }
+      ]
+    },
+    {
+      "key": "home.recordBody",
+      "id": "home_recordBody",
+      "module": "messages/home.js",
+      "kind": "text",
+      "source": "Argument types, plural shape and where each message is used, committed in the same pull request as the string change.",
+      "sourceHash": "e11e32b985cd738f",
+      "description": null,
+      "args": [],
+      "variants": [],
+      "markup": [],
+      "translations": [
+        {
+          "locale": "ar",
+          "status": "translated",
+          "from": null,
+          "reason": null
+        },
+        {
+          "locale": "de",
+          "status": "translated",
+          "from": null,
+          "reason": null
+        },
+        {
+          "locale": "en",
+          "status": "translated",
+          "from": null,
+          "reason": null
+        },
+        {
+          "locale": "es",
+          "status": "translated",
+          "from": null,
+          "reason": null
+        },
+        {
+          "locale": "fr",
+          "status": "translated",
+          "from": null,
+          "reason": null
+        },
+        {
+          "locale": "hi",
+          "status": "translated",
+          "from": null,
+          "reason": null
+        },
+        {
+          "locale": "it",
+          "status": "translated",
+          "from": null,
+          "reason": null
+        },
+        {
+          "locale": "ja",
+          "status": "translated",
+          "from": null,
+          "reason": null
+        },
+        {
+          "locale": "ko",
+          "status": "translated",
+          "from": null,
+          "reason": null
+        },
+        {
+          "locale": "pl",
+          "status": "translated",
+          "from": null,
+          "reason": null
+        },
+        {
+          "locale": "pt",
+          "status": "translated",
+          "from": null,
+          "reason": null
+        },
+        {
+          "locale": "uk",
+          "status": "translated",
+          "from": null,
+          "reason": null
+        },
+        {
+          "locale": "zh",
+          "status": "translated",
+          "from": null,
+          "reason": null
+        }
+      ],
+      "usage": [
+        {
+          "file": "src/components/Landing.astro",
+          "scope": null
+        },
+        {
+          "file": "src/components/site-language.ts",
+          "scope": "applySiteLocale"
+        }
+      ]
+    },
+    {
+      "key": "home.recordTitle",
+      "id": "home_recordTitle",
+      "module": "messages/home.js",
+      "kind": "text",
+      "source": "A context record per message",
+      "sourceHash": "c154c90b6b2e2299",
+      "description": null,
+      "args": [],
+      "variants": [],
+      "markup": [],
+      "translations": [
+        {
+          "locale": "ar",
+          "status": "translated",
+          "from": null,
+          "reason": null
+        },
+        {
+          "locale": "de",
+          "status": "translated",
+          "from": null,
+          "reason": null
+        },
+        {
+          "locale": "en",
+          "status": "translated",
+          "from": null,
+          "reason": null
+        },
+        {
+          "locale": "es",
+          "status": "translated",
+          "from": null,
+          "reason": null
+        },
+        {
+          "locale": "fr",
+          "status": "translated",
+          "from": null,
+          "reason": null
+        },
+        {
+          "locale": "hi",
+          "status": "translated",
+          "from": null,
+          "reason": null
+        },
+        {
+          "locale": "it",
+          "status": "translated",
+          "from": null,
+          "reason": null
+        },
+        {
+          "locale": "ja",
+          "status": "translated",
+          "from": null,
+          "reason": null
+        },
+        {
+          "locale": "ko",
+          "status": "translated",
+          "from": null,
+          "reason": null
+        },
+        {
+          "locale": "pl",
+          "status": "translated",
+          "from": null,
+          "reason": null
+        },
+        {
+          "locale": "pt",
+          "status": "translated",
+          "from": null,
+          "reason": null
+        },
+        {
+          "locale": "uk",
+          "status": "translated",
+          "from": null,
+          "reason": null
+        },
+        {
+          "locale": "zh",
+          "status": "translated",
+          "from": null,
+          "reason": null
+        }
+      ],
+      "usage": [
+        {
+          "file": "src/components/Landing.astro",
+          "scope": null
+        },
+        {
+          "file": "src/components/site-language.ts",
+          "scope": "applySiteLocale"
+        }
+      ]
+    },
+    {
+      "key": "home.start",
+      "id": "home_start",
+      "module": "messages/home.js",
+      "kind": "text",
+      "source": "Get started",
+      "sourceHash": "61e8d44ad423a4a0",
+      "description": null,
+      "args": [],
+      "variants": [],
+      "markup": [],
+      "translations": [
+        {
+          "locale": "ar",
+          "status": "translated",
+          "from": null,
+          "reason": null
+        },
+        {
+          "locale": "de",
+          "status": "translated",
+          "from": null,
+          "reason": null
+        },
+        {
+          "locale": "en",
+          "status": "translated",
+          "from": null,
+          "reason": null
+        },
+        {
+          "locale": "es",
+          "status": "translated",
+          "from": null,
+          "reason": null
+        },
+        {
+          "locale": "fr",
+          "status": "translated",
+          "from": null,
+          "reason": null
+        },
+        {
+          "locale": "hi",
+          "status": "translated",
+          "from": null,
+          "reason": null
+        },
+        {
+          "locale": "it",
+          "status": "translated",
+          "from": null,
+          "reason": null
+        },
+        {
+          "locale": "ja",
+          "status": "translated",
+          "from": null,
+          "reason": null
+        },
+        {
+          "locale": "ko",
+          "status": "translated",
+          "from": null,
+          "reason": null
+        },
+        {
+          "locale": "pl",
+          "status": "translated",
+          "from": null,
+          "reason": null
+        },
+        {
+          "locale": "pt",
+          "status": "translated",
+          "from": null,
+          "reason": null
+        },
+        {
+          "locale": "uk",
+          "status": "translated",
+          "from": null,
+          "reason": null
+        },
+        {
+          "locale": "zh",
+          "status": "translated",
+          "from": null,
+          "reason": null
+        }
+      ],
+      "usage": [
+        {
+          "file": "src/components/Landing.astro",
+          "scope": null
+        },
+        {
+          "file": "src/components/site-language.ts",
+          "scope": "applySiteLocale"
+        }
+      ]
+    },
+    {
+      "key": "home.tagline",
+      "id": "home_tagline",
+      "module": "messages/home.js",
+      "kind": "text",
+      "source": "loclizr build turns your JSON translation catalogs into typed message functions, checks the catalogs on every build, and writes a context record for whoever translates next.",
+      "sourceHash": "d464dcee7e5f3cb1",
+      "description": null,
+      "args": [],
+      "variants": [],
+      "markup": [],
+      "translations": [
+        {
+          "locale": "ar",
+          "status": "translated",
+          "from": null,
+          "reason": null
+        },
+        {
+          "locale": "de",
+          "status": "translated",
+          "from": null,
+          "reason": null
+        },
+        {
+          "locale": "en",
+          "status": "translated",
+          "from": null,
+          "reason": null
+        },
+        {
+          "locale": "es",
+          "status": "translated",
+          "from": null,
+          "reason": null
+        },
+        {
+          "locale": "fr",
+          "status": "translated",
+          "from": null,
+          "reason": null
+        },
+        {
+          "locale": "hi",
+          "status": "translated",
+          "from": null,
+          "reason": null
+        },
+        {
+          "locale": "it",
+          "status": "translated",
+          "from": null,
+          "reason": null
+        },
+        {
+          "locale": "ja",
+          "status": "translated",
+          "from": null,
+          "reason": null
+        },
+        {
+          "locale": "ko",
+          "status": "translated",
+          "from": null,
+          "reason": null
+        },
+        {
+          "locale": "pl",
+          "status": "translated",
+          "from": null,
+          "reason": null
+        },
+        {
+          "locale": "pt",
+          "status": "translated",
+          "from": null,
+          "reason": null
+        },
+        {
+          "locale": "uk",
+          "status": "translated",
+          "from": null,
+          "reason": null
+        },
+        {
+          "locale": "zh",
+          "status": "translated",
+          "from": null,
+          "reason": null
+        }
+      ],
+      "usage": [
+        {
+          "file": "src/components/Landing.astro",
+          "scope": null
+        },
+        {
+          "file": "src/components/site-language.ts",
+          "scope": "applySiteLocale"
+        }
+      ]
+    },
+    {
+      "key": "home.title",
+      "id": "home_title",
+      "module": "messages/home.js",
+      "kind": "text",
+      "source": "Checking your catalog shouldn''t be a tool you remember to add.",
+      "sourceHash": "83ff4f6e30da26b4",
+      "description": null,
+      "args": [],
+      "variants": [],
+      "markup": [],
+      "translations": [
+        {
+          "locale": "ar",
+          "status": "translated",
+          "from": null,
+          "reason": null
+        },
+        {
+          "locale": "de",
+          "status": "translated",
+          "from": null,
+          "reason": null
+        },
+        {
+          "locale": "en",
+          "status": "translated",
+          "from": null,
+          "reason": null
+        },
+        {
+          "locale": "es",
+          "status": "translated",
+          "from": null,
+          "reason": null
+        },
+        {
+          "locale": "fr",
+          "status": "translated",
+          "from": null,
+          "reason": null
+        },
+        {
+          "locale": "hi",
+          "status": "translated",
+          "from": null,
+          "reason": null
+        },
+        {
+          "locale": "it",
+          "status": "translated",
+          "from": null,
+          "reason": null
+        },
+        {
+          "locale": "ja",
+          "status": "translated",
+          "from": null,
+          "reason": null
+        },
+        {
+          "locale": "ko",
+          "status": "translated",
+          "from": null,
+          "reason": null
+        },
+        {
+          "locale": "pl",
+          "status": "translated",
+          "from": null,
+          "reason": null
+        },
+        {
+          "locale": "pt",
+          "status": "translated",
+          "from": null,
+          "reason": null
+        },
+        {
+          "locale": "uk",
+          "status": "translated",
+          "from": null,
+          "reason": null
+        },
+        {
+          "locale": "zh",
+          "status": "translated",
+          "from": null,
+          "reason": null
+        }
+      ],
+      "usage": [
+        {
+          "file": "src/components/Landing.astro",
+          "scope": null
+        },
+        {
+          "file": "src/components/site-language.ts",
+          "scope": "applySiteLocale"
+        }
+      ]
+    },
+    {
+      "key": "home.translated",
+      "id": "home_translated",
+      "module": "messages/home.js",
+      "kind": "text",
+      "source": "This page is rendered by loclizr. Switch the language in the header and it changes without a reload.",
+      "sourceHash": "79df9854ca53a96e",
+      "description": null,
+      "args": [],
+      "variants": [],
+      "markup": [],
+      "translations": [
+        {
+          "locale": "ar",
+          "status": "translated",
+          "from": null,
+          "reason": null
+        },
+        {
+          "locale": "de",
+          "status": "translated",
+          "from": null,
+          "reason": null
+        },
+        {
+          "locale": "en",
+          "status": "translated",
+          "from": null,
+          "reason": null
+        },
+        {
+          "locale": "es",
+          "status": "translated",
+          "from": null,
+          "reason": null
+        },
+        {
+          "locale": "fr",
+          "status": "translated",
+          "from": null,
+          "reason": null
+        },
+        {
+          "locale": "hi",
+          "status": "translated",
+          "from": null,
+          "reason": null
+        },
+        {
+          "locale": "it",
+          "status": "translated",
+          "from": null,
+          "reason": null
+        },
+        {
+          "locale": "ja",
+          "status": "translated",
+          "from": null,
+          "reason": null
+        },
+        {
+          "locale": "ko",
+          "status": "translated",
+          "from": null,
+          "reason": null
+        },
+        {
+          "locale": "pl",
+          "status": "translated",
+          "from": null,
+          "reason": null
+        },
+        {
+          "locale": "pt",
+          "status": "translated",
+          "from": null,
+          "reason": null
+        },
+        {
+          "locale": "uk",
+          "status": "translated",
+          "from": null,
+          "reason": null
+        },
+        {
+          "locale": "zh",
+          "status": "translated",
+          "from": null,
+          "reason": null
+        }
+      ],
+      "usage": [
+        {
+          "file": "src/components/Landing.astro",
+          "scope": null
+        },
+        {
+          "file": "src/components/site-language.ts",
+          "scope": "applySiteLocale"
+        }
+      ]
+    },
+    {
+      "key": "home.typedBody",
+      "id": "home_typedBody",
+      "module": "messages/home.js",
+      "kind": "text",
+      "source": "Plain ESM with declarations, one function per message. A renamed placeholder breaks the call site at typecheck, not in production.",
+      "sourceHash": "4f99e2e51aefc6bb",
+      "description": null,
+      "args": [],
+      "variants": [],
+      "markup": [],
+      "translations": [
+        {
+          "locale": "ar",
+          "status": "translated",
+          "from": null,
+          "reason": null
+        },
+        {
+          "locale": "de",
+          "status": "translated",
+          "from": null,
+          "reason": null
+        },
+        {
+          "locale": "en",
+          "status": "translated",
+          "from": null,
+          "reason": null
+        },
+        {
+          "locale": "es",
+          "status": "translated",
+          "from": null,
+          "reason": null
+        },
+        {
+          "locale": "fr",
+          "status": "translated",
+          "from": null,
+          "reason": null
+        },
+        {
+          "locale": "hi",
+          "status": "translated",
+          "from": null,
+          "reason": null
+        },
+        {
+          "locale": "it",
+          "status": "translated",
+          "from": null,
+          "reason": null
+        },
+        {
+          "locale": "ja",
+          "status": "translated",
+          "from": null,
+          "reason": null
+        },
+        {
+          "locale": "ko",
+          "status": "translated",
+          "from": null,
+          "reason": null
+        },
+        {
+          "locale": "pl",
+          "status": "translated",
+          "from": null,
+          "reason": null
+        },
+        {
+          "locale": "pt",
+          "status": "translated",
+          "from": null,
+          "reason": null
+        },
+        {
+          "locale": "uk",
+          "status": "translated",
+          "from": null,
+          "reason": null
+        },
+        {
+          "locale": "zh",
+          "status": "translated",
+          "from": null,
+          "reason": null
+        }
+      ],
+      "usage": [
+        {
+          "file": "src/components/Landing.astro",
+          "scope": null
+        },
+        {
+          "file": "src/components/site-language.ts",
+          "scope": "applySiteLocale"
+        }
+      ]
+    },
+    {
+      "key": "home.typedTitle",
+      "id": "home_typedTitle",
+      "module": "messages/home.js",
+      "kind": "text",
+      "source": "Typed message functions",
+      "sourceHash": "b42e9ab8740dba48",
+      "description": null,
+      "args": [],
+      "variants": [],
+      "markup": [],
+      "translations": [
+        {
+          "locale": "ar",
+          "status": "translated",
+          "from": null,
+          "reason": null
+        },
+        {
+          "locale": "de",
+          "status": "translated",
+          "from": null,
+          "reason": null
+        },
+        {
+          "locale": "en",
+          "status": "translated",
+          "from": null,
+          "reason": null
+        },
+        {
+          "locale": "es",
+          "status": "translated",
+          "from": null,
+          "reason": null
+        },
+        {
+          "locale": "fr",
+          "status": "translated",
+          "from": null,
+          "reason": null
+        },
+        {
+          "locale": "hi",
+          "status": "translated",
+          "from": null,
+          "reason": null
+        },
+        {
+          "locale": "it",
+          "status": "translated",
+          "from": null,
+          "reason": null
+        },
+        {
+          "locale": "ja",
+          "status": "translated",
+          "from": null,
+          "reason": null
+        },
+        {
+          "locale": "ko",
+          "status": "translated",
+          "from": null,
+          "reason": null
+        },
+        {
+          "locale": "pl",
+          "status": "translated",
+          "from": null,
+          "reason": null
+        },
+        {
+          "locale": "pt",
+          "status": "translated",
+          "from": null,
+          "reason": null
+        },
+        {
+          "locale": "uk",
+          "status": "translated",
+          "from": null,
+          "reason": null
+        },
+        {
+          "locale": "zh",
+          "status": "translated",
+          "from": null,
+          "reason": null
+        }
+      ],
+      "usage": [
+        {
+          "file": "src/components/Landing.astro",
+          "scope": null
+        },
+        {
+          "file": "src/components/site-language.ts",
+          "scope": "applySiteLocale"
+        }
+      ]
+    },
+    {
+      "key": "nav.guides_astro",
+      "id": "nav_guides_astro",
+      "module": "messages/nav.js",
+      "kind": "text",
+      "source": "Astro",
+      "sourceHash": "c490cce12748da48",
+      "description": null,
+      "args": [],
+      "variants": [],
+      "markup": [],
+      "translations": [
+        {
+          "locale": "ar",
+          "status": "translated",
+          "from": null,
+          "reason": null
+        },
+        {
+          "locale": "de",
+          "status": "translated",
+          "from": null,
+          "reason": null
+        },
+        {
+          "locale": "en",
+          "status": "translated",
+          "from": null,
+          "reason": null
+        },
+        {
+          "locale": "es",
+          "status": "translated",
+          "from": null,
+          "reason": null
+        },
+        {
+          "locale": "fr",
+          "status": "translated",
+          "from": null,
+          "reason": null
+        },
+        {
+          "locale": "hi",
+          "status": "translated",
+          "from": null,
+          "reason": null
+        },
+        {
+          "locale": "it",
+          "status": "translated",
+          "from": null,
+          "reason": null
+        },
+        {
+          "locale": "ja",
+          "status": "translated",
+          "from": null,
+          "reason": null
+        },
+        {
+          "locale": "ko",
+          "status": "translated",
+          "from": null,
+          "reason": null
+        },
+        {
+          "locale": "pl",
+          "status": "translated",
+          "from": null,
+          "reason": null
+        },
+        {
+          "locale": "pt",
+          "status": "translated",
+          "from": null,
+          "reason": null
+        },
+        {
+          "locale": "uk",
+          "status": "translated",
+          "from": null,
+          "reason": null
+        },
+        {
+          "locale": "zh",
+          "status": "translated",
+          "from": null,
+          "reason": null
+        }
+      ],
+      "usage": [
+        {
+          "file": "src/components/site-language.ts",
+          "scope": "applySiteLocale"
+        }
+      ]
+    },
+    {
+      "key": "nav.guides_catalogs",
+      "id": "nav_guides_catalogs",
+      "module": "messages/nav.js",
+      "kind": "text",
+      "source": "Catalogs and ICU messages",
+      "sourceHash": "17d8e50a20f89f77",
+      "description": null,
+      "args": [],
+      "variants": [],
+      "markup": [],
+      "translations": [
+        {
+          "locale": "ar",
+          "status": "translated",
+          "from": null,
+          "reason": null
+        },
+        {
+          "locale": "de",
+          "status": "translated",
+          "from": null,
+          "reason": null
+        },
+        {
+          "locale": "en",
+          "status": "translated",
+          "from": null,
+          "reason": null
+        },
+        {
+          "locale": "es",
+          "status": "translated",
+          "from": null,
+          "reason": null
+        },
+        {
+          "locale": "fr",
+          "status": "translated",
+          "from": null,
+          "reason": null
+        },
+        {
+          "locale": "hi",
+          "status": "translated",
+          "from": null,
+          "reason": null
+        },
+        {
+          "locale": "it",
+          "status": "translated",
+          "from": null,
+          "reason": null
+        },
+        {
+          "locale": "ja",
+          "status": "translated",
+          "from": null,
+          "reason": null
+        },
+        {
+          "locale": "ko",
+          "status": "translated",
+          "from": null,
+          "reason": null
+        },
+        {
+          "locale": "pl",
+          "status": "translated",
+          "from": null,
+          "reason": null
+        },
+        {
+          "locale": "pt",
+          "status": "translated",
+          "from": null,
+          "reason": null
+        },
+        {
+          "locale": "uk",
+          "status": "translated",
+          "from": null,
+          "reason": null
+        },
+        {
+          "locale": "zh",
+          "status": "translated",
+          "from": null,
+          "reason": null
+        }
+      ],
+      "usage": [
+        {
+          "file": "src/components/site-language.ts",
+          "scope": "applySiteLocale"
+        }
+      ]
+    },
+    {
+      "key": "nav.guides_continuous_integration",
+      "id": "nav_guides_continuous_integration",
+      "module": "messages/nav.js",
+      "kind": "text",
+      "source": "Continuous integration",
+      "sourceHash": "dc453f37f7ac4383",
+      "description": null,
+      "args": [],
+      "variants": [],
+      "markup": [],
+      "translations": [
+        {
+          "locale": "ar",
+          "status": "translated",
+          "from": null,
+          "reason": null
+        },
+        {
+          "locale": "de",
+          "status": "translated",
+          "from": null,
+          "reason": null
+        },
+        {
+          "locale": "en",
+          "status": "translated",
+          "from": null,
+          "reason": null
+        },
+        {
+          "locale": "es",
+          "status": "translated",
+          "from": null,
+          "reason": null
+        },
+        {
+          "locale": "fr",
+          "status": "translated",
+          "from": null,
+          "reason": null
+        },
+        {
+          "locale": "hi",
+          "status": "translated",
+          "from": null,
+          "reason": null
+        },
+        {
+          "locale": "it",
+          "status": "translated",
+          "from": null,
+          "reason": null
+        },
+        {
+          "locale": "ja",
+          "status": "translated",
+          "from": null,
+          "reason": null
+        },
+        {
+          "locale": "ko",
+          "status": "translated",
+          "from": null,
+          "reason": null
+        },
+        {
+          "locale": "pl",
+          "status": "translated",
+          "from": null,
+          "reason": null
+        },
+        {
+          "locale": "pt",
+          "status": "translated",
+          "from": null,
+          "reason": null
+        },
+        {
+          "locale": "uk",
+          "status": "translated",
+          "from": null,
+          "reason": null
+        },
+        {
+          "locale": "zh",
+          "status": "translated",
+          "from": null,
+          "reason": null
+        }
+      ],
+      "usage": [
+        {
+          "file": "src/components/site-language.ts",
+          "scope": "applySiteLocale"
+        }
+      ]
+    },
+    {
+      "key": "nav.guides_dynamic_keys",
+      "id": "nav_guides_dynamic_keys",
+      "module": "messages/nav.js",
+      "kind": "text",
+      "source": "Dynamic keys",
+      "sourceHash": "8f52fba0cdda584c",
+      "description": null,
+      "args": [],
+      "variants": [],
+      "markup": [],
+      "translations": [
+        {
+          "locale": "ar",
+          "status": "translated",
+          "from": null,
+          "reason": null
+        },
+        {
+          "locale": "de",
+          "status": "translated",
+          "from": null,
+          "reason": null
+        },
+        {
+          "locale": "en",
+          "status": "translated",
+          "from": null,
+          "reason": null
+        },
+        {
+          "locale": "es",
+          "status": "translated",
+          "from": null,
+          "reason": null
+        },
+        {
+          "locale": "fr",
+          "status": "translated",
+          "from": null,
+          "reason": null
+        },
+        {
+          "locale": "hi",
+          "status": "translated",
+          "from": null,
+          "reason": null
+        },
+        {
+          "locale": "it",
+          "status": "translated",
+          "from": null,
+          "reason": null
+        },
+        {
+          "locale": "ja",
+          "status": "translated",
+          "from": null,
+          "reason": null
+        },
+        {
+          "locale": "ko",
+          "status": "translated",
+          "from": null,
+          "reason": null
+        },
+        {
+          "locale": "pl",
+          "status": "translated",
+          "from": null,
+          "reason": null
+        },
+        {
+          "locale": "pt",
+          "status": "translated",
+          "from": null,
+          "reason": null
+        },
+        {
+          "locale": "uk",
+          "status": "translated",
+          "from": null,
+          "reason": null
+        },
+        {
+          "locale": "zh",
+          "status": "translated",
+          "from": null,
+          "reason": null
+        }
+      ],
+      "usage": [
+        {
+          "file": "src/components/site-language.ts",
+          "scope": "applySiteLocale"
+        }
+      ]
+    },
+    {
+      "key": "nav.guides_i18next_import",
+      "id": "nav_guides_i18next_import",
+      "module": "messages/nav.js",
+      "kind": "text",
+      "source": "Importing i18next catalogs",
+      "sourceHash": "d22f519139f664aa",
+      "description": null,
+      "args": [],
+      "variants": [],
+      "markup": [],
+      "translations": [
+        {
+          "locale": "ar",
+          "status": "translated",
+          "from": null,
+          "reason": null
+        },
+        {
+          "locale": "de",
+          "status": "translated",
+          "from": null,
+          "reason": null
+        },
+        {
+          "locale": "en",
+          "status": "translated",
+          "from": null,
+          "reason": null
+        },
+        {
+          "locale": "es",
+          "status": "translated",
+          "from": null,
+          "reason": null
+        },
+        {
+          "locale": "fr",
+          "status": "translated",
+          "from": null,
+          "reason": null
+        },
+        {
+          "locale": "hi",
+          "status": "translated",
+          "from": null,
+          "reason": null
+        },
+        {
+          "locale": "it",
+          "status": "translated",
+          "from": null,
+          "reason": null
+        },
+        {
+          "locale": "ja",
+          "status": "translated",
+          "from": null,
+          "reason": null
+        },
+        {
+          "locale": "ko",
+          "status": "translated",
+          "from": null,
+          "reason": null
+        },
+        {
+          "locale": "pl",
+          "status": "translated",
+          "from": null,
+          "reason": null
+        },
+        {
+          "locale": "pt",
+          "status": "translated",
+          "from": null,
+          "reason": null
+        },
+        {
+          "locale": "uk",
+          "status": "translated",
+          "from": null,
+          "reason": null
+        },
+        {
+          "locale": "zh",
+          "status": "translated",
+          "from": null,
+          "reason": null
+        }
+      ],
+      "usage": [
+        {
+          "file": "src/components/site-language.ts",
+          "scope": "applySiteLocale"
+        }
+      ]
+    },
+    {
+      "key": "nav.guides_language_switching",
+      "id": "nav_guides_language_switching",
+      "module": "messages/nav.js",
+      "kind": "text",
+      "source": "Language switching",
+      "sourceHash": "7ecad83a88f69392",
+      "description": null,
+      "args": [],
+      "variants": [],
+      "markup": [],
+      "translations": [
+        {
+          "locale": "ar",
+          "status": "translated",
+          "from": null,
+          "reason": null
+        },
+        {
+          "locale": "de",
+          "status": "translated",
+          "from": null,
+          "reason": null
+        },
+        {
+          "locale": "en",
+          "status": "translated",
+          "from": null,
+          "reason": null
+        },
+        {
+          "locale": "es",
+          "status": "translated",
+          "from": null,
+          "reason": null
+        },
+        {
+          "locale": "fr",
+          "status": "translated",
+          "from": null,
+          "reason": null
+        },
+        {
+          "locale": "hi",
+          "status": "translated",
+          "from": null,
+          "reason": null
+        },
+        {
+          "locale": "it",
+          "status": "translated",
+          "from": null,
+          "reason": null
+        },
+        {
+          "locale": "ja",
+          "status": "translated",
+          "from": null,
+          "reason": null
+        },
+        {
+          "locale": "ko",
+          "status": "translated",
+          "from": null,
+          "reason": null
+        },
+        {
+          "locale": "pl",
+          "status": "translated",
+          "from": null,
+          "reason": null
+        },
+        {
+          "locale": "pt",
+          "status": "translated",
+          "from": null,
+          "reason": null
+        },
+        {
+          "locale": "uk",
+          "status": "translated",
+          "from": null,
+          "reason": null
+        },
+        {
+          "locale": "zh",
+          "status": "translated",
+          "from": null,
+          "reason": null
+        }
+      ],
+      "usage": [
+        {
+          "file": "src/components/site-language.ts",
+          "scope": "applySiteLocale"
+        }
+      ]
+    },
+    {
+      "key": "nav.guides_monorepo",
+      "id": "nav_guides_monorepo",
+      "module": "messages/nav.js",
+      "kind": "text",
+      "source": "Monorepo",
+      "sourceHash": "14a15bbd7530e6f8",
+      "description": null,
+      "args": [],
+      "variants": [],
+      "markup": [],
+      "translations": [
+        {
+          "locale": "ar",
+          "status": "translated",
+          "from": null,
+          "reason": null
+        },
+        {
+          "locale": "de",
+          "status": "translated",
+          "from": null,
+          "reason": null
+        },
+        {
+          "locale": "en",
+          "status": "translated",
+          "from": null,
+          "reason": null
+        },
+        {
+          "locale": "es",
+          "status": "translated",
+          "from": null,
+          "reason": null
+        },
+        {
+          "locale": "fr",
+          "status": "translated",
+          "from": null,
+          "reason": null
+        },
+        {
+          "locale": "hi",
+          "status": "translated",
+          "from": null,
+          "reason": null
+        },
+        {
+          "locale": "it",
+          "status": "translated",
+          "from": null,
+          "reason": null
+        },
+        {
+          "locale": "ja",
+          "status": "translated",
+          "from": null,
+          "reason": null
+        },
+        {
+          "locale": "ko",
+          "status": "translated",
+          "from": null,
+          "reason": null
+        },
+        {
+          "locale": "pl",
+          "status": "translated",
+          "from": null,
+          "reason": null
+        },
+        {
+          "locale": "pt",
+          "status": "translated",
+          "from": null,
+          "reason": null
+        },
+        {
+          "locale": "uk",
+          "status": "translated",
+          "from": null,
+          "reason": null
+        },
+        {
+          "locale": "zh",
+          "status": "translated",
+          "from": null,
+          "reason": null
+        }
+      ],
+      "usage": [
+        {
+          "file": "src/components/site-language.ts",
+          "scope": "applySiteLocale"
+        }
+      ]
+    },
+    {
+      "key": "nav.guides_react",
+      "id": "nav_guides_react",
+      "module": "messages/nav.js",
+      "kind": "text",
+      "source": "React",
+      "sourceHash": "01fad993ff61aca9",
+      "description": null,
+      "args": [],
+      "variants": [],
+      "markup": [],
+      "translations": [
+        {
+          "locale": "ar",
+          "status": "translated",
+          "from": null,
+          "reason": null
+        },
+        {
+          "locale": "de",
+          "status": "translated",
+          "from": null,
+          "reason": null
+        },
+        {
+          "locale": "en",
+          "status": "translated",
+          "from": null,
+          "reason": null
+        },
+        {
+          "locale": "es",
+          "status": "translated",
+          "from": null,
+          "reason": null
+        },
+        {
+          "locale": "fr",
+          "status": "translated",
+          "from": null,
+          "reason": null
+        },
+        {
+          "locale": "hi",
+          "status": "translated",
+          "from": null,
+          "reason": null
+        },
+        {
+          "locale": "it",
+          "status": "translated",
+          "from": null,
+          "reason": null
+        },
+        {
+          "locale": "ja",
+          "status": "translated",
+          "from": null,
+          "reason": null
+        },
+        {
+          "locale": "ko",
+          "status": "translated",
+          "from": null,
+          "reason": null
+        },
+        {
+          "locale": "pl",
+          "status": "translated",
+          "from": null,
+          "reason": null
+        },
+        {
+          "locale": "pt",
+          "status": "translated",
+          "from": null,
+          "reason": null
+        },
+        {
+          "locale": "uk",
+          "status": "translated",
+          "from": null,
+          "reason": null
+        },
+        {
+          "locale": "zh",
+          "status": "translated",
+          "from": null,
+          "reason": null
+        }
+      ],
+      "usage": [
+        {
+          "file": "src/components/site-language.ts",
+          "scope": "applySiteLocale"
+        }
+      ]
+    },
+    {
+      "key": "nav.guides_server_rendering",
+      "id": "nav_guides_server_rendering",
+      "module": "messages/nav.js",
+      "kind": "text",
+      "source": "Server rendering",
+      "sourceHash": "b29595ab3eb8cd06",
+      "description": null,
+      "args": [],
+      "variants": [],
+      "markup": [],
+      "translations": [
+        {
+          "locale": "ar",
+          "status": "translated",
+          "from": null,
+          "reason": null
+        },
+        {
+          "locale": "de",
+          "status": "translated",
+          "from": null,
+          "reason": null
+        },
+        {
+          "locale": "en",
+          "status": "translated",
+          "from": null,
+          "reason": null
+        },
+        {
+          "locale": "es",
+          "status": "translated",
+          "from": null,
+          "reason": null
+        },
+        {
+          "locale": "fr",
+          "status": "translated",
+          "from": null,
+          "reason": null
+        },
+        {
+          "locale": "hi",
+          "status": "translated",
+          "from": null,
+          "reason": null
+        },
+        {
+          "locale": "it",
+          "status": "translated",
+          "from": null,
+          "reason": null
+        },
+        {
+          "locale": "ja",
+          "status": "translated",
+          "from": null,
+          "reason": null
+        },
+        {
+          "locale": "ko",
+          "status": "translated",
+          "from": null,
+          "reason": null
+        },
+        {
+          "locale": "pl",
+          "status": "translated",
+          "from": null,
+          "reason": null
+        },
+        {
+          "locale": "pt",
+          "status": "translated",
+          "from": null,
+          "reason": null
+        },
+        {
+          "locale": "uk",
+          "status": "translated",
+          "from": null,
+          "reason": null
+        },
+        {
+          "locale": "zh",
+          "status": "translated",
+          "from": null,
+          "reason": null
+        }
+      ],
+      "usage": [
+        {
+          "file": "src/components/site-language.ts",
+          "scope": "applySiteLocale"
+        }
+      ]
+    },
+    {
+      "key": "nav.guides_solid",
+      "id": "nav_guides_solid",
+      "module": "messages/nav.js",
+      "kind": "text",
+      "source": "Solid",
+      "sourceHash": "b8b311b0f2739e0c",
+      "description": null,
+      "args": [],
+      "variants": [],
+      "markup": [],
+      "translations": [
+        {
+          "locale": "ar",
+          "status": "translated",
+          "from": null,
+          "reason": null
+        },
+        {
+          "locale": "de",
+          "status": "translated",
+          "from": null,
+          "reason": null
+        },
+        {
+          "locale": "en",
+          "status": "translated",
+          "from": null,
+          "reason": null
+        },
+        {
+          "locale": "es",
+          "status": "translated",
+          "from": null,
+          "reason": null
+        },
+        {
+          "locale": "fr",
+          "status": "translated",
+          "from": null,
+          "reason": null
+        },
+        {
+          "locale": "hi",
+          "status": "translated",
+          "from": null,
+          "reason": null
+        },
+        {
+          "locale": "it",
+          "status": "translated",
+          "from": null,
+          "reason": null
+        },
+        {
+          "locale": "ja",
+          "status": "translated",
+          "from": null,
+          "reason": null
+        },
+        {
+          "locale": "ko",
+          "status": "translated",
+          "from": null,
+          "reason": null
+        },
+        {
+          "locale": "pl",
+          "status": "translated",
+          "from": null,
+          "reason": null
+        },
+        {
+          "locale": "pt",
+          "status": "translated",
+          "from": null,
+          "reason": null
+        },
+        {
+          "locale": "uk",
+          "status": "translated",
+          "from": null,
+          "reason": null
+        },
+        {
+          "locale": "zh",
+          "status": "translated",
+          "from": null,
+          "reason": null
+        }
+      ],
+      "usage": [
+        {
+          "file": "src/components/site-language.ts",
+          "scope": "applySiteLocale"
+        }
+      ]
+    },
+    {
+      "key": "nav.guides_svelte",
+      "id": "nav_guides_svelte",
+      "module": "messages/nav.js",
+      "kind": "text",
+      "source": "Svelte",
+      "sourceHash": "0073bfcaa87713ee",
+      "description": null,
+      "args": [],
+      "variants": [],
+      "markup": [],
+      "translations": [
+        {
+          "locale": "ar",
+          "status": "translated",
+          "from": null,
+          "reason": null
+        },
+        {
+          "locale": "de",
+          "status": "translated",
+          "from": null,
+          "reason": null
+        },
+        {
+          "locale": "en",
+          "status": "translated",
+          "from": null,
+          "reason": null
+        },
+        {
+          "locale": "es",
+          "status": "translated",
+          "from": null,
+          "reason": null
+        },
+        {
+          "locale": "fr",
+          "status": "translated",
+          "from": null,
+          "reason": null
+        },
+        {
+          "locale": "hi",
+          "status": "translated",
+          "from": null,
+          "reason": null
+        },
+        {
+          "locale": "it",
+          "status": "translated",
+          "from": null,
+          "reason": null
+        },
+        {
+          "locale": "ja",
+          "status": "translated",
+          "from": null,
+          "reason": null
+        },
+        {
+          "locale": "ko",
+          "status": "translated",
+          "from": null,
+          "reason": null
+        },
+        {
+          "locale": "pl",
+          "status": "translated",
+          "from": null,
+          "reason": null
+        },
+        {
+          "locale": "pt",
+          "status": "translated",
+          "from": null,
+          "reason": null
+        },
+        {
+          "locale": "uk",
+          "status": "translated",
+          "from": null,
+          "reason": null
+        },
+        {
+          "locale": "zh",
+          "status": "translated",
+          "from": null,
+          "reason": null
+        }
+      ],
+      "usage": [
+        {
+          "file": "src/components/site-language.ts",
+          "scope": "applySiteLocale"
+        }
+      ]
+    },
+    {
+      "key": "nav.guides_testing",
+      "id": "nav_guides_testing",
+      "module": "messages/nav.js",
+      "kind": "text",
+      "source": "Testing",
+      "sourceHash": "e806a291cfc3e61f",
+      "description": null,
+      "args": [],
+      "variants": [],
+      "markup": [],
+      "translations": [
+        {
+          "locale": "ar",
+          "status": "translated",
+          "from": null,
+          "reason": null
+        },
+        {
+          "locale": "de",
+          "status": "translated",
+          "from": null,
+          "reason": null
+        },
+        {
+          "locale": "en",
+          "status": "translated",
+          "from": null,
+          "reason": null
+        },
+        {
+          "locale": "es",
+          "status": "translated",
+          "from": null,
+          "reason": null
+        },
+        {
+          "locale": "fr",
+          "status": "translated",
+          "from": null,
+          "reason": null
+        },
+        {
+          "locale": "hi",
+          "status": "translated",
+          "from": null,
+          "reason": null
+        },
+        {
+          "locale": "it",
+          "status": "translated",
+          "from": null,
+          "reason": null
+        },
+        {
+          "locale": "ja",
+          "status": "translated",
+          "from": null,
+          "reason": null
+        },
+        {
+          "locale": "ko",
+          "status": "translated",
+          "from": null,
+          "reason": null
+        },
+        {
+          "locale": "pl",
+          "status": "translated",
+          "from": null,
+          "reason": null
+        },
+        {
+          "locale": "pt",
+          "status": "translated",
+          "from": null,
+          "reason": null
+        },
+        {
+          "locale": "uk",
+          "status": "translated",
+          "from": null,
+          "reason": null
+        },
+        {
+          "locale": "zh",
+          "status": "translated",
+          "from": null,
+          "reason": null
+        }
+      ],
+      "usage": [
+        {
+          "file": "src/components/site-language.ts",
+          "scope": "applySiteLocale"
+        }
+      ]
+    },
+    {
+      "key": "nav.guides_translation_workflow",
+      "id": "nav_guides_translation_workflow",
+      "module": "messages/nav.js",
+      "kind": "text",
+      "source": "Translation workflow",
+      "sourceHash": "bfd44181c81cc686",
+      "description": null,
+      "args": [],
+      "variants": [],
+      "markup": [],
+      "translations": [
+        {
+          "locale": "ar",
+          "status": "translated",
+          "from": null,
+          "reason": null
+        },
+        {
+          "locale": "de",
+          "status": "translated",
+          "from": null,
+          "reason": null
+        },
+        {
+          "locale": "en",
+          "status": "translated",
+          "from": null,
+          "reason": null
+        },
+        {
+          "locale": "es",
+          "status": "translated",
+          "from": null,
+          "reason": null
+        },
+        {
+          "locale": "fr",
+          "status": "translated",
+          "from": null,
+          "reason": null
+        },
+        {
+          "locale": "hi",
+          "status": "translated",
+          "from": null,
+          "reason": null
+        },
+        {
+          "locale": "it",
+          "status": "translated",
+          "from": null,
+          "reason": null
+        },
+        {
+          "locale": "ja",
+          "status": "translated",
+          "from": null,
+          "reason": null
+        },
+        {
+          "locale": "ko",
+          "status": "translated",
+          "from": null,
+          "reason": null
+        },
+        {
+          "locale": "pl",
+          "status": "translated",
+          "from": null,
+          "reason": null
+        },
+        {
+          "locale": "pt",
+          "status": "translated",
+          "from": null,
+          "reason": null
+        },
+        {
+          "locale": "uk",
+          "status": "translated",
+          "from": null,
+          "reason": null
+        },
+        {
+          "locale": "zh",
+          "status": "translated",
+          "from": null,
+          "reason": null
+        }
+      ],
+      "usage": [
+        {
+          "file": "src/components/site-language.ts",
+          "scope": "applySiteLocale"
+        }
+      ]
+    },
+    {
+      "key": "nav.guides_vanilla",
+      "id": "nav_guides_vanilla",
+      "module": "messages/nav.js",
+      "kind": "text",
+      "source": "No framework",
+      "sourceHash": "6eed724eb19efc11",
+      "description": null,
+      "args": [],
+      "variants": [],
+      "markup": [],
+      "translations": [
+        {
+          "locale": "ar",
+          "status": "translated",
+          "from": null,
+          "reason": null
+        },
+        {
+          "locale": "de",
+          "status": "translated",
+          "from": null,
+          "reason": null
+        },
+        {
+          "locale": "en",
+          "status": "translated",
+          "from": null,
+          "reason": null
+        },
+        {
+          "locale": "es",
+          "status": "translated",
+          "from": null,
+          "reason": null
+        },
+        {
+          "locale": "fr",
+          "status": "translated",
+          "from": null,
+          "reason": null
+        },
+        {
+          "locale": "hi",
+          "status": "translated",
+          "from": null,
+          "reason": null
+        },
+        {
+          "locale": "it",
+          "status": "translated",
+          "from": null,
+          "reason": null
+        },
+        {
+          "locale": "ja",
+          "status": "translated",
+          "from": null,
+          "reason": null
+        },
+        {
+          "locale": "ko",
+          "status": "translated",
+          "from": null,
+          "reason": null
+        },
+        {
+          "locale": "pl",
+          "status": "translated",
+          "from": null,
+          "reason": null
+        },
+        {
+          "locale": "pt",
+          "status": "translated",
+          "from": null,
+          "reason": null
+        },
+        {
+          "locale": "uk",
+          "status": "translated",
+          "from": null,
+          "reason": null
+        },
+        {
+          "locale": "zh",
+          "status": "translated",
+          "from": null,
+          "reason": null
+        }
+      ],
+      "usage": [
+        {
+          "file": "src/components/site-language.ts",
+          "scope": "applySiteLocale"
+        }
+      ]
+    },
+    {
+      "key": "nav.guides_vue",
+      "id": "nav_guides_vue",
+      "module": "messages/nav.js",
+      "kind": "text",
+      "source": "Vue",
+      "sourceHash": "b111a2a2185caed7",
+      "description": null,
+      "args": [],
+      "variants": [],
+      "markup": [],
+      "translations": [
+        {
+          "locale": "ar",
+          "status": "translated",
+          "from": null,
+          "reason": null
+        },
+        {
+          "locale": "de",
+          "status": "translated",
+          "from": null,
+          "reason": null
+        },
+        {
+          "locale": "en",
+          "status": "translated",
+          "from": null,
+          "reason": null
+        },
+        {
+          "locale": "es",
+          "status": "translated",
+          "from": null,
+          "reason": null
+        },
+        {
+          "locale": "fr",
+          "status": "translated",
+          "from": null,
+          "reason": null
+        },
+        {
+          "locale": "hi",
+          "status": "translated",
+          "from": null,
+          "reason": null
+        },
+        {
+          "locale": "it",
+          "status": "translated",
+          "from": null,
+          "reason": null
+        },
+        {
+          "locale": "ja",
+          "status": "translated",
+          "from": null,
+          "reason": null
+        },
+        {
+          "locale": "ko",
+          "status": "translated",
+          "from": null,
+          "reason": null
+        },
+        {
+          "locale": "pl",
+          "status": "translated",
+          "from": null,
+          "reason": null
+        },
+        {
+          "locale": "pt",
+          "status": "translated",
+          "from": null,
+          "reason": null
+        },
+        {
+          "locale": "uk",
+          "status": "translated",
+          "from": null,
+          "reason": null
+        },
+        {
+          "locale": "zh",
+          "status": "translated",
+          "from": null,
+          "reason": null
+        }
+      ],
+      "usage": [
+        {
+          "file": "src/components/site-language.ts",
+          "scope": "applySiteLocale"
+        }
+      ]
+    },
+    {
+      "key": "nav.project_comparison",
+      "id": "nav_project_comparison",
+      "module": "messages/nav.js",
+      "kind": "text",
+      "source": "Comparison",
+      "sourceHash": "571527339d0e3e34",
+      "description": null,
+      "args": [],
+      "variants": [],
+      "markup": [],
+      "translations": [
+        {
+          "locale": "ar",
+          "status": "translated",
+          "from": null,
+          "reason": null
+        },
+        {
+          "locale": "de",
+          "status": "translated",
+          "from": null,
+          "reason": null
+        },
+        {
+          "locale": "en",
+          "status": "translated",
+          "from": null,
+          "reason": null
+        },
+        {
+          "locale": "es",
+          "status": "translated",
+          "from": null,
+          "reason": null
+        },
+        {
+          "locale": "fr",
+          "status": "translated",
+          "from": null,
+          "reason": null
+        },
+        {
+          "locale": "hi",
+          "status": "translated",
+          "from": null,
+          "reason": null
+        },
+        {
+          "locale": "it",
+          "status": "translated",
+          "from": null,
+          "reason": null
+        },
+        {
+          "locale": "ja",
+          "status": "translated",
+          "from": null,
+          "reason": null
+        },
+        {
+          "locale": "ko",
+          "status": "translated",
+          "from": null,
+          "reason": null
+        },
+        {
+          "locale": "pl",
+          "status": "translated",
+          "from": null,
+          "reason": null
+        },
+        {
+          "locale": "pt",
+          "status": "translated",
+          "from": null,
+          "reason": null
+        },
+        {
+          "locale": "uk",
+          "status": "translated",
+          "from": null,
+          "reason": null
+        },
+        {
+          "locale": "zh",
+          "status": "translated",
+          "from": null,
+          "reason": null
+        }
+      ],
+      "usage": [
+        {
+          "file": "src/components/site-language.ts",
+          "scope": "applySiteLocale"
+        }
+      ]
+    },
+    {
+      "key": "nav.project_continuity",
+      "id": "nav_project_continuity",
+      "module": "messages/nav.js",
+      "kind": "text",
+      "source": "Continuity",
+      "sourceHash": "8971f58f9ccffd37",
+      "description": null,
+      "args": [],
+      "variants": [],
+      "markup": [],
+      "translations": [
+        {
+          "locale": "ar",
+          "status": "translated",
+          "from": null,
+          "reason": null
+        },
+        {
+          "locale": "de",
+          "status": "translated",
+          "from": null,
+          "reason": null
+        },
+        {
+          "locale": "en",
+          "status": "translated",
+          "from": null,
+          "reason": null
+        },
+        {
+          "locale": "es",
+          "status": "translated",
+          "from": null,
+          "reason": null
+        },
+        {
+          "locale": "fr",
+          "status": "translated",
+          "from": null,
+          "reason": null
+        },
+        {
+          "locale": "hi",
+          "status": "translated",
+          "from": null,
+          "reason": null
+        },
+        {
+          "locale": "it",
+          "status": "translated",
+          "from": null,
+          "reason": null
+        },
+        {
+          "locale": "ja",
+          "status": "translated",
+          "from": null,
+          "reason": null
+        },
+        {
+          "locale": "ko",
+          "status": "translated",
+          "from": null,
+          "reason": null
+        },
+        {
+          "locale": "pl",
+          "status": "translated",
+          "from": null,
+          "reason": null
+        },
+        {
+          "locale": "pt",
+          "status": "translated",
+          "from": null,
+          "reason": null
+        },
+        {
+          "locale": "uk",
+          "status": "translated",
+          "from": null,
+          "reason": null
+        },
+        {
+          "locale": "zh",
+          "status": "translated",
+          "from": null,
+          "reason": null
+        }
+      ],
+      "usage": [
+        {
+          "file": "src/components/site-language.ts",
+          "scope": "applySiteLocale"
+        }
+      ]
+    },
+    {
+      "key": "nav.project_faq",
+      "id": "nav_project_faq",
+      "module": "messages/nav.js",
+      "kind": "text",
+      "source": "FAQ",
+      "sourceHash": "dbc468a14b601d5d",
+      "description": null,
+      "args": [],
+      "variants": [],
+      "markup": [],
+      "translations": [
+        {
+          "locale": "ar",
+          "status": "translated",
+          "from": null,
+          "reason": null
+        },
+        {
+          "locale": "de",
+          "status": "translated",
+          "from": null,
+          "reason": null
+        },
+        {
+          "locale": "en",
+          "status": "translated",
+          "from": null,
+          "reason": null
+        },
+        {
+          "locale": "es",
+          "status": "translated",
+          "from": null,
+          "reason": null
+        },
+        {
+          "locale": "fr",
+          "status": "translated",
+          "from": null,
+          "reason": null
+        },
+        {
+          "locale": "hi",
+          "status": "translated",
+          "from": null,
+          "reason": null
+        },
+        {
+          "locale": "it",
+          "status": "translated",
+          "from": null,
+          "reason": null
+        },
+        {
+          "locale": "ja",
+          "status": "translated",
+          "from": null,
+          "reason": null
+        },
+        {
+          "locale": "ko",
+          "status": "translated",
+          "from": null,
+          "reason": null
+        },
+        {
+          "locale": "pl",
+          "status": "translated",
+          "from": null,
+          "reason": null
+        },
+        {
+          "locale": "pt",
+          "status": "translated",
+          "from": null,
+          "reason": null
+        },
+        {
+          "locale": "uk",
+          "status": "translated",
+          "from": null,
+          "reason": null
+        },
+        {
+          "locale": "zh",
+          "status": "translated",
+          "from": null,
+          "reason": null
+        }
+      ],
+      "usage": [
+        {
+          "file": "src/components/site-language.ts",
+          "scope": "applySiteLocale"
+        }
+      ]
+    },
+    {
+      "key": "nav.project_limits",
+      "id": "nav_project_limits",
+      "module": "messages/nav.js",
+      "kind": "text",
+      "source": "Honest limits",
+      "sourceHash": "41c193393b620a45",
+      "description": null,
+      "args": [],
+      "variants": [],
+      "markup": [],
+      "translations": [
+        {
+          "locale": "ar",
+          "status": "translated",
+          "from": null,
+          "reason": null
+        },
+        {
+          "locale": "de",
+          "status": "translated",
+          "from": null,
+          "reason": null
+        },
+        {
+          "locale": "en",
+          "status": "translated",
+          "from": null,
+          "reason": null
+        },
+        {
+          "locale": "es",
+          "status": "translated",
+          "from": null,
+          "reason": null
+        },
+        {
+          "locale": "fr",
+          "status": "translated",
+          "from": null,
+          "reason": null
+        },
+        {
+          "locale": "hi",
+          "status": "translated",
+          "from": null,
+          "reason": null
+        },
+        {
+          "locale": "it",
+          "status": "translated",
+          "from": null,
+          "reason": null
+        },
+        {
+          "locale": "ja",
+          "status": "translated",
+          "from": null,
+          "reason": null
+        },
+        {
+          "locale": "ko",
+          "status": "translated",
+          "from": null,
+          "reason": null
+        },
+        {
+          "locale": "pl",
+          "status": "translated",
+          "from": null,
+          "reason": null
+        },
+        {
+          "locale": "pt",
+          "status": "translated",
+          "from": null,
+          "reason": null
+        },
+        {
+          "locale": "uk",
+          "status": "translated",
+          "from": null,
+          "reason": null
+        },
+        {
+          "locale": "zh",
+          "status": "translated",
+          "from": null,
+          "reason": null
+        }
+      ],
+      "usage": [
+        {
+          "file": "src/components/site-language.ts",
+          "scope": "applySiteLocale"
+        }
+      ]
+    },
+    {
+      "key": "nav.project_roadmap",
+      "id": "nav_project_roadmap",
+      "module": "messages/nav.js",
+      "kind": "text",
+      "source": "Roadmap",
+      "sourceHash": "92375f997ffe65ab",
+      "description": null,
+      "args": [],
+      "variants": [],
+      "markup": [],
+      "translations": [
+        {
+          "locale": "ar",
+          "status": "translated",
+          "from": null,
+          "reason": null
+        },
+        {
+          "locale": "de",
+          "status": "translated",
+          "from": null,
+          "reason": null
+        },
+        {
+          "locale": "en",
+          "status": "translated",
+          "from": null,
+          "reason": null
+        },
+        {
+          "locale": "es",
+          "status": "translated",
+          "from": null,
+          "reason": null
+        },
+        {
+          "locale": "fr",
+          "status": "translated",
+          "from": null,
+          "reason": null
+        },
+        {
+          "locale": "hi",
+          "status": "translated",
+          "from": null,
+          "reason": null
+        },
+        {
+          "locale": "it",
+          "status": "translated",
+          "from": null,
+          "reason": null
+        },
+        {
+          "locale": "ja",
+          "status": "translated",
+          "from": null,
+          "reason": null
+        },
+        {
+          "locale": "ko",
+          "status": "translated",
+          "from": null,
+          "reason": null
+        },
+        {
+          "locale": "pl",
+          "status": "translated",
+          "from": null,
+          "reason": null
+        },
+        {
+          "locale": "pt",
+          "status": "translated",
+          "from": null,
+          "reason": null
+        },
+        {
+          "locale": "uk",
+          "status": "translated",
+          "from": null,
+          "reason": null
+        },
+        {
+          "locale": "zh",
+          "status": "translated",
+          "from": null,
+          "reason": null
+        }
+      ],
+      "usage": [
+        {
+          "file": "src/components/site-language.ts",
+          "scope": "applySiteLocale"
+        }
+      ]
+    },
+    {
+      "key": "nav.project_security",
+      "id": "nav_project_security",
+      "module": "messages/nav.js",
+      "kind": "text",
+      "source": "Security",
+      "sourceHash": "8f6fb4eb7f42c0e2",
+      "description": null,
+      "args": [],
+      "variants": [],
+      "markup": [],
+      "translations": [
+        {
+          "locale": "ar",
+          "status": "translated",
+          "from": null,
+          "reason": null
+        },
+        {
+          "locale": "de",
+          "status": "translated",
+          "from": null,
+          "reason": null
+        },
+        {
+          "locale": "en",
+          "status": "translated",
+          "from": null,
+          "reason": null
+        },
+        {
+          "locale": "es",
+          "status": "translated",
+          "from": null,
+          "reason": null
+        },
+        {
+          "locale": "fr",
+          "status": "translated",
+          "from": null,
+          "reason": null
+        },
+        {
+          "locale": "hi",
+          "status": "translated",
+          "from": null,
+          "reason": null
+        },
+        {
+          "locale": "it",
+          "status": "translated",
+          "from": null,
+          "reason": null
+        },
+        {
+          "locale": "ja",
+          "status": "translated",
+          "from": null,
+          "reason": null
+        },
+        {
+          "locale": "ko",
+          "status": "translated",
+          "from": null,
+          "reason": null
+        },
+        {
+          "locale": "pl",
+          "status": "translated",
+          "from": null,
+          "reason": null
+        },
+        {
+          "locale": "pt",
+          "status": "translated",
+          "from": null,
+          "reason": null
+        },
+        {
+          "locale": "uk",
+          "status": "translated",
+          "from": null,
+          "reason": null
+        },
+        {
+          "locale": "zh",
+          "status": "translated",
+          "from": null,
+          "reason": null
+        }
+      ],
+      "usage": [
+        {
+          "file": "src/components/site-language.ts",
+          "scope": "applySiteLocale"
+        }
+      ]
+    },
+    {
+      "key": "nav.project_why",
+      "id": "nav_project_why",
+      "module": "messages/nav.js",
+      "kind": "text",
+      "source": "Why loclizr",
+      "sourceHash": "c148e15b9aa04d99",
+      "description": null,
+      "args": [],
+      "variants": [],
+      "markup": [],
+      "translations": [
+        {
+          "locale": "ar",
+          "status": "translated",
+          "from": null,
+          "reason": null
+        },
+        {
+          "locale": "de",
+          "status": "translated",
+          "from": null,
+          "reason": null
+        },
+        {
+          "locale": "en",
+          "status": "translated",
+          "from": null,
+          "reason": null
+        },
+        {
+          "locale": "es",
+          "status": "translated",
+          "from": null,
+          "reason": null
+        },
+        {
+          "locale": "fr",
+          "status": "translated",
+          "from": null,
+          "reason": null
+        },
+        {
+          "locale": "hi",
+          "status": "translated",
+          "from": null,
+          "reason": null
+        },
+        {
+          "locale": "it",
+          "status": "translated",
+          "from": null,
+          "reason": null
+        },
+        {
+          "locale": "ja",
+          "status": "translated",
+          "from": null,
+          "reason": null
+        },
+        {
+          "locale": "ko",
+          "status": "translated",
+          "from": null,
+          "reason": null
+        },
+        {
+          "locale": "pl",
+          "status": "translated",
+          "from": null,
+          "reason": null
+        },
+        {
+          "locale": "pt",
+          "status": "translated",
+          "from": null,
+          "reason": null
+        },
+        {
+          "locale": "uk",
+          "status": "translated",
+          "from": null,
+          "reason": null
+        },
+        {
+          "locale": "zh",
+          "status": "translated",
+          "from": null,
+          "reason": null
+        }
+      ],
+      "usage": [
+        {
+          "file": "src/components/site-language.ts",
+          "scope": "applySiteLocale"
+        }
+      ]
+    },
+    {
+      "key": "nav.reference_checks",
+      "id": "nav_reference_checks",
+      "module": "messages/nav.js",
+      "kind": "text",
+      "source": "Checks",
+      "sourceHash": "de07d07209556c79",
+      "description": null,
+      "args": [],
+      "variants": [],
+      "markup": [],
+      "translations": [
+        {
+          "locale": "ar",
+          "status": "translated",
+          "from": null,
+          "reason": null
+        },
+        {
+          "locale": "de",
+          "status": "translated",
+          "from": null,
+          "reason": null
+        },
+        {
+          "locale": "en",
+          "status": "translated",
+          "from": null,
+          "reason": null
+        },
+        {
+          "locale": "es",
+          "status": "translated",
+          "from": null,
+          "reason": null
+        },
+        {
+          "locale": "fr",
+          "status": "translated",
+          "from": null,
+          "reason": null
+        },
+        {
+          "locale": "hi",
+          "status": "translated",
+          "from": null,
+          "reason": null
+        },
+        {
+          "locale": "it",
+          "status": "translated",
+          "from": null,
+          "reason": null
+        },
+        {
+          "locale": "ja",
+          "status": "translated",
+          "from": null,
+          "reason": null
+        },
+        {
+          "locale": "ko",
+          "status": "translated",
+          "from": null,
+          "reason": null
+        },
+        {
+          "locale": "pl",
+          "status": "translated",
+          "from": null,
+          "reason": null
+        },
+        {
+          "locale": "pt",
+          "status": "translated",
+          "from": null,
+          "reason": null
+        },
+        {
+          "locale": "uk",
+          "status": "translated",
+          "from": null,
+          "reason": null
+        },
+        {
+          "locale": "zh",
+          "status": "translated",
+          "from": null,
+          "reason": null
+        }
+      ],
+      "usage": [
+        {
+          "file": "src/components/site-language.ts",
+          "scope": "applySiteLocale"
+        }
+      ]
+    },
+    {
+      "key": "nav.reference_cli",
+      "id": "nav_reference_cli",
+      "module": "messages/nav.js",
+      "kind": "text",
+      "source": "CLI",
+      "sourceHash": "e759793341ff3757",
+      "description": null,
+      "args": [],
+      "variants": [],
+      "markup": [],
+      "translations": [
+        {
+          "locale": "ar",
+          "status": "translated",
+          "from": null,
+          "reason": null
+        },
+        {
+          "locale": "de",
+          "status": "translated",
+          "from": null,
+          "reason": null
+        },
+        {
+          "locale": "en",
+          "status": "translated",
+          "from": null,
+          "reason": null
+        },
+        {
+          "locale": "es",
+          "status": "translated",
+          "from": null,
+          "reason": null
+        },
+        {
+          "locale": "fr",
+          "status": "translated",
+          "from": null,
+          "reason": null
+        },
+        {
+          "locale": "hi",
+          "status": "translated",
+          "from": null,
+          "reason": null
+        },
+        {
+          "locale": "it",
+          "status": "translated",
+          "from": null,
+          "reason": null
+        },
+        {
+          "locale": "ja",
+          "status": "translated",
+          "from": null,
+          "reason": null
+        },
+        {
+          "locale": "ko",
+          "status": "translated",
+          "from": null,
+          "reason": null
+        },
+        {
+          "locale": "pl",
+          "status": "translated",
+          "from": null,
+          "reason": null
+        },
+        {
+          "locale": "pt",
+          "status": "translated",
+          "from": null,
+          "reason": null
+        },
+        {
+          "locale": "uk",
+          "status": "translated",
+          "from": null,
+          "reason": null
+        },
+        {
+          "locale": "zh",
+          "status": "translated",
+          "from": null,
+          "reason": null
+        }
+      ],
+      "usage": [
+        {
+          "file": "src/components/site-language.ts",
+          "scope": "applySiteLocale"
+        }
+      ]
+    },
+    {
+      "key": "nav.reference_configuration",
+      "id": "nav_reference_configuration",
+      "module": "messages/nav.js",
+      "kind": "text",
+      "source": "Configuration",
+      "sourceHash": "b332c3492d5eb10a",
+      "description": null,
+      "args": [],
+      "variants": [],
+      "markup": [],
+      "translations": [
+        {
+          "locale": "ar",
+          "status": "translated",
+          "from": null,
+          "reason": null
+        },
+        {
+          "locale": "de",
+          "status": "translated",
+          "from": null,
+          "reason": null
+        },
+        {
+          "locale": "en",
+          "status": "translated",
+          "from": null,
+          "reason": null
+        },
+        {
+          "locale": "es",
+          "status": "translated",
+          "from": null,
+          "reason": null
+        },
+        {
+          "locale": "fr",
+          "status": "translated",
+          "from": null,
+          "reason": null
+        },
+        {
+          "locale": "hi",
+          "status": "translated",
+          "from": null,
+          "reason": null
+        },
+        {
+          "locale": "it",
+          "status": "translated",
+          "from": null,
+          "reason": null
+        },
+        {
+          "locale": "ja",
+          "status": "translated",
+          "from": null,
+          "reason": null
+        },
+        {
+          "locale": "ko",
+          "status": "translated",
+          "from": null,
+          "reason": null
+        },
+        {
+          "locale": "pl",
+          "status": "translated",
+          "from": null,
+          "reason": null
+        },
+        {
+          "locale": "pt",
+          "status": "translated",
+          "from": null,
+          "reason": null
+        },
+        {
+          "locale": "uk",
+          "status": "translated",
+          "from": null,
+          "reason": null
+        },
+        {
+          "locale": "zh",
+          "status": "translated",
+          "from": null,
+          "reason": null
+        }
+      ],
+      "usage": [
+        {
+          "file": "src/components/site-language.ts",
+          "scope": "applySiteLocale"
+        }
+      ]
+    },
+    {
+      "key": "nav.reference_context_record",
+      "id": "nav_reference_context_record",
+      "module": "messages/nav.js",
+      "kind": "text",
+      "source": "Context record",
+      "sourceHash": "3248e23d5aa1dcf2",
+      "description": null,
+      "args": [],
+      "variants": [],
+      "markup": [],
+      "translations": [
+        {
+          "locale": "ar",
+          "status": "translated",
+          "from": null,
+          "reason": null
+        },
+        {
+          "locale": "de",
+          "status": "translated",
+          "from": null,
+          "reason": null
+        },
+        {
+          "locale": "en",
+          "status": "translated",
+          "from": null,
+          "reason": null
+        },
+        {
+          "locale": "es",
+          "status": "translated",
+          "from": null,
+          "reason": null
+        },
+        {
+          "locale": "fr",
+          "status": "translated",
+          "from": null,
+          "reason": null
+        },
+        {
+          "locale": "hi",
+          "status": "translated",
+          "from": null,
+          "reason": null
+        },
+        {
+          "locale": "it",
+          "status": "translated",
+          "from": null,
+          "reason": null
+        },
+        {
+          "locale": "ja",
+          "status": "translated",
+          "from": null,
+          "reason": null
+        },
+        {
+          "locale": "ko",
+          "status": "translated",
+          "from": null,
+          "reason": null
+        },
+        {
+          "locale": "pl",
+          "status": "translated",
+          "from": null,
+          "reason": null
+        },
+        {
+          "locale": "pt",
+          "status": "translated",
+          "from": null,
+          "reason": null
+        },
+        {
+          "locale": "uk",
+          "status": "translated",
+          "from": null,
+          "reason": null
+        },
+        {
+          "locale": "zh",
+          "status": "translated",
+          "from": null,
+          "reason": null
+        }
+      ],
+      "usage": [
+        {
+          "file": "src/components/site-language.ts",
+          "scope": "applySiteLocale"
+        }
+      ]
+    },
+    {
+      "key": "nav.reference_generated_code",
+      "id": "nav_reference_generated_code",
+      "module": "messages/nav.js",
+      "kind": "text",
+      "source": "Generated code",
+      "sourceHash": "f846eeba76c57dce",
+      "description": null,
+      "args": [],
+      "variants": [],
+      "markup": [],
+      "translations": [
+        {
+          "locale": "ar",
+          "status": "translated",
+          "from": null,
+          "reason": null
+        },
+        {
+          "locale": "de",
+          "status": "translated",
+          "from": null,
+          "reason": null
+        },
+        {
+          "locale": "en",
+          "status": "translated",
+          "from": null,
+          "reason": null
+        },
+        {
+          "locale": "es",
+          "status": "translated",
+          "from": null,
+          "reason": null
+        },
+        {
+          "locale": "fr",
+          "status": "translated",
+          "from": null,
+          "reason": null
+        },
+        {
+          "locale": "hi",
+          "status": "translated",
+          "from": null,
+          "reason": null
+        },
+        {
+          "locale": "it",
+          "status": "translated",
+          "from": null,
+          "reason": null
+        },
+        {
+          "locale": "ja",
+          "status": "translated",
+          "from": null,
+          "reason": null
+        },
+        {
+          "locale": "ko",
+          "status": "translated",
+          "from": null,
+          "reason": null
+        },
+        {
+          "locale": "pl",
+          "status": "translated",
+          "from": null,
+          "reason": null
+        },
+        {
+          "locale": "pt",
+          "status": "translated",
+          "from": null,
+          "reason": null
+        },
+        {
+          "locale": "uk",
+          "status": "translated",
+          "from": null,
+          "reason": null
+        },
+        {
+          "locale": "zh",
+          "status": "translated",
+          "from": null,
+          "reason": null
+        }
+      ],
+      "usage": [
+        {
+          "file": "src/components/site-language.ts",
+          "scope": "applySiteLocale"
+        }
+      ]
+    },
+    {
+      "key": "nav.reference_runtime_api",
+      "id": "nav_reference_runtime_api",
+      "module": "messages/nav.js",
+      "kind": "text",
+      "source": "Runtime API",
+      "sourceHash": "7dccfa74ceb45be2",
+      "description": null,
+      "args": [],
+      "variants": [],
+      "markup": [],
+      "translations": [
+        {
+          "locale": "ar",
+          "status": "translated",
+          "from": null,
+          "reason": null
+        },
+        {
+          "locale": "de",
+          "status": "translated",
+          "from": null,
+          "reason": null
+        },
+        {
+          "locale": "en",
+          "status": "translated",
+          "from": null,
+          "reason": null
+        },
+        {
+          "locale": "es",
+          "status": "translated",
+          "from": null,
+          "reason": null
+        },
+        {
+          "locale": "fr",
+          "status": "translated",
+          "from": null,
+          "reason": null
+        },
+        {
+          "locale": "hi",
+          "status": "translated",
+          "from": null,
+          "reason": null
+        },
+        {
+          "locale": "it",
+          "status": "translated",
+          "from": null,
+          "reason": null
+        },
+        {
+          "locale": "ja",
+          "status": "translated",
+          "from": null,
+          "reason": null
+        },
+        {
+          "locale": "ko",
+          "status": "translated",
+          "from": null,
+          "reason": null
+        },
+        {
+          "locale": "pl",
+          "status": "translated",
+          "from": null,
+          "reason": null
+        },
+        {
+          "locale": "pt",
+          "status": "translated",
+          "from": null,
+          "reason": null
+        },
+        {
+          "locale": "uk",
+          "status": "translated",
+          "from": null,
+          "reason": null
+        },
+        {
+          "locale": "zh",
+          "status": "translated",
+          "from": null,
+          "reason": null
+        }
+      ],
+      "usage": [
+        {
+          "file": "src/components/site-language.ts",
+          "scope": "applySiteLocale"
+        }
+      ]
+    },
+    {
+      "key": "nav.start_agents",
+      "id": "nav_start_agents",
+      "module": "messages/nav.js",
+      "kind": "text",
+      "source": "Coding agents",
+      "sourceHash": "707c65c28bca65da",
+      "description": null,
+      "args": [],
+      "variants": [],
+      "markup": [],
+      "translations": [
+        {
+          "locale": "ar",
+          "status": "translated",
+          "from": null,
+          "reason": null
+        },
+        {
+          "locale": "de",
+          "status": "translated",
+          "from": null,
+          "reason": null
+        },
+        {
+          "locale": "en",
+          "status": "translated",
+          "from": null,
+          "reason": null
+        },
+        {
+          "locale": "es",
+          "status": "translated",
+          "from": null,
+          "reason": null
+        },
+        {
+          "locale": "fr",
+          "status": "translated",
+          "from": null,
+          "reason": null
+        },
+        {
+          "locale": "hi",
+          "status": "translated",
+          "from": null,
+          "reason": null
+        },
+        {
+          "locale": "it",
+          "status": "translated",
+          "from": null,
+          "reason": null
+        },
+        {
+          "locale": "ja",
+          "status": "translated",
+          "from": null,
+          "reason": null
+        },
+        {
+          "locale": "ko",
+          "status": "translated",
+          "from": null,
+          "reason": null
+        },
+        {
+          "locale": "pl",
+          "status": "translated",
+          "from": null,
+          "reason": null
+        },
+        {
+          "locale": "pt",
+          "status": "translated",
+          "from": null,
+          "reason": null
+        },
+        {
+          "locale": "uk",
+          "status": "translated",
+          "from": null,
+          "reason": null
+        },
+        {
+          "locale": "zh",
+          "status": "translated",
+          "from": null,
+          "reason": null
+        }
+      ],
+      "usage": [
+        {
+          "file": "src/components/site-language.ts",
+          "scope": "applySiteLocale"
+        }
+      ]
+    },
+    {
+      "key": "nav.start_how_it_works",
+      "id": "nav_start_how_it_works",
+      "module": "messages/nav.js",
+      "kind": "text",
+      "source": "How it works",
+      "sourceHash": "9c870aa6e5e93270",
+      "description": null,
+      "args": [],
+      "variants": [],
+      "markup": [],
+      "translations": [
+        {
+          "locale": "ar",
+          "status": "translated",
+          "from": null,
+          "reason": null
+        },
+        {
+          "locale": "de",
+          "status": "translated",
+          "from": null,
+          "reason": null
+        },
+        {
+          "locale": "en",
+          "status": "translated",
+          "from": null,
+          "reason": null
+        },
+        {
+          "locale": "es",
+          "status": "translated",
+          "from": null,
+          "reason": null
+        },
+        {
+          "locale": "fr",
+          "status": "translated",
+          "from": null,
+          "reason": null
+        },
+        {
+          "locale": "hi",
+          "status": "translated",
+          "from": null,
+          "reason": null
+        },
+        {
+          "locale": "it",
+          "status": "translated",
+          "from": null,
+          "reason": null
+        },
+        {
+          "locale": "ja",
+          "status": "translated",
+          "from": null,
+          "reason": null
+        },
+        {
+          "locale": "ko",
+          "status": "translated",
+          "from": null,
+          "reason": null
+        },
+        {
+          "locale": "pl",
+          "status": "translated",
+          "from": null,
+          "reason": null
+        },
+        {
+          "locale": "pt",
+          "status": "translated",
+          "from": null,
+          "reason": null
+        },
+        {
+          "locale": "uk",
+          "status": "translated",
+          "from": null,
+          "reason": null
+        },
+        {
+          "locale": "zh",
+          "status": "translated",
+          "from": null,
+          "reason": null
+        }
+      ],
+      "usage": [
+        {
+          "file": "src/components/site-language.ts",
+          "scope": "applySiteLocale"
+        }
+      ]
+    },
+    {
+      "key": "nav.start_introduction",
+      "id": "nav_start_introduction",
+      "module": "messages/nav.js",
+      "kind": "text",
+      "source": "Introduction",
+      "sourceHash": "b605350bc0020952",
+      "description": null,
+      "args": [],
+      "variants": [],
+      "markup": [],
+      "translations": [
+        {
+          "locale": "ar",
+          "status": "translated",
+          "from": null,
+          "reason": null
+        },
+        {
+          "locale": "de",
+          "status": "translated",
+          "from": null,
+          "reason": null
+        },
+        {
+          "locale": "en",
+          "status": "translated",
+          "from": null,
+          "reason": null
+        },
+        {
+          "locale": "es",
+          "status": "translated",
+          "from": null,
+          "reason": null
+        },
+        {
+          "locale": "fr",
+          "status": "translated",
+          "from": null,
+          "reason": null
+        },
+        {
+          "locale": "hi",
+          "status": "translated",
+          "from": null,
+          "reason": null
+        },
+        {
+          "locale": "it",
+          "status": "translated",
+          "from": null,
+          "reason": null
+        },
+        {
+          "locale": "ja",
+          "status": "translated",
+          "from": null,
+          "reason": null
+        },
+        {
+          "locale": "ko",
+          "status": "translated",
+          "from": null,
+          "reason": null
+        },
+        {
+          "locale": "pl",
+          "status": "translated",
+          "from": null,
+          "reason": null
+        },
+        {
+          "locale": "pt",
+          "status": "translated",
+          "from": null,
+          "reason": null
+        },
+        {
+          "locale": "uk",
+          "status": "translated",
+          "from": null,
+          "reason": null
+        },
+        {
+          "locale": "zh",
+          "status": "translated",
+          "from": null,
+          "reason": null
+        }
+      ],
+      "usage": [
+        {
+          "file": "src/components/site-language.ts",
+          "scope": "applySiteLocale"
+        }
+      ]
+    },
+    {
+      "key": "nav.start_playground",
+      "id": "nav_start_playground",
+      "module": "messages/nav.js",
+      "kind": "text",
+      "source": "Playground",
+      "sourceHash": "a6273fb551f223ce",
+      "description": null,
+      "args": [],
+      "variants": [],
+      "markup": [],
+      "translations": [
+        {
+          "locale": "ar",
+          "status": "translated",
+          "from": null,
+          "reason": null
+        },
+        {
+          "locale": "de",
+          "status": "translated",
+          "from": null,
+          "reason": null
+        },
+        {
+          "locale": "en",
+          "status": "translated",
+          "from": null,
+          "reason": null
+        },
+        {
+          "locale": "es",
+          "status": "translated",
+          "from": null,
+          "reason": null
+        },
+        {
+          "locale": "fr",
+          "status": "translated",
+          "from": null,
+          "reason": null
+        },
+        {
+          "locale": "hi",
+          "status": "translated",
+          "from": null,
+          "reason": null
+        },
+        {
+          "locale": "it",
+          "status": "translated",
+          "from": null,
+          "reason": null
+        },
+        {
+          "locale": "ja",
+          "status": "translated",
+          "from": null,
+          "reason": null
+        },
+        {
+          "locale": "ko",
+          "status": "translated",
+          "from": null,
+          "reason": null
+        },
+        {
+          "locale": "pl",
+          "status": "translated",
+          "from": null,
+          "reason": null
+        },
+        {
+          "locale": "pt",
+          "status": "translated",
+          "from": null,
+          "reason": null
+        },
+        {
+          "locale": "uk",
+          "status": "translated",
+          "from": null,
+          "reason": null
+        },
+        {
+          "locale": "zh",
+          "status": "translated",
+          "from": null,
+          "reason": null
+        }
+      ],
+      "usage": [
+        {
+          "file": "src/components/site-language.ts",
+          "scope": "applySiteLocale"
+        }
+      ]
+    },
+    {
+      "key": "nav.start_quickstart",
+      "id": "nav_start_quickstart",
+      "module": "messages/nav.js",
+      "kind": "text",
+      "source": "Quickstart",
+      "sourceHash": "d3b2aefa7524f88c",
+      "description": null,
+      "args": [],
+      "variants": [],
+      "markup": [],
+      "translations": [
+        {
+          "locale": "ar",
+          "status": "translated",
+          "from": null,
+          "reason": null
+        },
+        {
+          "locale": "de",
+          "status": "translated",
+          "from": null,
+          "reason": null
+        },
+        {
+          "locale": "en",
+          "status": "translated",
+          "from": null,
+          "reason": null
+        },
+        {
+          "locale": "es",
+          "status": "translated",
+          "from": null,
+          "reason": null
+        },
+        {
+          "locale": "fr",
+          "status": "translated",
+          "from": null,
+          "reason": null
+        },
+        {
+          "locale": "hi",
+          "status": "translated",
+          "from": null,
+          "reason": null
+        },
+        {
+          "locale": "it",
+          "status": "translated",
+          "from": null,
+          "reason": null
+        },
+        {
+          "locale": "ja",
+          "status": "translated",
+          "from": null,
+          "reason": null
+        },
+        {
+          "locale": "ko",
+          "status": "translated",
+          "from": null,
+          "reason": null
+        },
+        {
+          "locale": "pl",
+          "status": "translated",
+          "from": null,
+          "reason": null
+        },
+        {
+          "locale": "pt",
+          "status": "translated",
+          "from": null,
+          "reason": null
+        },
+        {
+          "locale": "uk",
+          "status": "translated",
+          "from": null,
+          "reason": null
+        },
+        {
+          "locale": "zh",
+          "status": "translated",
+          "from": null,
+          "reason": null
+        }
+      ],
+      "usage": [
+        {
+          "file": "src/components/site-language.ts",
+          "scope": "applySiteLocale"
+        }
+      ]
+    },
+    {
+      "key": "section.frameworks",
+      "id": "section_frameworks",
+      "module": "messages/section.js",
+      "kind": "text",
+      "source": "Frameworks",
+      "sourceHash": "cafd6b725820bd8e",
+      "description": null,
+      "args": [],
+      "variants": [],
+      "markup": [],
+      "translations": [
+        {
+          "locale": "ar",
+          "status": "translated",
+          "from": null,
+          "reason": null
+        },
+        {
+          "locale": "de",
+          "status": "translated",
+          "from": null,
+          "reason": null
+        },
+        {
+          "locale": "en",
+          "status": "translated",
+          "from": null,
+          "reason": null
+        },
+        {
+          "locale": "es",
+          "status": "translated",
+          "from": null,
+          "reason": null
+        },
+        {
+          "locale": "fr",
+          "status": "translated",
+          "from": null,
+          "reason": null
+        },
+        {
+          "locale": "hi",
+          "status": "translated",
+          "from": null,
+          "reason": null
+        },
+        {
+          "locale": "it",
+          "status": "translated",
+          "from": null,
+          "reason": null
+        },
+        {
+          "locale": "ja",
+          "status": "translated",
+          "from": null,
+          "reason": null
+        },
+        {
+          "locale": "ko",
+          "status": "translated",
+          "from": null,
+          "reason": null
+        },
+        {
+          "locale": "pl",
+          "status": "translated",
+          "from": null,
+          "reason": null
+        },
+        {
+          "locale": "pt",
+          "status": "translated",
+          "from": null,
+          "reason": null
+        },
+        {
+          "locale": "uk",
+          "status": "translated",
+          "from": null,
+          "reason": null
+        },
+        {
+          "locale": "zh",
+          "status": "translated",
+          "from": null,
+          "reason": null
+        }
+      ],
+      "usage": [
+        {
+          "file": "src/components/site-language.ts",
+          "scope": "applySiteLocale"
+        }
+      ]
+    },
+    {
+      "key": "section.guides",
+      "id": "section_guides",
+      "module": "messages/section.js",
+      "kind": "text",
+      "source": "Guides",
+      "sourceHash": "572cd72feb9a84e0",
+      "description": null,
+      "args": [],
+      "variants": [],
+      "markup": [],
+      "translations": [
+        {
+          "locale": "ar",
+          "status": "translated",
+          "from": null,
+          "reason": null
+        },
+        {
+          "locale": "de",
+          "status": "translated",
+          "from": null,
+          "reason": null
+        },
+        {
+          "locale": "en",
+          "status": "translated",
+          "from": null,
+          "reason": null
+        },
+        {
+          "locale": "es",
+          "status": "translated",
+          "from": null,
+          "reason": null
+        },
+        {
+          "locale": "fr",
+          "status": "translated",
+          "from": null,
+          "reason": null
+        },
+        {
+          "locale": "hi",
+          "status": "translated",
+          "from": null,
+          "reason": null
+        },
+        {
+          "locale": "it",
+          "status": "translated",
+          "from": null,
+          "reason": null
+        },
+        {
+          "locale": "ja",
+          "status": "translated",
+          "from": null,
+          "reason": null
+        },
+        {
+          "locale": "ko",
+          "status": "translated",
+          "from": null,
+          "reason": null
+        },
+        {
+          "locale": "pl",
+          "status": "translated",
+          "from": null,
+          "reason": null
+        },
+        {
+          "locale": "pt",
+          "status": "translated",
+          "from": null,
+          "reason": null
+        },
+        {
+          "locale": "uk",
+          "status": "translated",
+          "from": null,
+          "reason": null
+        },
+        {
+          "locale": "zh",
+          "status": "translated",
+          "from": null,
+          "reason": null
+        }
+      ],
+      "usage": [
+        {
+          "file": "src/components/site-language.ts",
+          "scope": "applySiteLocale"
+        }
+      ]
+    },
+    {
+      "key": "section.project",
+      "id": "section_project",
+      "module": "messages/section.js",
+      "kind": "text",
+      "source": "Project",
+      "sourceHash": "9859597853197476",
+      "description": null,
+      "args": [],
+      "variants": [],
+      "markup": [],
+      "translations": [
+        {
+          "locale": "ar",
+          "status": "translated",
+          "from": null,
+          "reason": null
+        },
+        {
+          "locale": "de",
+          "status": "translated",
+          "from": null,
+          "reason": null
+        },
+        {
+          "locale": "en",
+          "status": "translated",
+          "from": null,
+          "reason": null
+        },
+        {
+          "locale": "es",
+          "status": "translated",
+          "from": null,
+          "reason": null
+        },
+        {
+          "locale": "fr",
+          "status": "translated",
+          "from": null,
+          "reason": null
+        },
+        {
+          "locale": "hi",
+          "status": "translated",
+          "from": null,
+          "reason": null
+        },
+        {
+          "locale": "it",
+          "status": "translated",
+          "from": null,
+          "reason": null
+        },
+        {
+          "locale": "ja",
+          "status": "translated",
+          "from": null,
+          "reason": null
+        },
+        {
+          "locale": "ko",
+          "status": "translated",
+          "from": null,
+          "reason": null
+        },
+        {
+          "locale": "pl",
+          "status": "translated",
+          "from": null,
+          "reason": null
+        },
+        {
+          "locale": "pt",
+          "status": "translated",
+          "from": null,
+          "reason": null
+        },
+        {
+          "locale": "uk",
+          "status": "translated",
+          "from": null,
+          "reason": null
+        },
+        {
+          "locale": "zh",
+          "status": "translated",
+          "from": null,
+          "reason": null
+        }
+      ],
+      "usage": [
+        {
+          "file": "src/components/site-language.ts",
+          "scope": "applySiteLocale"
+        }
+      ]
+    },
+    {
+      "key": "section.reference",
+      "id": "section_reference",
+      "module": "messages/section.js",
+      "kind": "text",
+      "source": "Reference",
+      "sourceHash": "71bf90935fc231d2",
+      "description": null,
+      "args": [],
+      "variants": [],
+      "markup": [],
+      "translations": [
+        {
+          "locale": "ar",
+          "status": "translated",
+          "from": null,
+          "reason": null
+        },
+        {
+          "locale": "de",
+          "status": "translated",
+          "from": null,
+          "reason": null
+        },
+        {
+          "locale": "en",
+          "status": "translated",
+          "from": null,
+          "reason": null
+        },
+        {
+          "locale": "es",
+          "status": "translated",
+          "from": null,
+          "reason": null
+        },
+        {
+          "locale": "fr",
+          "status": "translated",
+          "from": null,
+          "reason": null
+        },
+        {
+          "locale": "hi",
+          "status": "translated",
+          "from": null,
+          "reason": null
+        },
+        {
+          "locale": "it",
+          "status": "translated",
+          "from": null,
+          "reason": null
+        },
+        {
+          "locale": "ja",
+          "status": "translated",
+          "from": null,
+          "reason": null
+        },
+        {
+          "locale": "ko",
+          "status": "translated",
+          "from": null,
+          "reason": null
+        },
+        {
+          "locale": "pl",
+          "status": "translated",
+          "from": null,
+          "reason": null
+        },
+        {
+          "locale": "pt",
+          "status": "translated",
+          "from": null,
+          "reason": null
+        },
+        {
+          "locale": "uk",
+          "status": "translated",
+          "from": null,
+          "reason": null
+        },
+        {
+          "locale": "zh",
+          "status": "translated",
+          "from": null,
+          "reason": null
+        }
+      ],
+      "usage": [
+        {
+          "file": "src/components/site-language.ts",
+          "scope": "applySiteLocale"
+        }
+      ]
+    },
+    {
+      "key": "section.start",
+      "id": "section_start",
+      "module": "messages/section.js",
+      "kind": "text",
+      "source": "Start here",
+      "sourceHash": "2adc964c084749b1",
+      "description": null,
+      "args": [],
+      "variants": [],
+      "markup": [],
+      "translations": [
+        {
+          "locale": "ar",
+          "status": "translated",
+          "from": null,
+          "reason": null
+        },
+        {
+          "locale": "de",
+          "status": "translated",
+          "from": null,
+          "reason": null
+        },
+        {
+          "locale": "en",
+          "status": "translated",
+          "from": null,
+          "reason": null
+        },
+        {
+          "locale": "es",
+          "status": "translated",
+          "from": null,
+          "reason": null
+        },
+        {
+          "locale": "fr",
+          "status": "translated",
+          "from": null,
+          "reason": null
+        },
+        {
+          "locale": "hi",
+          "status": "translated",
+          "from": null,
+          "reason": null
+        },
+        {
+          "locale": "it",
+          "status": "translated",
+          "from": null,
+          "reason": null
+        },
+        {
+          "locale": "ja",
+          "status": "translated",
+          "from": null,
+          "reason": null
+        },
+        {
+          "locale": "ko",
+          "status": "translated",
+          "from": null,
+          "reason": null
+        },
+        {
+          "locale": "pl",
+          "status": "translated",
+          "from": null,
+          "reason": null
+        },
+        {
+          "locale": "pt",
+          "status": "translated",
+          "from": null,
+          "reason": null
+        },
+        {
+          "locale": "uk",
+          "status": "translated",
+          "from": null,
+          "reason": null
+        },
+        {
+          "locale": "zh",
+          "status": "translated",
+          "from": null,
+          "reason": null
+        }
+      ],
+      "usage": [
+        {
+          "file": "src/components/site-language.ts",
+          "scope": "applySiteLocale"
+        }
+      ]
+    },
+    {
+      "key": "ui.docsInEnglish",
+      "id": "ui_docsInEnglish",
+      "module": "messages/ui.js",
+      "kind": "text",
+      "source": "The documentation is in English; the navigation and this landing page follow your language.",
+      "sourceHash": "0873d2a6860bd951",
+      "description": null,
+      "args": [],
+      "variants": [],
+      "markup": [],
+      "translations": [
+        {
+          "locale": "ar",
+          "status": "translated",
+          "from": null,
+          "reason": null
+        },
+        {
+          "locale": "de",
+          "status": "translated",
+          "from": null,
+          "reason": null
+        },
+        {
+          "locale": "en",
+          "status": "translated",
+          "from": null,
+          "reason": null
+        },
+        {
+          "locale": "es",
+          "status": "translated",
+          "from": null,
+          "reason": null
+        },
+        {
+          "locale": "fr",
+          "status": "translated",
+          "from": null,
+          "reason": null
+        },
+        {
+          "locale": "hi",
+          "status": "translated",
+          "from": null,
+          "reason": null
+        },
+        {
+          "locale": "it",
+          "status": "translated",
+          "from": null,
+          "reason": null
+        },
+        {
+          "locale": "ja",
+          "status": "translated",
+          "from": null,
+          "reason": null
+        },
+        {
+          "locale": "ko",
+          "status": "translated",
+          "from": null,
+          "reason": null
+        },
+        {
+          "locale": "pl",
+          "status": "translated",
+          "from": null,
+          "reason": null
+        },
+        {
+          "locale": "pt",
+          "status": "translated",
+          "from": null,
+          "reason": null
+        },
+        {
+          "locale": "uk",
+          "status": "translated",
+          "from": null,
+          "reason": null
+        },
+        {
+          "locale": "zh",
+          "status": "translated",
+          "from": null,
+          "reason": null
+        }
+      ],
+      "usage": [
+        {
+          "file": "src/components/site-language.ts",
+          "scope": "applySiteLocale"
+        }
+      ]
+    },
+    {
+      "key": "ui.language",
+      "id": "ui_language",
+      "module": "messages/ui.js",
+      "kind": "text",
+      "source": "Language",
+      "sourceHash": "a4fe65264ef7dbb3",
+      "description": null,
+      "args": [],
+      "variants": [],
+      "markup": [],
+      "translations": [
+        {
+          "locale": "ar",
+          "status": "translated",
+          "from": null,
+          "reason": null
+        },
+        {
+          "locale": "de",
+          "status": "translated",
+          "from": null,
+          "reason": null
+        },
+        {
+          "locale": "en",
+          "status": "translated",
+          "from": null,
+          "reason": null
+        },
+        {
+          "locale": "es",
+          "status": "translated",
+          "from": null,
+          "reason": null
+        },
+        {
+          "locale": "fr",
+          "status": "translated",
+          "from": null,
+          "reason": null
+        },
+        {
+          "locale": "hi",
+          "status": "translated",
+          "from": null,
+          "reason": null
+        },
+        {
+          "locale": "it",
+          "status": "translated",
+          "from": null,
+          "reason": null
+        },
+        {
+          "locale": "ja",
+          "status": "translated",
+          "from": null,
+          "reason": null
+        },
+        {
+          "locale": "ko",
+          "status": "translated",
+          "from": null,
+          "reason": null
+        },
+        {
+          "locale": "pl",
+          "status": "translated",
+          "from": null,
+          "reason": null
+        },
+        {
+          "locale": "pt",
+          "status": "translated",
+          "from": null,
+          "reason": null
+        },
+        {
+          "locale": "uk",
+          "status": "translated",
+          "from": null,
+          "reason": null
+        },
+        {
+          "locale": "zh",
+          "status": "translated",
+          "from": null,
+          "reason": null
+        }
+      ],
+      "usage": [
+        {
+          "file": "src/components/site-language.ts",
+          "scope": "applySiteLocale"
+        }
+      ]
+    },
+    {
+      "key": "ui.onThisPage",
+      "id": "ui_onThisPage",
+      "module": "messages/ui.js",
+      "kind": "text",
+      "source": "On this page",
+      "sourceHash": "b5658fc8edda24f9",
+      "description": null,
+      "args": [],
+      "variants": [],
+      "markup": [],
+      "translations": [
+        {
+          "locale": "ar",
+          "status": "translated",
+          "from": null,
+          "reason": null
+        },
+        {
+          "locale": "de",
+          "status": "translated",
+          "from": null,
+          "reason": null
+        },
+        {
+          "locale": "en",
+          "status": "translated",
+          "from": null,
+          "reason": null
+        },
+        {
+          "locale": "es",
+          "status": "translated",
+          "from": null,
+          "reason": null
+        },
+        {
+          "locale": "fr",
+          "status": "translated",
+          "from": null,
+          "reason": null
+        },
+        {
+          "locale": "hi",
+          "status": "translated",
+          "from": null,
+          "reason": null
+        },
+        {
+          "locale": "it",
+          "status": "translated",
+          "from": null,
+          "reason": null
+        },
+        {
+          "locale": "ja",
+          "status": "translated",
+          "from": null,
+          "reason": null
+        },
+        {
+          "locale": "ko",
+          "status": "translated",
+          "from": null,
+          "reason": null
+        },
+        {
+          "locale": "pl",
+          "status": "translated",
+          "from": null,
+          "reason": null
+        },
+        {
+          "locale": "pt",
+          "status": "translated",
+          "from": null,
+          "reason": null
+        },
+        {
+          "locale": "uk",
+          "status": "translated",
+          "from": null,
+          "reason": null
+        },
+        {
+          "locale": "zh",
+          "status": "translated",
+          "from": null,
+          "reason": null
+        }
+      ],
+      "usage": [
+        {
+          "file": "src/components/site-language.ts",
+          "scope": "applySiteLocale"
+        }
+      ]
+    },
+    {
+      "key": "ui.search",
+      "id": "ui_search",
+      "module": "messages/ui.js",
+      "kind": "text",
+      "source": "Search",
+      "sourceHash": "49c266baaaa70981",
+      "description": null,
+      "args": [],
+      "variants": [],
+      "markup": [],
+      "translations": [
+        {
+          "locale": "ar",
+          "status": "translated",
+          "from": null,
+          "reason": null
+        },
+        {
+          "locale": "de",
+          "status": "translated",
+          "from": null,
+          "reason": null
+        },
+        {
+          "locale": "en",
+          "status": "translated",
+          "from": null,
+          "reason": null
+        },
+        {
+          "locale": "es",
+          "status": "translated",
+          "from": null,
+          "reason": null
+        },
+        {
+          "locale": "fr",
+          "status": "translated",
+          "from": null,
+          "reason": null
+        },
+        {
+          "locale": "hi",
+          "status": "translated",
+          "from": null,
+          "reason": null
+        },
+        {
+          "locale": "it",
+          "status": "translated",
+          "from": null,
+          "reason": null
+        },
+        {
+          "locale": "ja",
+          "status": "translated",
+          "from": null,
+          "reason": null
+        },
+        {
+          "locale": "ko",
+          "status": "translated",
+          "from": null,
+          "reason": null
+        },
+        {
+          "locale": "pl",
+          "status": "translated",
+          "from": null,
+          "reason": null
+        },
+        {
+          "locale": "pt",
+          "status": "translated",
+          "from": null,
+          "reason": null
+        },
+        {
+          "locale": "uk",
+          "status": "translated",
+          "from": null,
+          "reason": null
+        },
+        {
+          "locale": "zh",
+          "status": "translated",
+          "from": null,
+          "reason": null
+        }
+      ],
+      "usage": [
+        {
+          "file": "src/components/site-language.ts",
+          "scope": "applySiteLocale"
         }
       ]
     }

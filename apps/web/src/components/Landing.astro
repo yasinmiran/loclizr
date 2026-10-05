@@ -1,0 +1,139 @@
+---
+import { home } from '../loclizr/groups'
+import HeroReel from './HeroReel.astro'
+
+// Rendered in English; the site language script swaps each [data-home]
+// element through the same typed record when a visitor picks a language.
+const en = { locale: 'en' } as const
+const base = import.meta.env.BASE_URL.replace(/\/?$/, '/')
+const features = [
+  { title: 'typedTitle', body: 'typedBody' },
+  { title: 'checksTitle', body: 'checksBody' },
+  { title: 'recordTitle', body: 'recordBody' },
+] as const
+---
+
+<section class="landing not-content">
+  <p class="badge" data-home="badge">{home.badge({}, en)}</p>
+  <h1 data-home="title">{home.title({}, en)}</h1>
+  <p class="tagline" data-home="tagline">{home.tagline({}, en)}</p>
+  <div class="actions">
+    <a class="primary" href={`${base}start/quickstart/`} data-home="start">{home.start({}, en)}</a>
+    <a href="https://github.com/yasinmiran/loclizr" data-home="github">{home.github({}, en)}</a>
+  </div>
+  <code class="install">npm i loclizr</code>
+  <p class="note" data-home="translated">{home.translated({}, en)}</p>
+</section>
+
+<HeroReel />
+
+<section class="features not-content">
+  {
+    features.map((feature) => (
+      <div class="feature">
+        <h2 data-home={feature.title}>{home[feature.title]({}, en)}</h2>
+        <p data-home={feature.body}>{home[feature.body]({}, en)}</p>
+      </div>
+    ))
+  }
+</section>
+
+<style>
+  .landing {
+    display: grid;
+    justify-items: center;
+    gap: 1.25rem;
+    max-width: 52rem;
+    margin: 2rem auto 3rem;
+    text-align: center;
+  }
+  .badge {
+    margin: 0;
+    padding: 0.25rem 0.75rem;
+    border: 1px solid var(--line);
+    color: var(--muted-foreground);
+    font-size: 0.8125rem;
+  }
+  h1 {
+    margin: 0;
+    font-size: clamp(2.25rem, 1.4rem + 3.6vw, 4rem);
+    font-weight: 500;
+    line-height: 1.05;
+    letter-spacing: -0.035em;
+    text-wrap: balance;
+  }
+  .tagline {
+    max-width: 38rem;
+    margin: 0;
+    color: var(--muted-foreground);
+    font-size: 1.125rem;
+    line-height: 1.6;
+    text-wrap: pretty;
+  }
+  .actions {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+    gap: 0.75rem;
+    margin-top: 0.5rem;
+  }
+  .actions a {
+    display: inline-flex;
+    align-items: center;
+    height: 2.75rem;
+    padding-inline: 1.25rem;
+    border: 1px solid var(--line);
+    color: var(--foreground);
+    font-weight: 500;
+    text-decoration: none;
+  }
+  .actions a:hover {
+    background: var(--surface);
+  }
+  .actions a.primary {
+    border-color: var(--foreground);
+    background: var(--foreground);
+    color: var(--background);
+  }
+  .actions a.primary:hover {
+    background: color-mix(in oklab, var(--foreground) 85%, var(--background));
+  }
+  .install {
+    padding: 0.5rem 0.875rem;
+    background: var(--surface);
+    font-family: var(--sl-font-mono);
+    font-size: 0.875rem;
+  }
+  .install::before {
+    content: '$ ';
+    color: var(--muted-foreground);
+  }
+  .note {
+    max-width: 34rem;
+    margin: 0;
+    color: var(--muted-foreground);
+    font-size: 0.875rem;
+  }
+  .features {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(15rem, 1fr));
+    margin: 3rem 0 1rem;
+    border-top: 1px solid var(--line);
+    border-left: 1px solid var(--line);
+  }
+  .feature {
+    padding: 1.5rem;
+    border-right: 1px solid var(--line);
+    border-bottom: 1px solid var(--line);
+  }
+  .feature h2 {
+    margin: 0 0 0.5rem;
+    font-size: 1.0625rem;
+    font-weight: 500;
+  }
+  .feature p {
+    margin: 0;
+    color: var(--muted-foreground);
+    line-height: 1.6;
+  }
+</style>

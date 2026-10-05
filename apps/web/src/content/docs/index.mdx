@@ -5,23 +5,13 @@ template: splash
 tableOfContents: false
 prev: false
 next: false
-hero:
-  title: Checking your catalog shouldn't be a tool you remember to add.
-  tagline: loclizr build turns your JSON translation catalogs into typed message functions, checks the catalogs on every build, and writes a context record for whoever translates next.
-  actions:
-    - text: Quickstart
-      link: /loclizr/start/quickstart/
-      icon: right-arrow
-    - text: How it works
-      link: /loclizr/start/how-it-works/
-      variant: minimal
 ---
 
-import { Card, CardGrid, LinkCard } from '@astrojs/starlight/components'
+import { CardGrid, LinkCard } from '@astrojs/starlight/components'
 import LanguageDemo from '../../components/LanguageDemo.astro'
-import HeroReel from '../../components/HeroReel.astro'
+import Landing from '../../components/Landing.astro'
 
-<HeroReel />
+<Landing />
 
 ## Sixty seconds
 
@@ -59,21 +49,6 @@ This site compiles its own catalogs with loclizr. The [Playground](/start/playgr
 all 13 languages at once.
 
 ## One pass, three outputs
-
-<CardGrid>
-  <Card title="Typed message functions" icon="seti:typescript">
-    Plain ESM with declarations, one function per message, every locale inlined. Runs in Vite,
-    server rendering, React Native and Node. No bundler plugin.
-  </Card>
-  <Card title="Checks that are already on" icon="approve-check">
-    Fifty-six rules in every build: missing and blank translations, ICU syntax, arguments that
-    differ between locales, markup mismatches, two keys sharing a text. Errors fail the build.
-  </Card>
-  <Card title="A context record per message" icon="document">
-    Argument types, plural shape, calling file and scope, an optional description. Committed and
-    diffed in the same pull request as the string change.
-  </Card>
-</CardGrid>
 
 The entry for `cart.greeting` in the example app (array indentation removed):
 

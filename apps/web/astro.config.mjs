@@ -82,6 +82,12 @@ export default defineConfig({
         { icon: 'github', label: 'GitHub', href: 'https://github.com/yasinmiran/loclizr' },
       ],
       credits: false,
+      // PageTitle wraps the theme's own to put the section above the title;
+      // SocialIcons puts the site language switcher beside the GitHub link.
+      components: {
+        PageTitle: './src/components/overrides/PageTitle.astro',
+        SocialIcons: './src/components/overrides/SocialIcons.astro',
+      },
       customCss: ['./src/styles/custom.css', './src/styles/sidebar-icons.css'],
       sidebar,
     }),

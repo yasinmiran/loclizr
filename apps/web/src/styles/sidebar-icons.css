@@ -26,23 +26,28 @@
 }
 
 .sidebar-content .container-sidebar-entry:has(a[href$='/start/quickstart/']) > .entry-title,
-.mobile-nav-section:has(a[href$='/start/quickstart/']) .mobile-nav-label {
+.mobile-nav-section:has(a[href$='/start/quickstart/']) .mobile-nav-label,
+.page-section[data-section='start'] {
   --sidebar-icon: url(/icons/rocket.svg);
 }
 .sidebar-content .container-sidebar-entry:has(a[href$='/guides/catalogs/']) > .entry-title,
-.mobile-nav-section:has(a[href$='/guides/catalogs/']) .mobile-nav-label {
+.mobile-nav-section:has(a[href$='/guides/catalogs/']) .mobile-nav-label,
+.page-section[data-section='guides'] {
   --sidebar-icon: url(/icons/book-open.svg);
 }
 .sidebar-content .container-sidebar-entry:has(a[href$='/guides/react/']) > .entry-title,
-.mobile-nav-section:has(a[href$='/guides/react/']) .mobile-nav-label {
+.mobile-nav-section:has(a[href$='/guides/react/']) .mobile-nav-label,
+.page-section[data-section='frameworks'] {
   --sidebar-icon: url(/icons/boxes.svg);
 }
 .sidebar-content .container-sidebar-entry:has(a[href$='/reference/cli/']) > .entry-title,
-.mobile-nav-section:has(a[href$='/reference/cli/']) .mobile-nav-label {
+.mobile-nav-section:has(a[href$='/reference/cli/']) .mobile-nav-label,
+.page-section[data-section='reference'] {
   --sidebar-icon: url(/icons/file-code.svg);
 }
 .sidebar-content .container-sidebar-entry:has(a[href$='/project/why/']) > .entry-title,
-.mobile-nav-section:has(a[href$='/project/why/']) .mobile-nav-label {
+.mobile-nav-section:has(a[href$='/project/why/']) .mobile-nav-label,
+.page-section[data-section='project'] {
   --sidebar-icon: url(/icons/lightbulb.svg);
 }
 

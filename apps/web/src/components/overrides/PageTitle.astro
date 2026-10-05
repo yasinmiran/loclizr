@@ -1,0 +1,21 @@
+---
+import ThemePageTitle from 'starlight-theme-black/overrides/PageTitle.astro'
+import { sidebar } from '../../../sidebar'
+import { sectionKeyByLabel } from '../site-language'
+
+const { id } = Astro.locals.starlightRoute
+const group = sidebar.find((entry) => entry.items.some((item) => item.slug === id))
+---
+
+{
+  id !== '' && (
+    <div class="page-header">
+      {group && (
+        <p class="page-section" data-section={sectionKeyByLabel[group.label]}>
+          {group.label}
+        </p>
+      )}
+      <ThemePageTitle />
+    </div>
+  )
+}
