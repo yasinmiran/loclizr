@@ -1,3 +1,148 @@
+/* The visual language: neutral greys, square corners, hairline rules, and
+   weight capped at medium, so emphasis reads through contrast rather than
+   weight. --line and the two surfaces are the only colours added; everything
+   else is the theme's own scale. */
+:root {
+  --radius: 0px;
+  --ec-brdRad: 0px;
+  --line: oklch(92.2% 0 0);
+  --surface: oklch(97% 0 0);
+  --surface-strong: oklch(92.2% 0 0);
+}
+:root[data-theme='dark'] {
+  --line: oklch(30% 0 0);
+  --surface: oklch(20.5% 0 0);
+  --surface-strong: oklch(26.9% 0 0);
+}
+body {
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+.sl-badge,
+.sl-markdown-content .sl-steps > li::before {
+  border-radius: 0;
+}
+
+.sl-markdown-content :is(h1, h2, h3, h4, h5, h6, strong, b, th),
+.page-title h1,
+.hero .hero-title-container h1 {
+  font-weight: 500;
+}
+.sl-markdown-content :is(h2, h3) {
+  letter-spacing: -0.01em;
+}
+
+/* The page title sits under a rule in the text colour; a hairline opens
+   every section after it. */
+.page-title {
+  padding-top: 1rem;
+  border-top: 2px solid var(--foreground);
+}
+.sl-markdown-content .sl-heading-wrapper.level-h2 {
+  margin-top: 2.5rem;
+  padding-top: 1rem;
+  border-top: 1px solid var(--line);
+}
+
+/* Code sits on one flat surface: no frame colour, no window dots. */
+.expressive-code .frame {
+  --ec-brdCol: var(--line);
+  --ec-codeBg: var(--surface);
+  --ec-frm-edTabBarBg: var(--surface);
+  --ec-frm-edActTabBg: var(--surface);
+  --ec-frm-trmTtbBg: var(--surface);
+  --ec-frm-trmBg: var(--surface);
+  --ec-frm-trmTtbDotsOpa: 0;
+}
+.sl-markdown-content :not(pre) > code {
+  background: var(--surface);
+}
+/* A terminal with no title keeps only its code; a titled one reads like a
+   file tab, flush left. */
+.expressive-code .frame.is-terminal:not(.has-title) .header {
+  display: none;
+}
+.expressive-code .frame.is-terminal:not(.has-title) pre {
+  border-top: var(--ec-brdWd) solid var(--ec-brdCol);
+}
+.expressive-code .frame.is-terminal .header {
+  justify-content: flex-start;
+  padding-inline: var(--ec-codePadInl);
+}
+
+/* Callouts are a hairline box in the text colour; the icon tells a note from
+   a warning, not a hue. */
+.starlight-aside {
+  background: transparent;
+  border: 1px solid var(--line);
+  color: var(--foreground);
+}
+.starlight-aside .starlight-aside__title {
+  color: var(--foreground);
+}
+
+.sl-markdown-content table :is(th, td) {
+  border-color: var(--line);
+}
+header.header {
+  border-bottom: 1px solid var(--line);
+}
+
+/* Buttons are outlined, not filled: a hairline frame on the page colour. */
+.markdown-actions,
+.page-title .nav-buttons a {
+  background: transparent;
+  border: 1px solid var(--line);
+}
+.page-title .nav-buttons a:hover,
+.markdown-actions :is(.copy-page-action, .markdown-actions-trigger):hover {
+  background: var(--surface);
+}
+
+/* Search is the header's centre: a wide outlined field. */
+site-search button[data-open-modal] {
+  background: transparent;
+  border: 1px solid var(--line);
+  color: var(--muted-foreground);
+}
+site-search button[data-open-modal]:hover {
+  border-color: color-mix(in oklab, var(--foreground) 30%, var(--background));
+}
+@media (min-width: 64rem) {
+  header.header > .header {
+    position: relative;
+  }
+  header.header site-search {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    translate: -50% -50%;
+    width: min(27.5rem, 36vw);
+  }
+  header.header site-search button[data-open-modal] {
+    width: 100%;
+    max-width: none;
+  }
+  /* With search centred, the rules that divided the right-hand group have
+     nothing left to divide. */
+  header.header :is(site-search, .social-icons)::after {
+    display: none;
+  }
+}
+
+/* The page index reads in the text colour, the current section at medium. */
+starlight-toc #starlight__on-this-page {
+  color: var(--foreground);
+  font-weight: 500;
+}
+starlight-toc a {
+  color: color-mix(in oklab, var(--foreground) 65%, var(--background));
+}
+starlight-toc a[aria-current='true'] {
+  color: var(--foreground);
+  font-weight: 500;
+}
+
 /* Diagrams are rendered from the specs in src/assets/diagrams (excalix). The
    drawings carry dark ink on a transparent ground, so they sit on a light card
    in both themes. */
@@ -213,27 +358,28 @@
   gap: 2px;
 }
 
-/* With the links muted, the group headings carry the structure. */
+/* Group headings carry the structure: an icon and the label in the text
+   colour. Links sit a step back; the current page is a filled square block. */
 .sidebar-content .entry-title {
+  gap: calc(var(--spacing) * 2);
+  justify-content: flex-start;
   color: var(--foreground);
-  font-weight: 600;
+  font-size: 0.875rem;
+  font-weight: 500;
 }
-
-/* Full-width rows read as one list instead of a column of floating pills.
-   Inactive links sit a step back so the current page is the one that holds
-   the eye. */
 .sidebar-content a.entry-link {
   width: 100%;
   box-sizing: border-box;
-  color: var(--muted-foreground);
-  font-weight: 450;
+  color: color-mix(in oklab, var(--foreground) 72%, var(--background));
+  font-size: 0.875rem;
+  font-weight: 400;
 }
 .sidebar-content a.entry-link:hover {
   color: var(--foreground);
-  background-color: color-mix(in oklab, var(--accent) 60%, transparent);
+  background-color: var(--surface);
 }
 .sidebar-content a.entry-link[aria-current='page'] {
   color: var(--foreground);
-  font-weight: 550;
-  background-color: var(--accent);
+  font-weight: 500;
+  background-color: var(--surface-strong);
 }

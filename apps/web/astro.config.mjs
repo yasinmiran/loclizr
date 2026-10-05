@@ -22,7 +22,7 @@ const base = '/loclizr'
 // variable range fixes that in one file per style. The plugin must stay after
 // starlightThemeBlack: its integration has to run after the theme's adds fonts.
 const fonts = {
-  '--font-geist': { name: 'Schibsted Grotesk', weights: ['400 700'] },
+  '--font-geist': { name: 'Geist', weights: ['400 700'] },
   '--font-geist-mono': { name: 'Geist Mono', weights: ['400 700'], fallbacks: ['monospace'] },
 }
 
