@@ -15,7 +15,7 @@ export function getLocale(): Locale {
     if (raw === '' && detached() && process.env.NODE_ENV !== 'production') {
       warnOnce(
         'detached',
-        'getLocale() ran outside a request scope, so it returned the source locale. Wrap the render in runWithLocale().',
+        'getLocale() ran outside a request scope, so it returned the source locale. Wrap the whole request in runWithLocale(): loaders, actions and the render, not the render alone.',
       )
     }
   } catch {}

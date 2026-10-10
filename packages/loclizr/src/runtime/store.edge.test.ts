@@ -131,6 +131,17 @@ describe('getLocale warnings', () => {
     expect(String(warn.mock.calls[0]?.[0])).toContain('runWithLocale()')
   })
 
+  test('tell an idle request scope to wrap loaders and actions, not the render alone', () => {
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {})
+    registerDefaults(SETUP)
+    runWithLocale('de', () => 0)
+    getLocale()
+    const message = String(warn.mock.calls[0]?.[0])
+    expect(message).toContain('whole request')
+    expect(message).toContain('loaders, actions and the render')
+    expect(message).not.toContain('Wrap the render')
+  })
+
   test('warn about both an idle scope and a missing registration, once each', () => {
     const warn = vi.spyOn(console, 'warn').mockImplementation(() => {})
     runWithLocale('de', () => 0)

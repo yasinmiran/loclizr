@@ -22,6 +22,7 @@ a minor release may break an invariant, and this file says so when it does.
 - the generated `_locale.js` and barrel now export `cookie`, the configured cookie name, so server code can pass `cookie: m.cookie` to `localeFromRequest`, `localeFromHeaders` and `withLocale` instead of silently reading the default `locale` cookie. `cookie` is now a reserved identifier: a root-level key `cookie` (or an `identifiers` override to it) fails with `LZ4002` and needs an `identifiers` entry. (#96).
 - a locale cookie written in RFC 6265 quoted form (`locale="de"`) now resolves to its locale on the server and the client instead of falling back to the source locale (#98).
 - `setLocale` warns once outside production when the locale cookie it wrote does not read back, as on `file://` pages (Electron `loadFile`) or with cookies blocked, where the choice lasts only until reload (#105).
+- The dev warning for `getLocale()` outside a request scope now says to wrap the whole request in `runWithLocale()` (loaders, actions and the render), not just the render, which left React Router and Remix loaders in the source locale (#75).
 
 ## 0.1.1 - 2026-10-03
 

@@ -2600,7 +2600,10 @@ warns once per process outside production. It does **not** throw. Static
 prerender, background jobs, scripts and error boundaries all run with no
 request; turning those into a 500 where source-locale text would have degraded
 gracefully is the wrong trade, and behaviour that depends on whether a request
-has run yet is worse than either consistent choice.
+has run yet is worse than either consistent choice. The warning tells the reader
+to wrap the whole request (loaders, actions and the render) in `runWithLocale`,
+because a framework that runs loaders before the render leaves them outside a
+scope that wraps the render alone.
 
 `negotiate` implements RFC 4647 lookup by subtag truncation, hand-rolled, no
 dependency. It parses the `;q=` parameter itself, drops a range with `q=0`,
