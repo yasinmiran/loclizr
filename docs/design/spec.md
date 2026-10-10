@@ -2265,7 +2265,7 @@ Argument parsing uses `node:util.parseArgs`. No argument-parsing dependency.
 
 | Command | Behaviour |
 | --- | --- |
-| `loclizr init` | writes `loclizr.config.ts` if absent and, when it wrote that config over the default catalog layout, `locales/{sourceLocale}.json` if absent; never overwrites; then prints the install note, naming the config it wrote or found, the `package.json` scripts and the CI snippet rather than editing `package.json` |
+| `loclizr init` | writes `loclizr.config.ts` if absent, with `meta` and `record` beside the catalogs when they live outside `locales/`, and, when it wrote that config over the default catalog layout, `locales/{sourceLocale}.json` if absent; never overwrites; then prints the install note, naming the config it wrote or found, the `package.json` scripts and the CI snippet rather than editing `package.json` |
 | `loclizr build` | read, lower, analyze, check, emit, scan, write the record, prune orphans. Takes `--no-fail` |
 | `loclizr check` | everything `build` does, with no writes, plus `LZ5002` and `LZ5003`. Does **not** take `--no-fail`: it is the gate |
 
@@ -2344,8 +2344,13 @@ a language tag, so `public/locales/shared/` stays out of the list
 and the build reports it as `LZ1006`. A flat layout gets no `locales` line, so a
 later `fr.json` is a locale with no config edit. When the named layout's base
 directory is not `locales`, the config also carries
-`meta: '<base>/{sourceLocale}.meta.json'`, so the sidecar sits beside the
-catalogs, and the commented-out `ambiguous-source` note names that resolved path.
+`meta: '<base>/{sourceLocale}.meta.json'` and
+`record: '<base>/loclizr.context.json'`, so the sidecar and the record sit
+beside the catalogs, and the commented-out `ambiguous-source` note names that
+resolved path. The section 3 defaults stay under `locales/` whatever `catalogs`
+says, so without the two lines a `lang/{locale}.json` project would get a new
+`locales/` holding only the record, and its `lang/en.meta.json` would be
+skipped as `LZ1006` rather than read.
 
 The seed catalog is written only when `init` wrote the config in the same run
 and the layout it found is the default one, or it found none. When a config is
@@ -3178,8 +3183,9 @@ glob then costs one warning instead of four hundred.
 
 ## 14. The context record
 
-Written to `locales/loclizr.context.json`, beside the catalogs, committed to
-git. A user-supplied `record` path may carry `{sourceLocale}`, which is
+Written to the `record` path, `locales/loclizr.context.json` by default whatever
+`catalogs` says (`loclizr init` points it beside a layout elsewhere, section
+10), committed to git. A user-supplied `record` path may carry `{sourceLocale}`, which is
 substituted before the file is written; `Config.record` itself keeps the token,
 per section 3.
 
@@ -4661,7 +4667,7 @@ rejects it on `check` as invalid usage (exit 2), and passes
 the flag and returns what M10 decided. `--quiet` is likewise M11's alone: it
 filters what the human reporter prints (section 10) and reaches neither M10
 nor the JSON reporter. The four config discovery filenames, the default `meta`
-path and the generated header marker `init` looks for are defined here again
+path, the record's file name and the generated header marker `init` looks for are defined here again
 rather than imported,
 so M11's dependency edge stays at M1 plus M10. A mistyped `--cwd` is invalid
 usage, so the compiler never reports the catalog layout of a directory that

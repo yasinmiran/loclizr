@@ -10,6 +10,7 @@ import {
   CONFIG_FILENAMES,
   DEFAULT_CATALOGS,
   DEFAULT_META,
+  RECORD_NAME,
   DEFAULT_SOURCE_LOCALE,
   GENERATED_MARKER,
   PACKAGE_SCRIPTS,
@@ -111,19 +112,20 @@ async function configFor(
   return configTemplate({
     locales,
     catalogs,
-    meta: metaBeside(catalogs),
+    ...sidecarsBeside(catalogs),
     greenfield,
     augmentLocale,
     sourceLocale,
   })
 }
 
-// The sidecar describes the catalogs, so it belongs in their directory rather
-// than in the default `locales/` beside a `public/locales/` tree.
-function metaBeside(catalogs: string): string | null {
+// The sidecar and the record describe the catalogs, so they belong in their
+// directory rather than in a default `locales/` that would hold nothing else.
+function sidecarsBeside(catalogs: string): { meta: string | null; record: string | null } {
   const base = catalogs.slice(0, catalogs.indexOf('/{'))
   const meta = `${base}/{sourceLocale}.meta.json`
-  return meta === DEFAULT_META ? null : meta
+  if (meta === DEFAULT_META) return { meta: null, record: null }
+  return { meta, record: `${base}/${RECORD_NAME}` }
 }
 
 // The config's `sourceLocale` has to agree with the catalogs already on disk.

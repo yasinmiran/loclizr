@@ -187,6 +187,8 @@ describe('runInit, a layout other than the default', () => {
     const config = await read('loclizr.config.ts')
 
     expect(config).toContain("  meta: 'src/i18n/{sourceLocale}.meta.json',")
+    expect(config).toContain("  record: 'src/i18n/loclizr.context.json',")
+    expect(config).not.toContain('locales/')
     expect(config).toContain('Turn this on once src/i18n/en.meta.json describes')
     expect(config).not.toContain('  locales:')
   })
@@ -209,6 +211,7 @@ describe('runInit, a layout other than the default', () => {
     const config = await read('loclizr.config.ts')
 
     expect(config).toContain("  meta: 'public/locales/{sourceLocale}.meta.json',")
+    expect(config).toContain("  record: 'public/locales/loclizr.context.json',")
     expect(config).toContain('Turn this on once public/locales/en.meta.json describes')
   })
 

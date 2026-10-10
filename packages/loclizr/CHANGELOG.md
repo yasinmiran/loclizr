@@ -35,6 +35,7 @@ a minor release may break an invariant, and this file says so when it does.
 - `build` and `check` now print `nothing generated: N fatal (LZ4002)` when a fatal diagnostic blocked output, also under `--quiet` and when the rule was turned down to `warn` or `off`, and no longer print `fell back to source text` for a run that rendered no tree (#91).
 - `loclizr init` now names the config it wrote or found in the install note, so a `--config` target or an existing `loclizr.config.js` or `.mjs` is no longer reported as `loclizr.config.ts` (#76).
 - `loclizr init` on a `{ns}` catalog tree such as `public/locales/{locale}/{ns}.json` now writes the discovered `locales` list, so a stray directory beside the locales is reported as `LZ1006` rather than compiled as a locale, and writes `meta` beside catalogs outside `locales/`, with the `ambiguous-source` note naming that path (#68).
+- `loclizr init` sets `record` beside catalogs that live outside `locales/`, as it does `meta`, instead of leaving a `locales/` that holds only the record (#88).
 
 ## 0.1.1 - 2026-10-03
 
