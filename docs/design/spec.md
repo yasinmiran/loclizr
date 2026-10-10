@@ -292,7 +292,10 @@ changing meaning.
    fork it. Under `'tags'` a value holding a tag the parser would reject, a
    numbered `<1>` tag, a tag with attributes, an unclosed or mismatched tag, or
    a name cut by an argument, is escaped to literal text as a whole and raises
-   `LZ1016`, so its return type stays `string` and the message survives. The
+   `LZ1016`, so its return type stays `string` and the message survives. A
+   self-closing tag is treated the same way: the parser accepts `<br/>` but
+   reads it as literal text and respells `<br />` as `<br/>`, so it never
+   lowers, and escaping the value whole keeps the translator's spelling. The
    output of `toIcu` is parseable ICU in both modes; the importer never hands
    M3 a value whose rejection would drop a source message. A file read as ICU
    is unaffected by any of this.

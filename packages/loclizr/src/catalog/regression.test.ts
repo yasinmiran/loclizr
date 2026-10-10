@@ -185,6 +185,7 @@ describe('LZ1016 hints, followed literally, end in a value that lowers', () => {
     ['an attribute', 'Read <a href=\\"/t\\">terms</a>, {{name}}'],
     ['a numbered tag beside a named one', 'Click <b>here</b> or <0>there</0>, {{name}}'],
     ['an unclosed tag', 'Line<br>break, {{name}}'],
+    ['a self-closing tag', 'Line<br/>break, {{name}}'],
   ])('describes a lowerable tag, not the mode, for a value with %s', async (_, value) => {
     const literal = hintOf(await read({ 'locales/en.json': `{"a": "${value}"}` }))
     expect(literal).not.toContain('i18nextMarkup')

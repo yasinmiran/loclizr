@@ -47,7 +47,7 @@ const TAG_NAME_CHARS =
 const OPENING_TAG = new RegExp(`^<([A-Za-z]${TAG_NAME_CHARS})\\p{Pattern_White_Space}*(/?)>`, 'u')
 const CLOSING_TAG = new RegExp(`^</([A-Za-z]${TAG_NAME_CHARS})\\p{Pattern_White_Space}*>`, 'u')
 const LOWERABLE_TAG_HINT =
-  'a tag lowers when its name starts with an ASCII letter, it carries no attributes and it is closed, <link>...</link> or <br/>: name a numbered tag and move attributes to the call site.'
+  'a tag lowers when its name starts with an ASCII letter, it carries no attributes and it is closed by a matching closing tag, as in <link>...</link> (a self-closing <br/> stays text): name a numbered tag and move attributes to the call site.'
 
 interface SuffixMatch {
   readonly base: string
@@ -506,7 +506,7 @@ function flatName(name: string): string {
 // Walks the text pieces as the parser would: a tag must close on its own
 // name, `</` outside one is unmatched, and a name an argument cuts short is
 // malformed because the parser meets `{` where it expects `>`. Returns the
-// construct the parser would reject, or null where every tag lowers.
+// construct that would not lower, or null where every tag lowers.
 function rejectedTag(pieces: readonly Piece[]): string | null {
   const open: string[] = []
   for (const piece of pieces) {
@@ -527,8 +527,10 @@ function rejectedTag(pieces: readonly Piece[]): string | null {
         continue
       }
       const opening = OPENING_TAG.exec(rest)
-      if (opening === null) return tagText(rest)
-      if (opening[2] === '') open.push(opening[1] ?? '')
+      // The parser reads a self-closing tag as literal text and respells
+      // `<br />` as `<br/>`, so it would render as visible markup, unflagged.
+      if (opening === null || opening[2] === '/') return tagText(rest)
+      open.push(opening[1] ?? '')
       cursor = at + opening[0].length
     }
   }

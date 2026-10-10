@@ -218,9 +218,15 @@ describe('toIcu under i18nextMarkup tags', () => {
     }
   })
 
-  it('still lowers a self-closing tag and a tag with space before its bracket', () => {
-    expect(convert('a<br/>b <br />c', 'tags').diagnostics).toEqual([])
-    expect(() => ast(convert('a<br/>b <br />c', 'tags').icu)).not.toThrow()
+  it('escapes a value with a self-closing tag whole, in its own spelling', () => {
+    for (const value of ['Line one<br/>line two', 'Line one<br />line two', 'Read <b>terms</b><br/>now']) {
+      const { icu, diagnostics } = convert(value, 'tags')
+      expect(ast(icu)).toEqual([{ type: TYPE.literal, value }])
+      expect(codes(diagnostics)).toEqual(['LZ1016'])
+    }
+  })
+
+  it('still lowers a tag with space before its bracket', () => {
     const { icu, diagnostics } = convert('<b >x</b >', 'tags')
     expect(diagnostics).toEqual([])
     expect(ast(icu)).toEqual([
