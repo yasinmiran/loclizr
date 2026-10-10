@@ -66,8 +66,25 @@ describe('readCookie values', () => {
     expect(readCookie('locale=de+AT', 'locale')).toBe('de+AT')
   })
 
-  test('keeps the quotes of a quoted value', () => {
-    expect(readCookie('locale="de"', 'locale')).toBe('"de"')
+  test('strips one surrounding pair of quotes, which RFC 6265 allows around a value', () => {
+    expect(readCookie('locale="de"', 'locale')).toBe('de')
+    expect(readCookie('locale="de-AT"; other=x', 'locale')).toBe('de-AT')
+    expect(readCookie(`locale="${encodeURIComponent('ü-DE')}"`, 'locale')).toBe('ü-DE')
+  })
+
+  test('treats a quoted empty value as absent', () => {
+    expect(readCookie('locale=""', 'locale')).toBeNull()
+  })
+
+  test('leaves an unbalanced or lone quote as is', () => {
+    expect(readCookie('locale="de', 'locale')).toBe('"de')
+    expect(readCookie('locale=de"', 'locale')).toBe('de"')
+    expect(readCookie('locale="', 'locale')).toBe('"')
+  })
+
+  test('strips only the outer pair, and keeps a quote that was percent-encoded', () => {
+    expect(readCookie('locale=""de""', 'locale')).toBe('"de"')
+    expect(readCookie('locale=%22de%22', 'locale')).toBe('"de"')
   })
 
   test('decodes an encoded separator into one value without splitting on it', () => {

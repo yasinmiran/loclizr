@@ -2613,7 +2613,9 @@ locale resolves to the source locale and does **not** fall through to
 `Accept-Language`, because the client resolver runs `matchLocale` over the
 same cookie and the two sides have to agree across the hydration boundary; a
 fall-through would render German on the server and English on the client for
-one tampered cookie.
+one tampered cookie. Both sides read the value with one reader: a value inside
+one pair of double quotes, the RFC 6265 quoted form, loses the quotes, then it is
+percent-decoded, so `locale="de"` and `locale=de` both resolve to `de`.
 
 ### 11.3 Client initial value and hydration
 

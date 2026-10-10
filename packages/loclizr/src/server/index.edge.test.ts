@@ -173,6 +173,11 @@ describe('localeFromHeaders', () => {
     expect(localeFromHeaders({ cookie: 'locale=DE%2Dat' }, OPTIONS)).toBe('de-AT')
   })
 
+  test('reads a cookie value in RFC 6265 quoted form ahead of Accept-Language', () => {
+    expect(localeFromHeaders({ cookie: 'locale="de"', acceptLanguage: 'fr' }, OPTIONS)).toBe('de')
+    expect(localeFromHeaders({ cookie: 'locale=""', acceptLanguage: 'fr' }, OPTIONS)).toBe('fr')
+  })
+
   test('ignores a cookie whose name only contains the configured one', () => {
     expect(
       localeFromHeaders({ cookie: 'locales=fr; xlocale=fr', acceptLanguage: 'de-AT' }, OPTIONS),
