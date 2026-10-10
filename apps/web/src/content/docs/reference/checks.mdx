@@ -120,7 +120,7 @@ a leftover record, delete it: the build writes the record at the configured `rec
 | --- | --- | --- | --- | --- | --- |
 | `LZ2001` | `icu-syntax` | error | message | The ICU parser rejected the value, other than for a missing `other` branch, or a select has two options equal under NFC. | By parser error, below the table. |
 | `LZ2002` | `icu-style-unknown` | error | never | A named style neither built in nor in `formats`. | Define it, such as `formats.number.compact`, or use an ICU skeleton. ICU carries no currency code: define `formats.number.currency`, or write `::currency/USD`. |
-| `LZ2003` | `icu-skeleton-invalid` | error | never | A `::` skeleton the parser cannot resolve or `Intl` cannot build. Falls back to the bare number, date or time format. | Fix the skeleton, or use a named style from `formats`. |
+| `LZ2003` | `icu-skeleton-invalid` | error | never | A `::` skeleton the parser cannot resolve or `Intl` cannot build, a `per-measure-unit/` with no unit to divide, or a date or time skeleton holding `J` or `C`, which `Intl` has no hour option for. Falls back to the bare number, date or time format. | Fix the skeleton, or use a named style from `formats`. For `J` or `C`, write `::jm` for the locale's hour with its day period, or `::Hm` for a 24-hour clock. |
 | `LZ2004` | `plural-other-missing` | error | message | A plural or selectordinal with no `other` branch. | Add `other {...}` as the last branch. |
 | `LZ2005` | `select-other-missing` | error | message | A select with no `other` branch. | Add `other {...}` as the last branch. |
 | `LZ2006` | `plural-category-unknown` | error | never | A branch keyword that is neither a CLDR category nor `=N`. | Use `zero`, `one`, `two`, `few`, `many` or `other`, or an exact branch such as `=0`. |

@@ -125,9 +125,11 @@ A translation dropping a branch warns (`LZ3008`); adding one the source lacks is
 | `{views, number, ::compact-short}` | `{ notation: 'compact', compactDisplay: 'short' }` |
 | `{bytes, number, ::scale/1000}` | `{}`, with the value multiplied by 1000 first: Intl has no scale option |
 | `{speed, number, ::unit/kilometer-per-hour}` | `{ style: 'unit', unit: 'kilometer-per-hour' }`; 90 renders `90 km/h` |
+| `{speed, number, ::measure-unit/length-meter per-measure-unit/duration-second}` | `{ style: 'unit', unit: 'meter-per-second' }`; 5 renders `5 m/s` |
 | `{at, date}` or `{at, date, medium}` | `{ dateStyle: 'medium' }` |
 | `{when, time, short}` | `{ timeStyle: 'short' }` |
 | `{when, date, ::yMMMd}` | `{ year: 'numeric', month: 'short', day: 'numeric' }` |
+| `{when, time, ::jm}` | `{ hour: 'numeric', minute: 'numeric' }`; the locale picks the hour cycle, so `en` renders `2:05 PM` and `de` `14:05` |
 
 Under `percent`, Intl already multiplies by 100, so `::percent scale/100` renders 0.25 as `25%`,
 the same as `::percent`.

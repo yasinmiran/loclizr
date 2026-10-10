@@ -447,3 +447,70 @@ describe('very large values', () => {
     expect(printed).toStrictEqual([...values].sort((a, b) => a - b))
   })
 })
+
+describe('a date or time skeleton asking for the locale-preferred hour', () => {
+  it.each([
+    ['{d, time, ::j}', { hour: 'numeric' }],
+    ['{d, time, ::jm}', { hour: 'numeric', minute: 'numeric' }],
+    ['{d, time, ::jjmm}', { hour: '2-digit', minute: '2-digit' }],
+    [
+      '{d, date, ::yMMMdjm}',
+      { day: 'numeric', hour: 'numeric', minute: 'numeric', month: 'short', year: 'numeric' },
+    ],
+  ])('resolves %s with the hour and no cycle, so Intl picks the locale cycle', (value, options) => {
+    const result = lower(value, icuContext())
+    expect(result.diagnostics).toStrictEqual([])
+    expect(first(result)).toMatchObject({ format: { kind: 'dateTime' } })
+    const node = first(result)
+    expect(node.kind === 'dateTime' ? node.format.options : null).toStrictEqual(options)
+  })
+
+  it('renders each locale cycle from the one set of options', () => {
+    const node = first(lower('{d, time, ::jm}', icuContext()))
+    const options = node.kind === 'dateTime' ? node.format.options : {}
+    const at = new Date(Date.UTC(2026, 2, 5, 14, 5))
+    const format = (locale: string): string =>
+      new Intl.DateTimeFormat(locale, { ...options, timeZone: 'UTC' }).format(at)
+    expect(format('en')).toMatch(/^2:05\sPM$/)
+    expect(format('de')).toBe('14:05')
+  })
+
+  it.each(['{d, time, ::Jm}', '{d, time, ::Cm}'])(
+    'raises LZ2003 for %s and falls back to the bare form instead of dropping the hour',
+    (value) => {
+      const result = lower(value, icuContext())
+      const diagnostic = only(result.diagnostics, 'LZ2003')
+      expect(diagnostic.hint).toContain(
+        "Write ::jm for the locale's hour with its day period, or ::Hm for a 24-hour clock",
+      )
+      expect(first(result)).toMatchObject({
+        format: { kind: 'dateTime', options: { timeStyle: 'medium' } },
+      })
+    },
+  )
+
+  it('resolves j and rejects J on the probe path after a degraded parse', () => {
+    const result = lower('{q, date, ::qqqq} {d, time, ::jm} {e, time, ::Jm}', icuContext())
+    expect(codes(result.diagnostics)).toStrictEqual(['LZ2003', 'LZ2003'])
+    expect(result.diagnostics[1]?.hint).toContain("Write ::jm for the locale's hour")
+    expect(result.nodes[2]).toMatchObject({
+      style: '::jm',
+      format: { kind: 'dateTime', options: { hour: 'numeric', minute: 'numeric' } },
+    })
+    expect(result.nodes[4]).toMatchObject({
+      style: '::Jm',
+      format: { kind: 'dateTime', options: { timeStyle: 'medium' } },
+    })
+  })
+
+  it('leaves an explicit hour cycle alone', () => {
+    const result = lower('{d, time, ::Hm} {d, time, ::hm}', icuContext())
+    expect(result.diagnostics).toStrictEqual([])
+    expect(result.nodes[0]).toMatchObject({ format: { options: { hourCycle: 'h23' } } })
+    expect(result.nodes[2]).toMatchObject({ format: { options: { hourCycle: 'h12' } } })
+  })
+
+  it('round trips ::jm as written', () => {
+    expect(expectRoundTrip('At {d, time, ::jm}').normalized).toBe('At {d, time, ::jm}')
+  })
+})

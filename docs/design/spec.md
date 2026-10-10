@@ -857,9 +857,9 @@ Verified behaviour of the installed parser, version 3.5.19:
 | `{x, date, short\|medium\|long\|full}` | `{ dateStyle: <style> }` |
 | `{x, time}` | `{ timeStyle: 'medium' }` |
 | `{x, time, short\|medium\|long\|full}` | `{ timeStyle: <style> }` |
-| `{x, number\|date\|time, ::skeleton}` | `style.parsedOptions` verbatim, except the `unit/` stem and a number skeleton's `scale`, which moves to `NumberFormatSpec.multiplier` (both below) |
+| `{x, number\|date\|time, ::skeleton}` | `style.parsedOptions` verbatim, except the `unit/` and `per-measure-unit/` stems, a number skeleton's `scale`, which moves to `NumberFormatSpec.multiplier`, and a date or time skeleton's `j`, `J` and `C` (all below) |
 | any other named style | looked up in `config.formats.number` or `config.formats.dateTime`, else `LZ2002 icu-style-unknown` |
-| a `::` skeleton the parser rejects, that resolves to no options at all, whose `scale` is not a finite number, or whose options `Intl` cannot build | `LZ2003 icu-skeleton-invalid`, and that node falls back to the bare form |
+| a `::` skeleton the parser rejects, that resolves to no options at all, whose `scale` is not a finite number, whose options `Intl` cannot build, that holds `per-measure-unit/` with no unit, or a date or time skeleton holding `J` or `C` | `LZ2003 icu-skeleton-invalid`, and that node falls back to the bare form |
 
 `LZ2003` is `fatal: never`, so the message must survive a bad skeleton, and
 the parser reports one as a failed parse. `lower` therefore reparses a
@@ -887,6 +887,29 @@ diagnostic never quotes the engine's error text. The parser also reads the
 as a type prefix, but `unit/` takes a bare core unit id, so the compiler keeps
 its whole option: `{x, number, ::unit/kilometer-per-hour}` resolves to
 `{ style: 'unit', unit: 'kilometer-per-hour' }`, not `unit: 'per-hour'`.
+The parser ignores `per-measure-unit/` outright, so the compiler composes it
+with the skeleton's `unit/` or `measure-unit/` into Intl's compound id,
+stripping the type prefix from the per unit the same way:
+`{x, number, ::measure-unit/length-meter per-measure-unit/duration-second}`
+resolves to `{ style: 'unit', unit: 'meter-per-second' }`, and
+`::unit/kilometer per-measure-unit/duration-hour` to
+`unit: 'kilometer-per-hour'`. A pair `Intl` does not support fails the probe
+above and is `LZ2003`. A `per-measure-unit/` in a skeleton with no unit stem,
+alone or beside other stems such as `::percent`, is `LZ2003` too, rather than
+dropped.
+
+The parser expands a date or time skeleton's `j`, `J` and `C`, the
+locale-preferred hour fields, only when given a locale, which the call above
+does not pass, so it drops them. The compiler resolves a run of `j` itself to
+`hour: 'numeric'` for one `j` and `hour: '2-digit'` for two or more, with no
+`hourCycle`, so `Intl` picks the locale's cycle when the message renders and
+the options stay one object for every locale:
+`{d, time, ::jm}` resolves to `{ hour: 'numeric', minute: 'numeric' }` and
+renders `2:05 PM` in `en` and `14:05` in `de`. `J`, the locale's hour without
+its day period, and `C`, the hour with a flexible day period, have no `Intl`
+option, so a skeleton holding either is `LZ2003` with the hint "Write ::jm for
+the locale's hour with its day period, or ::Hm for a 24-hour clock". An
+explicit `h`, `H`, `k` or `K` keeps the cycle the parser gives it.
 
 `scale/N` in a number skeleton is ICU's multiply-before-formatting, and
 `Intl.NumberFormat` has no such option, so `lower` takes `scale` out of the
@@ -3030,7 +3053,7 @@ so a truncated ICU makes **no** category claims rather than wrong ones.
 | --- | --- | --- | --- | --- | --- |
 | LZ2001 | `icu-syntax` | error | message | M3 | any parser `ErrorKind` other than the two below, or two options of one select equal under NFC |
 | LZ2002 | `icu-style-unknown` | error | never | M3 | a named style absent from the built-in table and from `config.formats` |
-| LZ2003 | `icu-skeleton-invalid` | error | never | M3 | a `::` skeleton the parser rejects or resolves to no options, `::currency` with no code, a `scale` that is not a finite number, or options `Intl` cannot build; the node falls back to its bare form (section 5.2) |
+| LZ2003 | `icu-skeleton-invalid` | error | never | M3 | a `::` skeleton the parser rejects or resolves to no options, `::currency` with no code, a `scale` that is not a finite number, options `Intl` cannot build, a `per-measure-unit/` with no unit, or a date or time skeleton holding `J` or `C`; the node falls back to its bare form (section 5.2) |
 | LZ2004 | `plural-other-missing` | error | message | M3 | `MISSING_OTHER_CLAUSE` on a plural or selectordinal |
 | LZ2005 | `select-other-missing` | error | message | M3 | `MISSING_OTHER_CLAUSE` on a select |
 | LZ2006 | `plural-category-unknown` | error | never | M3 | a branch keyword that is neither a CLDR category nor `=N` |

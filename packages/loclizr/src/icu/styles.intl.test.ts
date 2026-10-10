@@ -76,3 +76,65 @@ describe('the unit/ stem, which takes a core unit id with no type prefix', () =>
     expect(optionsAt(result, 0)).toStrictEqual({ style: 'unit', unit: 'kilometer-per-hour' })
   })
 })
+
+describe('a unit paired with per-measure-unit/', () => {
+  it.each([
+    [
+      '{n, number, ::measure-unit/length-meter per-measure-unit/duration-second}',
+      'meter-per-second',
+      '5 m/s',
+    ],
+    [
+      '{n, number, ::measure-unit/length-kilometer per-measure-unit/duration-hour}',
+      'kilometer-per-hour',
+      '5 km/h',
+    ],
+    ['{n, number, ::unit/kilometer per-measure-unit/duration-hour}', 'kilometer-per-hour', '5 km/h'],
+  ])('composes %j into one compound unit id', (value, unit, rendered) => {
+    const result = lower(value, icuContext())
+    expect(codes(result.diagnostics)).toStrictEqual([])
+    expect(optionsAt(result, 0)).toStrictEqual({ style: 'unit', unit })
+    expect(new Intl.NumberFormat('en', optionsAt(result, 0)).format(5)).toBe(rendered)
+  })
+
+  it('composes the pair through the degraded re-parse too', () => {
+    const result = lower(
+      '{n, number, ::measure-unit/length-meter per-measure-unit/duration-second} {d, date, ::qqqq}',
+      icuContext(),
+    )
+    expect(optionsAt(result, 0)).toStrictEqual({ style: 'unit', unit: 'meter-per-second' })
+  })
+
+  it('reports a pair Intl does not support and falls back to the bare number format', () => {
+    const result = lower(
+      '{n, number, ::measure-unit/length-meter per-measure-unit/duration-fortnight}',
+      icuContext(),
+    )
+    expect(codes(result.diagnostics)).toStrictEqual(['LZ2003'])
+    expect(result.diagnostics[0]?.message).toContain('Intl.NumberFormat')
+    expect(optionsAt(result, 0)).toStrictEqual({})
+  })
+
+  it.each([
+    '{n, number, ::per-measure-unit/duration-hour}',
+    '{n, number, ::percent per-measure-unit/duration-hour}',
+    '{n, number, ::per-measure-unit/duration-hour .00}',
+  ])('reports %j, a per-measure-unit/ with no unit, instead of dropping it', (value) => {
+    const result = lower(value, icuContext())
+    expect(codes(result.diagnostics)).toStrictEqual(['LZ2003'])
+    expect(result.diagnostics[0]?.message).toContain('no unit to divide')
+    expect(optionsAt(result, 0)).toStrictEqual({})
+  })
+
+  it('reports a per-measure-unit/ with no unit through the degraded re-parse too', () => {
+    const result = lower(
+      '{n, number, ::percent per-measure-unit/duration-hour} {d, date, ::qqqq}',
+      icuContext(),
+    )
+    expect(codes(result.diagnostics)).toStrictEqual(['LZ2003', 'LZ2003'])
+    expect(result.diagnostics.map((diagnostic) => diagnostic.message)).toContainEqual(
+      expect.stringContaining('no unit to divide'),
+    )
+    expect(optionsAt(result, 0)).toStrictEqual({})
+  })
+})

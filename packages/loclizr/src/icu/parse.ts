@@ -3,6 +3,7 @@ import {
   parse,
   type Location as IcuLocation,
   type MessageFormatElement,
+  type NumberSkeleton,
   type Skeleton,
 } from '@formatjs/icu-messageformat-parser'
 import type { IntlOptions } from '../types'
@@ -97,17 +98,61 @@ export function probeSkeleton(form: SkeletonForm, token: string): IntlOptions | 
   return skeletonOptions(style)
 }
 
+// Null for a skeleton Intl has no options for.
+export function skeletonOptions(skeleton: Skeleton): IntlOptions | null {
+  const options = sanitizeOptions(skeleton.parsedOptions)
+  if (isDateTimeSkeleton(skeleton)) return localeHourOptions(skeleton.pattern, options)
+  return unitOptions(skeleton.tokens, options)
+}
+
+// The parser's own quote rule: a letter inside a quoted literal is not a field.
+const LOCALE_HOUR = /(?:j+|J+|C+)(?=(?:[^']*'[^']*')*[^']*$)/g
+
+// J asks for the locale's hour without its day period and C for one with a
+// flexible day period; Intl has an option for neither.
+export function asksForUnexpressibleHour(pattern: string): boolean {
+  return localeHourRuns(pattern).some((run) => !run.startsWith('j'))
+}
+
+function localeHourRuns(pattern: string): readonly string[] {
+  return Array.from(pattern.matchAll(LOCALE_HOUR), ([run]) => run)
+}
+
+// The parser expands j only when given a locale and drops it otherwise, so
+// `::jm` would render a bare minute. An hour with no hourCycle lets Intl pick
+// the locale's cycle at run time, which is what j asks for, and keeps one set
+// of options for every locale.
+function localeHourOptions(pattern: string, options: IntlOptions): IntlOptions | null {
+  if (asksForUnexpressibleHour(pattern)) return null
+  const run = localeHourRuns(pattern).at(-1)
+  if (run === undefined) return options
+  return sanitizeOptions({ hour: run.length === 1 ? 'numeric' : '2-digit', ...options })
+}
+
 // The parser reads `unit/` like `measure-unit/` and drops everything up to the
 // first hyphen as a type prefix, but `unit/` takes a bare core unit id, so
-// `unit/kilometer-per-hour` would otherwise reach Intl as `per-hour`.
-export function skeletonOptions(skeleton: Skeleton): IntlOptions {
-  const options = sanitizeOptions(skeleton.parsedOptions)
-  if (isDateTimeSkeleton(skeleton)) return options
-  const last = skeleton.tokens.findLast(
-    (token) => token.stem === 'unit' || token.stem === 'measure-unit',
+// `unit/kilometer-per-hour` would otherwise reach Intl as `per-hour`. The
+// parser ignores `per-measure-unit/` outright, so the pair is composed here
+// into Intl's compound id, and a per unit with no unit to divide is refused
+// rather than dropped.
+function unitOptions(tokens: NumberSkeleton['tokens'], options: IntlOptions): IntlOptions | null {
+  const last = tokens.findLast((token) => token.stem === 'unit' || token.stem === 'measure-unit')
+  const base = last?.stem === 'unit' ? last.options[0] : options['unit']
+  const per = tokens.findLast((token) => token.stem === 'per-measure-unit')?.options[0]
+  if (typeof base !== 'string') return per === undefined ? options : null
+  const unit = per === undefined ? base : `${base}-per-${per.replace(/^(.*?)-/, '')}`
+  return sanitizeOptions({ ...options, unit })
+}
+
+export function dividesNoUnit(token: string): boolean {
+  const stems = token
+    .replace(/^::/, '')
+    .split(/\s+/)
+    .map((part) => part.split('/', 1)[0])
+  return (
+    stems.includes('per-measure-unit') &&
+    !stems.some((stem) => stem === 'unit' || stem === 'measure-unit')
   )
-  const unit = last?.stem === 'unit' ? last.options[0] : undefined
-  return unit === undefined ? options : sanitizeOptions({ ...options, unit })
 }
 
 export function skeletonToken(icu: string, skeleton: Skeleton): string {

@@ -28,6 +28,8 @@ import { diag } from '../diagnostics'
 import { compareCodepoint } from '../util'
 import { categoryRank, isCldrCategory } from './categories'
 import {
+  asksForUnexpressibleHour,
+  dividesNoUnit,
   parseIcu,
   probeSkeleton,
   rangeOf,
@@ -489,6 +491,18 @@ interface DiagnosticText {
 }
 
 function rejectedText(token: string, form: SkeletonForm): DiagnosticText {
+  if (form !== 'number' && asksForUnexpressibleHour(token)) {
+    return {
+      message: `The skeleton "${token}" asks for an hour Intl.DateTimeFormat has no option for.`,
+      hint: `Write ::jm for the locale's hour with its day period, or ::Hm for a 24-hour clock. Falling back to the bare ${form} format.`,
+    }
+  }
+  if (form === 'number' && dividesNoUnit(token)) {
+    return {
+      message: `The skeleton "${token}" has a per-measure-unit/ with no unit to divide.`,
+      hint: 'Pair it with a unit, such as ::measure-unit/length-meter per-measure-unit/duration-second. Falling back to the bare number format.',
+    }
+  }
   return {
     message: `The parser rejected the skeleton "${token}".`,
     hint: `Falling back to the bare ${form} format. Fix the skeleton, or use a named style from formats.`,
