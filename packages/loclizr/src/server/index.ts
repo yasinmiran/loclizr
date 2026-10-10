@@ -92,6 +92,10 @@ function scope(): AsyncLocalStorage<string> {
   return created
 }
 
+// Installed on load rather than on the first request, so a getLocale() that
+// runs before any request warns the same as one that runs between requests.
+scope()
+
 function parseRange(entry: string, order: number): AcceptedRange {
   const [head = '', ...parameters] = entry.split(';')
   let quality = 1

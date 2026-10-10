@@ -40,8 +40,27 @@ afterEach(() => {
 })
 
 describe('the scope handle', () => {
+  test('is installed when loclizr/server loads, before any request has run', async () => {
+    resetRuntime()
+    vi.resetModules()
+    await import('./index')
+    expect(handle()).toBeInstanceOf(AsyncLocalStorage)
+  })
+
+  test('makes getLocale() warn before the first request, as it does between requests', async () => {
+    resetRuntime()
+    vi.resetModules()
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {})
+    await import('./index')
+    const store = await import('../runtime/store')
+    const configure = await import('../runtime/abi')
+    configure.$configure1(SETUP)
+    expect(store.getLocale()).toBe('en')
+    expect(warn).toHaveBeenCalledTimes(1)
+    expect(String(warn.mock.calls[0]?.[0])).toContain('outside a request scope')
+  })
+
   test('is one immutable AsyncLocalStorage, never a locale, and is idle outside a run', () => {
-    expect(handle()).toBeUndefined()
     runWithLocale('de', () => 0)
     const installed = handle()
     expect(installed).toBeInstanceOf(AsyncLocalStorage)
