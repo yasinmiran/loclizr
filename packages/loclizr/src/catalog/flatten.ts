@@ -68,6 +68,19 @@ function descend(walk: Walk, node: Record<string, unknown>, prefix: string | nul
       walk.nulls.push(path)
       continue
     }
+    if (isObject(value) && isExtractRecord(value)) {
+      walk.diagnostics.push(
+        diag('catalog-shape-invalid', {
+          message: `"${keyOf(walk, path)}" is a formatjs extract record, not a message string.`,
+          hint: 'run formatjs compile on the extract file and point catalogs at its output; carry each description into the meta sidecar.',
+          file: walk.input.file,
+          locale: walk.input.locale,
+          key: keyOf(walk, path),
+          span: spanOf(walk, path),
+        }),
+      )
+      continue
+    }
     if (isObject(value)) {
       descend(walk, value, path)
       continue
@@ -125,6 +138,25 @@ function keyOf(walk: Walk, path: string): string {
 
 function spanOf(walk: Walk, path: string): Span {
   return walk.input.spans.get(path) ?? ROOT_SPAN
+}
+
+// The fields formatjs extract writes per message. Walked as nesting, a record
+// would ship its description as a message beside the text.
+const EXTRACT_FIELDS: ReadonlySet<string> = new Set([
+  'id',
+  'defaultMessage',
+  'description',
+  'file',
+  'start',
+  'end',
+  'line',
+  'col',
+])
+
+function isExtractRecord(node: Record<string, unknown>): boolean {
+  return (
+    typeof node['defaultMessage'] === 'string' && Object.keys(node).every((name) => EXTRACT_FIELDS.has(name))
+  )
 }
 
 function isObject(value: unknown): value is Record<string, unknown> {

@@ -78,6 +78,49 @@ describe('flatten', () => {
     }
   })
 
+  it('reports a formatjs extract record instead of shipping its fields as messages', () => {
+    const { entries, diagnostics } = run({
+      cart: { checkout: { defaultMessage: 'Check out', description: 'Button on the cart page' } },
+    })
+    expect(entries).toEqual([])
+    expect(diagnostics.map((one) => one.code)).toEqual(['LZ1010'])
+    expect(diagnostics[0]?.key).toBe('cart.checkout')
+    expect(diagnostics[0]?.message).toContain('formatjs extract')
+    expect(diagnostics[0]?.hint).toContain('formatjs compile')
+    expect(diagnostics[0]?.hint).toContain('meta sidecar')
+  })
+
+  it('reports an extract record once, whatever shape its description or location fields take', () => {
+    const { entries, diagnostics } = run({
+      'cart.checkout': {
+        id: 'cart.checkout',
+        defaultMessage: 'Check out',
+        description: { text: 'Button on the cart page', maxLength: 20 },
+        file: 'src/Cart.tsx',
+        start: 120,
+        end: 180,
+        line: 7,
+        col: 4,
+      },
+      'cart.total': { defaultMessage: 'Total' },
+    })
+    expect(entries).toEqual([])
+    expect(diagnostics.map((one) => one.key)).toEqual(['cart.checkout', 'cart.total'])
+  })
+
+  it('still nests an object with a key no extract writes, or a defaultMessage that is not a string', () => {
+    const { entries, diagnostics } = run({
+      form: { defaultMessage: 'Save', label: 'Name' },
+      errors: { defaultMessage: { title: 'Oops' } },
+    })
+    expect(entries.map((entry) => entry.key)).toEqual([
+      'form.defaultMessage',
+      'form.label',
+      'errors.defaultMessage.title',
+    ])
+    expect(diagnostics).toEqual([])
+  })
+
   it('keeps the last of two colliding keys, as JSON itself does', () => {
     const { entries } = run({ 'nav.home': 'dotted', nav: { home: 'nested' } })
     expect(entries).toHaveLength(1)
