@@ -43,6 +43,13 @@ body {
     font-size: 0.875em;
   }
 }
+/* The site language switcher wraps translated text in a span that only
+   carries lang and dir. Without this the theme's pin catches the span, and a
+   64px landing heading switched to any language, English included, drops to
+   15px inside its own box. */
+[data-translated] {
+  font-size: inherit;
+}
 .sl-markdown-content h2 {
   font-size: 1.5rem;
   line-height: 2rem;
