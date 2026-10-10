@@ -67,6 +67,38 @@ returns the source locale; within a file, one test's locale carries into the nex
 call is the reset.
 </Aside>
 
+## Quiet the `<html lang>` warning
+
+jsdom's `<html>` has no `lang`, so a file that renders a `useLocale()` component before any
+`setLocale` prints one warning:
+
+```text
+stderr | test/greeting.test.tsx > renders the source locale
+loclizr: <html> carries no lang attribute, so a client with no cookie has nothing to read. Render lang from the Content-Language header withLocale sets.
+```
+
+`setLocale` writes `lang`, so a file that sets the locale in `beforeEach` stays quiet. For the rest,
+set `lang` to your source locale in a setup file:
+
+```ts title="test/setup.ts"
+if (typeof document !== 'undefined') document.documentElement.lang = 'en'
+```
+
+```ts title="vitest.config.ts"
+import { defineConfig } from 'vitest/config'
+
+export default defineConfig({
+  test: { setupFiles: ['./test/setup.ts'] },
+})
+```
+
+Vitest reads a `vitest.config.ts` in place of `vite.config.ts`, so an app that already has a
+`vite.config.ts` adds the `test` line there instead.
+
+The guard skips files on Node's environment, such as the server test below. Detection reads `lang`
+only when no cookie exists, and there it finds the source locale it would fall back to anyway, so
+no test renders differently. Jest takes the same file under `setupFiles`.
+
 ## Detection latches on the first read
 
 ```ts title="test/latch.test.ts"

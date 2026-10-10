@@ -7,6 +7,10 @@ a minor release may break an invariant, and this file says so when it does.
 
 ## Unreleased
 
+### Fixes
+
+- Docs: the testing guide shows a one-line setup file that sets `<html lang>` to the source locale, so jsdom tests no longer print the `<html> carries no lang attribute` warning; runtime behaviour is unchanged (#54).
+
 ## 0.1.2 - 2026-10-10
 
 0.1.1 was tagged but never published, so an upgrade from 0.1.0 takes this

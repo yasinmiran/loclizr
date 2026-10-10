@@ -279,6 +279,10 @@ A client-only app never sees the `disagrees with the resolved locale` warning af
 follows a switch: when the store reads the `de` cookie it sets `lang` to match, whatever
 `index.html` says.
 
+jsdom's `<html>` has no `lang`, so a test that renders before any `setLocale` warns once per
+file; [Testing](/guides/testing/#quiet-the-html-lang-warning) shows the setup line that keeps it out
+of test output.
+
 ## React Compiler
 
 `m.app_more()` reads mutable external state and takes no arguments, so a memoizing compiler may
