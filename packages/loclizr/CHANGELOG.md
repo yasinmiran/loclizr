@@ -33,6 +33,7 @@ a minor release may break an invariant, and this file says so when it does.
 - A context record left under the catalogs pattern, such as `locales/context.json` after moving `record` off it for `LZ1001`, is no longer compiled as a locale named `context`; it is skipped with `LZ1006` and a hint to delete it, and the `LZ1001` hint for `record` says to delete a record already written at the old path (#113).
 - `loclizr build` and `loclizr check` now end the human report with the counts line when a fatal rule blocks the run before analysis, even with that rule set to `warn` or `off`. A blocked `--quiet` run no longer exits 1 having printed nothing. (#69).
 - `build` and `check` now print `nothing generated: N fatal (LZ4002)` when a fatal diagnostic blocked output, also under `--quiet` and when the rule was turned down to `warn` or `off`, and no longer print `fell back to source text` for a run that rendered no tree (#91).
+- `loclizr init` now names the config it wrote or found in the install note, so a `--config` target or an existing `loclizr.config.js` or `.mjs` is no longer reported as `loclizr.config.ts` (#76).
 
 ## 0.1.1 - 2026-10-03
 

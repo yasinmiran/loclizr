@@ -11,12 +11,12 @@ import {
   DEFAULT_CATALOGS,
   DEFAULT_SOURCE_LOCALE,
   GENERATED_MARKER,
-  INSTALL_NOTE,
   PACKAGE_SCRIPTS,
   SEED_CATALOG,
   SEED_OUT_DIR,
   catalogPath,
   configTemplate,
+  installNote,
 } from './templates'
 
 export interface InitOptions {
@@ -29,11 +29,12 @@ export interface InitResult {
   readonly output: string
 }
 
-type Outcome =
+type FileOutcome =
   | { readonly kind: 'written'; readonly path: string }
   | { readonly kind: 'exists'; readonly path: string }
-  | { readonly kind: 'skipped'; readonly because: string }
   | { readonly kind: 'failed'; readonly path: string; readonly reason: string }
+
+type Outcome = FileOutcome | { readonly kind: 'skipped'; readonly because: string }
 
 export async function runInit(options: InitOptions): Promise<InitResult> {
   const root = resolve(options.cwd)
@@ -50,7 +51,7 @@ export async function runInit(options: InitOptions): Promise<InitResult> {
 
   const configFile = resolve(root, options.configPath ?? CONFIG_FILENAME)
   const shadowed = options.configPath === undefined ? await firstConfigPresent(root) : null
-  const config: Outcome =
+  const config: FileOutcome =
     shadowed === null
       ? await writeIfAbsent(root, configFile, await configFor(root, catalogs, sourceLocale, seed))
       : { kind: 'exists', path: shadowed }
@@ -60,7 +61,7 @@ export async function runInit(options: InitOptions): Promise<InitResult> {
   const lines = [...describeLayouts(layouts), describeOutcome(config), describeOutcome(catalog)]
   const ok = config.kind !== 'failed' && catalog.kind !== 'failed'
   const blocks = ok
-    ? [lines.join('\n'), INSTALL_NOTE, PACKAGE_SCRIPTS, CI_SNIPPET]
+    ? [lines.join('\n'), installNote(config.path), PACKAGE_SCRIPTS, CI_SNIPPET]
     : [lines.join('\n')]
   return { ok, output: `${blocks.join('\n\n')}\n` }
 }
@@ -69,12 +70,12 @@ export async function runInit(options: InitOptions): Promise<InitResult> {
 // know which file a seed would belong in, or whether it would ever be read.
 async function seedOutcome(
   root: string,
-  config: Outcome,
+  config: FileOutcome,
   seed: string | null,
   catalogs: string,
 ): Promise<Outcome> {
   if (config.kind === 'exists') {
-    return { kind: 'skipped', because: `${config.path} already declares sourceLocale and catalogs` }
+    return { kind: 'skipped', because: `${config.path} already owns sourceLocale and catalogs` }
   }
   if (config.kind === 'failed') {
     return { kind: 'skipped', because: `${config.path} was not written` }
@@ -136,7 +137,7 @@ function describeLayouts(layouts: readonly CatalogLayout[]): readonly string[] {
 // window where a concurrent write loses the user's file. The mkdir gets its own
 // catch because its EEXIST means the parent is a file, which is a failure,
 // while the write's means the target is already there, which is not.
-async function writeIfAbsent(root: string, file: string, content: string): Promise<Outcome> {
+async function writeIfAbsent(root: string, file: string, content: string): Promise<FileOutcome> {
   const path = toPosix(relative(root, file)) || '.'
   try {
     await mkdir(dirname(file), { recursive: true })

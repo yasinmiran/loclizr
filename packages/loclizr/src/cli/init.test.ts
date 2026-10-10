@@ -323,14 +323,14 @@ describe('runInit, never overwrites', () => {
     await expect(read('loclizr.config.ts')).rejects.toThrow()
   })
 
-  it('seeds no catalog beside a config that already declares where they live', async () => {
+  it('seeds no catalog beside a config that owns where they live', async () => {
     await write('loclizr.config.js', 'export default {}\n')
 
     const result = await runInit({ cwd: root })
 
     expect(result.ok).toBe(true)
     expect(result.output).toContain(
-      'no seed catalog written, because loclizr.config.js already declares sourceLocale and catalogs',
+      'no seed catalog written, because loclizr.config.js already owns sourceLocale and catalogs',
     )
     await expect(read('locales/en.json')).rejects.toThrow()
   })

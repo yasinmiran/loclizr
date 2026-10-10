@@ -2265,7 +2265,7 @@ Argument parsing uses `node:util.parseArgs`. No argument-parsing dependency.
 
 | Command | Behaviour |
 | --- | --- |
-| `loclizr init` | writes `loclizr.config.ts` if absent and, when it wrote that config over the default catalog layout, `locales/{sourceLocale}.json` if absent; never overwrites; then prints the install note, the `package.json` scripts and the CI snippet rather than editing `package.json` |
+| `loclizr init` | writes `loclizr.config.ts` if absent and, when it wrote that config over the default catalog layout, `locales/{sourceLocale}.json` if absent; never overwrites; then prints the install note, naming the config it wrote or found, the `package.json` scripts and the CI snippet rather than editing `package.json` |
 | `loclizr build` | read, lower, analyze, check, emit, scan, write the record, prune orphans. Takes `--no-fail` |
 | `loclizr check` | everything `build` does, with no writes, plus `LZ5002` and `LZ5003`. Does **not** take `--no-fail`: it is the gate |
 
@@ -4662,7 +4662,10 @@ The `init` templates write an **ICU** seed catalog and never emit a
 are the three in that section: `predev` on `loclizr build --no-fail`,
 `prebuild` and `pretypecheck` on `loclizr build`, and no `prepare`. The install
 note names a regular dependency (`npm i loclizr`), because the generated
-functions import the locale store from `loclizr` at run time.
+functions import the locale store from `loclizr` at run time, and it names the
+config `init` wrote or left unchanged, relative to `--cwd`, so a
+`loclizr.config.js` project or a `--config` target is never told about a
+`loclizr.config.ts` it does not have.
 
 ### M12, runtime and bindings
 

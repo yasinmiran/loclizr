@@ -82,9 +82,13 @@ export function configTemplate(options: ConfigTemplateOptions): string {
 // module unless the package is a dependency of the project itself. A regular
 // dependency, not a dev one: the generated functions import the locale store
 // from `loclizr` at run time, and a Node server has to find it after install.
-export const INSTALL_NOTE: string = `Install loclizr, which loclizr.config.ts and the generated code import:
+// The note names the config init wrote or kept, which `--config` or an
+// existing `loclizr.config.js` makes something other than the default.
+export function installNote(configPath: string): string {
+  return `Install loclizr, which ${configPath} and the generated code import:
 
   npm i loclizr`
+}
 
 // No `prepare` hook: it runs on `npm ci`, so a CI install would rewrite the
 // context record before `loclizr check` compares it and the gate would pass
