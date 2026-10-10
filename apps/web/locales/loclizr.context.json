@@ -5628,6 +5628,10 @@
       ],
       "usage": [
         {
+          "file": "src/components/SiteLanguage.astro",
+          "scope": null
+        },
+        {
           "file": "src/components/site-language.ts",
           "scope": "applySiteLocale"
         }
