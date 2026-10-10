@@ -62,6 +62,10 @@ jobs:
       - run: npm test
 ```
 
+The last two steps are the app's own. They assume a `typecheck` script (`tsc -b` for the Vite
+template, as in the [Quickstart](/start/quickstart/)) and a `test` script
+([Testing](/guides/testing/)); drop either step the app does not have.
+
 Transcripts come from `examples/vite-react` (26 messages, 3 locales). The two warning transcripts
 drop its `'group-args-heterogeneous': 'off'` line from `loclizr.config.ts`, so that rule warns.
 

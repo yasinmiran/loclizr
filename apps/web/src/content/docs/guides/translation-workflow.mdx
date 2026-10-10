@@ -151,6 +151,8 @@ at `error`: the source locale has nothing to fall back to.
 translations fails the gate. To warn instead:
 
 ```ts title="loclizr.config.ts"
+import { defineConfig } from 'loclizr'
+
 export default defineConfig({
   severity: { 'missing-translation': 'warn' },
 })

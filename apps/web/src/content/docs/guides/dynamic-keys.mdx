@@ -6,6 +6,8 @@ description: A typed lookup for a key chosen at run time from a known set.
 import { Aside, Steps } from '@astrojs/starlight/components'
 
 ```ts title="loclizr.config.ts"
+import { defineConfig } from 'loclizr'
+
 export default defineConfig({
   locales: ['en', 'de', 'de-AT'],
   sourceLocale: 'en',
@@ -29,12 +31,20 @@ usage scan. A group gives a typed record and key union.
 
 3. ### Index the record
 
-   ```tsx title="src/App.tsx"
+   ```tsx title="src/Problems.tsx"
    import { errors, type ErrorsKey } from './loclizr/groups'
 
    const problems: readonly ErrorsKey[] = ['forbidden', 'not_found', 'rate_limited']
 
-   <Row index={4} value={errors[cart.problem]({ seconds: cart.seconds })}>
+   export function Problems({ seconds }: { seconds: number }) {
+     return (
+       <ul>
+         {problems.map((code) => (
+           <li key={code}>{errors[code]({ seconds })}</li>
+         ))}
+       </ul>
+     )
+   }
    ```
 
 </Steps>
@@ -81,15 +91,18 @@ every existing dynamic call site.
 
 ## Mixed argument sets
 
-Members that disagree warn; the example app turns the rule off to show the union call site:
+Members that disagree warn. A group that mixes them on purpose turns the rule off, as the example
+app does:
 
 ```ts title="loclizr.config.ts"
-  severity: {
-    'ambiguous-source': 'error',
-    // The errors group mixes a message that takes {seconds} with two that take
-    // nothing, on purpose: the app shows the union call site that produces.
-    'group-args-heterogeneous': 'off',
-  },
+import { defineConfig } from 'loclizr'
+
+export default defineConfig({
+  locales: ['en', 'de', 'de-AT'],
+  sourceLocale: 'en',
+  groups: { errors: 'errors' },
+  severity: { 'group-args-heterogeneous': 'off' },
+})
 ```
 
 With the rule on, the same build prints:

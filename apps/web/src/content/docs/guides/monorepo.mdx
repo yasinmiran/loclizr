@@ -25,12 +25,20 @@ One build reads one catalog root and writes one tree, so a workspace picks a lay
 ## Catalogs in each app
 
 Each app keeps its own `locales/`, config and tree, and its record lands in its own pull request.
-From the workspace root, `--cwd` names the app to check:
+From the workspace root, run the loclizr each app pins:
 
 ```yaml title=".github/workflows/loclizr.yml"
-- run: npx loclizr check --cwd apps/web
-- run: npx loclizr check --cwd apps/admin
+- run: pnpm -C apps/web exec loclizr check
+- run: pnpm -C apps/admin exec loclizr check
 ```
+
+| Package manager | Root step | Runs |
+| --- | --- | --- |
+| pnpm | `pnpm -C apps/web exec loclizr check` | the version `apps/web` pins |
+| npm workspaces, yarn with `node_modules` | `npx loclizr check --cwd apps/web` | the hoisted version at the root |
+
+Under pnpm the root has no `loclizr` bin, so `npx loclizr` downloads the registry's latest instead
+of the version the app builds with.
 
 ## One shared package
 
@@ -101,6 +109,17 @@ Either way, `getLocale()`, `setLocale()` and `useLocale()` are typed by the firs
 
 What works: import the app's tree first, `augmentLocale` on, and give the shared package the same
 `locales`, `sourceLocale` and `cookie`. Its registration is a no-op; one locale resolves.
+
+For a published package, set `augmentLocale: false`. A library cannot match locale lists it never
+sees, and a consumer with its own tree would get TS2717 inside `node_modules` once `skipLibCheck`
+is off, tsc's default. A tree packed from `dist` also needs its generated `.gitignore` deleted:
+left in place, `npm pack` ships the directory empty.
+
+## Declaration emit
+
+A package built with `declaration: true` that infers an exported type from `loclizr/react`,
+`loclizr/server` or `loclizr/compiler` needs TypeScript 5.4 or later. On 5.0 to 5.3 the emit fails
+with TS2742; annotate the exported function's return type.
 
 ## Not supported
 
