@@ -18,6 +18,26 @@ const CLDR_ORDER: readonly string[] = ['zero', 'one', 'two', 'few', 'many', 'oth
 
 const CLDR_CATEGORIES: ReadonlySet<string> = new Set(CLDR_ORDER)
 
+const BIDI_NAMES: Readonly<Record<string, string>> = {
+  '\u202A': 'LEFT-TO-RIGHT EMBEDDING',
+  '\u202B': 'RIGHT-TO-LEFT EMBEDDING',
+  '\u202C': 'POP DIRECTIONAL FORMATTING',
+  '\u202D': 'LEFT-TO-RIGHT OVERRIDE',
+  '\u202E': 'RIGHT-TO-LEFT OVERRIDE',
+  '\u2066': 'LEFT-TO-RIGHT ISOLATE',
+  '\u2067': 'RIGHT-TO-LEFT ISOLATE',
+  '\u2068': 'FIRST STRONG ISOLATE',
+  '\u2069': 'POP DIRECTIONAL ISOLATE',
+}
+
+const EMBEDDING_OPENERS: ReadonlySet<string> = new Set(['\u202A', '\u202B', '\u202D', '\u202E'])
+
+const ISOLATE_OPENERS: ReadonlySet<string> = new Set(['\u2066', '\u2067', '\u2068'])
+
+const POP_EMBEDDING = '\u202C'
+
+const POP_ISOLATE = '\u2069'
+
 const ARG_KIND_LABEL: Readonly<Record<ArgType['kind'], string>> = {
   stringish: 'plain text',
   number: 'a number',
@@ -47,6 +67,7 @@ export function runChecks(program: Program): readonly Diagnostic[] {
     checkTranslations(program, message, out)
     checkPluralCategories(program, message, out)
     checkTimeZone(program, message, out)
+    checkBidiControls(program, message, out)
   }
   checkExtras(program, out)
   checkAmbiguousSource(program, out)
@@ -344,6 +365,75 @@ function checkTimeZone(program: Program, message: Message, out: Diagnostic[]): v
       span: spanOf(message, program.sourceLocale),
     }),
   )
+}
+
+function checkBidiControls(program: Program, message: Message, out: Diagnostic[]): void {
+  for (const body of byLocale(message.bodies)) {
+    const file = catalogFile(program, message, body.locale)
+    for (const control of [...new Set(unpairedBidi(body.nodes))].sort(compareCodepoint)) {
+      const label = `${codepoint(control)} ${BIDI_NAMES[control] ?? ''}`
+      const closer = control === POP_EMBEDDING || control === POP_ISOLATE
+      out.push(
+        diag('bidi-control-unpaired', {
+          message: closer
+            ? `The ${body.locale} value has ${label} with nothing open for it to close, so the pair it was meant to end is split or missing.`
+            : `The ${body.locale} value opens ${label} and never closes it, so the direction it sets runs on into the text after this message.`,
+          hint: closer
+            ? `delete it from "${message.key}" in ${file}, or open its pair in the same branch`
+            : `close it with ${codepoint(ISOLATE_OPENERS.has(control) ? POP_ISOLATE : POP_EMBEDDING)} in "${message.key}" in ${file}, or delete it`,
+          file,
+          locale: body.locale,
+          key: message.key,
+          span: spanOf(message, body.locale),
+        }),
+      )
+    }
+  }
+}
+
+// Pairing follows UAX #9: a closer of embeddings never ends an isolate, and a
+// closer of isolates ends the embeddings opened inside it. Only one branch of a
+// plural or select renders, so a pair balances inside its branch; a tag renders
+// inline, so a pair may span one.
+function unpairedBidi(nodes: readonly Node[]): readonly string[] {
+  const open: string[] = []
+  const found: string[] = []
+  const visit = (sequence: readonly Node[]): void => {
+    for (const node of sequence) {
+      switch (node.kind) {
+        case 'text':
+          for (const char of node.value) {
+            if (EMBEDDING_OPENERS.has(char) || ISOLATE_OPENERS.has(char)) open.push(char)
+            else if (char === POP_EMBEDDING) {
+              if (EMBEDDING_OPENERS.has(open.at(-1) ?? '')) open.pop()
+              else found.push(char)
+            } else if (char === POP_ISOLATE) {
+              const isolate = open.findLastIndex((opener) => ISOLATE_OPENERS.has(opener))
+              if (isolate === -1) found.push(char)
+              else open.length = isolate
+            }
+          }
+          break
+        case 'markup':
+          visit(node.children)
+          break
+        case 'plural':
+          for (const branch of [...node.exact, ...node.branches]) found.push(...unpairedBidi(branch.body))
+          break
+        case 'select':
+          for (const branch of node.branches) found.push(...unpairedBidi(branch.body))
+          break
+        default:
+          break
+      }
+    }
+  }
+  visit(nodes)
+  return [...found, ...open]
+}
+
+function codepoint(char: string): string {
+  return `U+${(char.codePointAt(0) ?? 0).toString(16).toUpperCase().padStart(4, '0')}`
 }
 
 function checkExtras(program: Program, out: Diagnostic[]): void {

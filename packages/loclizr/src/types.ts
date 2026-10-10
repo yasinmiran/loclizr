@@ -45,6 +45,7 @@ export type RuleName =
   | 'date-without-timezone'
   | 'ambiguous-source'
   | 'plural-category-unreachable'
+  | 'bidi-control-unpaired'
   | 'identifier-collision'
   | 'identifier-reserved'
   | 'confusable-key'

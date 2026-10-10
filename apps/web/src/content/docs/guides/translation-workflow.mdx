@@ -118,6 +118,7 @@ error  LZ3010  markup-mismatch  locales/de.json:38:16  de  terms.accept
 | key deleted or set to `null` | `LZ3001` for it and every locale inheriting through it: `nav.home` nulled in `de.json` reports `de` and `de-AT` |
 | key set to `""` | `LZ3002`, plus `LZ3001` for every locale inheriting through it |
 | key the source lacks | `LZ3003` at `warn`; no message generated, exit 0 |
+| direction control left open, or closed with nothing open | `LZ3014` at `warn` |
 
 [Checks](/reference/checks/#lz3xxx-the-cross-locale-contract) lists each rule with its printed fix.
 

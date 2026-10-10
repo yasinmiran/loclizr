@@ -61,7 +61,7 @@ Every transcript on this page is pasted from a real run.
    ```
 
    - `loclizr` is a regular dependency: generated code imports its locale store at run time, so a Node server needs it installed (the note prints either way).
-   - Install before building: the config imports `loclizr`, and without it `build` fails with `LZ1001 config-invalid`, exit 2 ([all fifty-eight codes](/reference/checks/)).
+   - Install before building: the config imports `loclizr`, and without it `build` fails with `LZ1001 config-invalid`, exit 2 ([all fifty-nine codes](/reference/checks/)).
    - `init` never overwrites a file and never edits `package.json`; it prints the scripts.
    - `ambiguous-source` (two keys share a source text, one has no description) ships at `warn`; `init` raises it to `error`, since a hard gate is free before the first string exists.
 

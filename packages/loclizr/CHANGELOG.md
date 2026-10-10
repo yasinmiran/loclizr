@@ -21,6 +21,7 @@ a minor release may break an invariant, and this file says so when it does.
 - Added `LZ1022 meta-placeholder-orphan` (warn): a `placeholders` key in the description sidecar that names no argument of its message now warns, naming the arguments the message takes, instead of dropping the note silently. Behaviour change: a project with such a key now prints a new warning, which fails a run under `--max-warnings 0` (#89).
 - New `LZ4007 identifier-orphan` (warn): an `identifiers` entry whose key is not a source catalog key, a top-level key segment or a group name used to be ignored silently. It now warns and names the closest existing key. A config with a stale or misspelled entry now prints a warning, and under `--max-warnings 0` that build exits 1 (#116).
 - New `LZ4007 identifier-orphan` (warn): an `identifiers` entry whose key is not a source catalog key, a top-level key segment or a group name used to be ignored silently. It now warns and names the closest existing key. A config with a stale or misspelled entry now prints a warning, and under `--max-warnings 0` that build exits 1 (#116).
+- Added `LZ3014 bidi-control-unpaired` at `warn`. It reports an embedding, override or isolate control (U+202A to U+202E, U+2066 to U+2069) that a catalog value opens and never closes, or closes with nothing open. A catalog that built clean can now print this warning, and it fails a build run with `--max-warnings` (#95).
 
 ## 0.1.2 - 2026-10-10
 

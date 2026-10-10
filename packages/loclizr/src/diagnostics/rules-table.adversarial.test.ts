@@ -71,7 +71,7 @@ const ROWS = ruleRows()
 
 describe('RULES against the rule catalog it transcribes', () => {
   test('carries one entry per catalog row and no more', () => {
-    expect(ROWS.length).toBe(58)
+    expect(ROWS.length).toBe(59)
     expect(Object.keys(RULES)).toHaveLength(ROWS.length)
   })
 

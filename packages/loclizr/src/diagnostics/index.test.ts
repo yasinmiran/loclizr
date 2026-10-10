@@ -65,8 +65,8 @@ afterEach(() => {
 })
 
 describe('RULES', () => {
-  test('carries the fifty-eight rules of the catalog', () => {
-    expect(Object.keys(RULES)).toHaveLength(58)
+  test('carries the fifty-nine rules of the catalog', () => {
+    expect(Object.keys(RULES)).toHaveLength(59)
   })
 
   test('keys the table by the rule name it holds', () => {

@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { RULES } from '../diagnostics'
-import type { Diagnostic, IntlOptions } from '../types'
+import type { Diagnostic, IntlOptions, Node } from '../types'
 import {
   argNode,
   at,
@@ -23,6 +23,7 @@ import {
   program,
   selectArg,
   selectNode,
+  span,
   stringishArg,
   text,
   translated,
@@ -947,6 +948,126 @@ describe('ambiguous source text', () => {
   })
 })
 
+describe('unpaired bidi controls', () => {
+  function bidiMessage(nodes: readonly Node[]) {
+    return program({
+      config: config({ locales: ['en', 'he'] }),
+      messages: [
+        message({
+          key: 'cart.note',
+          bodies: [
+            body('en', { nodes: [text('Free shipping over '), argNode('amount')], args: [stringishArg('amount')] }),
+            body('he', { nodes, args: [stringishArg('amount')] }),
+          ],
+          spans: [at('en', 2, 13), at('he', 2, 13, 'locales/he.json')],
+        }),
+      ],
+    })
+  }
+
+  it('reports an override the value opens and never closes', () => {
+    const unpaired = only(
+      runChecks(bidiMessage([text('‮משלוח חינם מעל '), argNode('amount')])),
+      'LZ3014',
+    )
+
+    expect(unpaired).toMatchObject({
+      rule: 'bidi-control-unpaired',
+      severity: 'warn',
+      fatal: false,
+      file: 'locales/he.json',
+      locale: 'he',
+      key: 'cart.note',
+      span: span(2, 13),
+    })
+    expect(unpaired.message).toContain('U+202E RIGHT-TO-LEFT OVERRIDE')
+    expect(unpaired.hint).toBe('close it with U+202C in "cart.note" in locales/he.json, or delete it')
+  })
+
+  it('names the isolate closer for an isolate left open', () => {
+    const unpaired = only(runChecks(bidiMessage([text('⁧'), argNode('amount')])), 'LZ3014')
+
+    expect(unpaired.message).toContain('U+2067 RIGHT-TO-LEFT ISOLATE')
+    expect(unpaired.hint).toContain('close it with U+2069')
+  })
+
+  it('reports a closer with nothing open to close', () => {
+    const unpaired = only(runChecks(bidiMessage([argNode('amount'), text('‬')])), 'LZ3014')
+
+    expect(unpaired.message).toContain('U+202C POP DIRECTIONAL FORMATTING')
+    expect(unpaired.message).toContain('nothing open')
+  })
+
+  it('accepts pairs around an argument or across a tag, and the marks RTL text needs', () => {
+    const diagnostics = runChecks(
+      bidiMessage([
+        text('‏מעל ‪'),
+        argNode('amount'),
+        text('‬ ⁨'),
+        markupNode('b', text('‫x')),
+        text('‬⁩‎'),
+      ]),
+    )
+
+    expect(withCode(diagnostics, 'LZ3014')).toEqual([])
+  })
+
+  it('lets an isolate closer end the embeddings opened inside it', () => {
+    expect(withCode(runChecks(bidiMessage([text('⁧‮x⁩')])), 'LZ3014')).toEqual([])
+  })
+
+  it('does not let an embedding closer end an isolate', () => {
+    const diagnostics = runChecks(bidiMessage([text('⁧x‬')]))
+
+    expect(withCode(diagnostics, 'LZ3014').map((entry) => entry.message.match(/U\+[0-9A-F]{4}/)?.[0])).toEqual([
+      'U+202C',
+      'U+2067',
+    ])
+  })
+
+  it('pairs within one branch, since only one branch renders', () => {
+    const split = runChecks(
+      bidiMessage([
+        text('‫'),
+        plural({
+          name: 'amount',
+          branches: [branch('one', pound(), text('‬')), branch('other', pound(), text('‬'))],
+        }),
+      ]),
+    )
+    const inside = runChecks(
+      bidiMessage([
+        plural({
+          name: 'amount',
+          branches: [branch('one', text('‫'), pound(), text('‬')), branch('other', pound())],
+        }),
+      ]),
+    )
+
+    expect(withCode(split, 'LZ3014').map((entry) => entry.message.match(/U\+[0-9A-F]{4}/)?.[0])).toEqual([
+      'U+202B',
+      'U+202C',
+    ])
+    expect(withCode(inside, 'LZ3014')).toEqual([])
+  })
+
+  it('reports each unpaired character once per value', () => {
+    const diagnostics = runChecks(bidiMessage([text('‮a'), argNode('amount'), text('‮b‮')]))
+
+    expect(withCode(diagnostics, 'LZ3014')).toHaveLength(1)
+  })
+
+  it('checks the source value too', () => {
+    const diagnostics = runChecks(
+      program({
+        messages: [message({ key: 'cart.note', bodies: [body('en', { nodes: [text('Free‭')] })] })],
+      }),
+    )
+
+    expect(only(diagnostics, 'LZ3014')).toMatchObject({ locale: 'en', key: 'cart.note' })
+  })
+})
+
 describe('every diagnostic this module produces', () => {
   const mixed = runChecks(
     program({
@@ -980,6 +1101,7 @@ describe('every diagnostic this module produces', () => {
                 }),
                 selectNode('state', [option('other', text('y')), option('storniert', text('z'))]),
                 argNode('nmae'),
+                text('\u202E'),
               ],
               args: [
                 numberArg('count'),
@@ -1012,6 +1134,7 @@ describe('every diagnostic this module produces', () => {
       'LZ3011',
       'LZ3012',
       'LZ3013',
+      'LZ3014',
     ])
   })
 

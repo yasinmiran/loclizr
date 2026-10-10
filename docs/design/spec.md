@@ -2486,7 +2486,7 @@ this rule; the flag is never consulted by any other module.
 **`--max-warnings` defaults to no cap**, matching eslint's `-1`, so warnings
 alone never produce exit 1. `exitCodeFor` receives `Number.POSITIVE_INFINITY`
 when the flag is absent. That default decides whether a fresh i18next import
-exits 0 or 1, since twenty rules default to `warn`, so it is stated here
+exits 0 or 1, since twenty-one rules default to `warn`, so it is stated here
 rather than left for M10 and M11 to each pick one.
 
 ### 10.1 Diagnostics
@@ -3065,7 +3065,7 @@ own identifiers.
 
 ## 13. Rule catalog
 
-Fifty-eight rules. Every code is stable forever. `severity` in the config
+Fifty-nine rules. Every code is stable forever. `severity` in the config
 re-levels any of them to `off`, `warn` or `error`, except `LZ1001`, `LZ1007` and
 `LZ5001`, which are not re-levelable (section 3).
 
@@ -3187,6 +3187,7 @@ nothing reporting it anywhere.
 | LZ3011 | `date-without-timezone` | off | never | M5 | a date or time argument whose resolved options carry no `timeZone`, once per message against the source locale, and only while `formats.timeZone` is unset |
 | LZ3012 | `ambiguous-source` | warn | never | M5 | see below |
 | LZ3013 | `plural-category-unreachable` | warn | never | M5 | a keyword branch absent from `requiredCategories(locale, ordinal)`, so the locale can never select it |
+| LZ3014 | `bidi-control-unpaired` | warn | never | M5 | a value, source or target, holds an embedding, override or isolate control (U+202A to U+202E, U+2066 to U+2069) with no partner: an opener never closed, or a closer with nothing open. Once per control per value |
 
 `LZ3012 ambiguous-source` is the thesis expressed as a default-on rule, and it
 is the gettext `msgctxt` problem: "Open" can be a verb or an adjective, and a
@@ -3215,6 +3216,17 @@ loss, and handing them the context rule as their first red build is the one move
 guaranteed to lose them. `loclizr init` writes the `error` line for a greenfield
 project, where the gate is free and permanent, and writes it commented out for a
 retrofit. Section 10 has the exact behaviour.
+
+`LZ3014` exists because an override left open does not stop at the end of the
+message: in HTML it runs to the end of the paragraph and reverses the text the
+page puts after it, and the character is invisible in the catalog diff. Pairing
+follows UAX #9: U+202C closes the innermost embedding or override and never an
+isolate, and U+2069 closes the innermost isolate along with every embedding
+opened inside it. Only one branch of a plural or select renders, so a pair
+balances inside its branch; a markup tag renders inline, so a pair may span one.
+The marks U+200E, U+200F and U+061C open nothing and are never reported. The
+hint names the closer, U+202C for an embedding or override and U+2069 for an
+isolate.
 
 ### LZ4xxx, identity and output
 
@@ -3495,6 +3507,7 @@ export type RuleName =
   | 'date-without-timezone'
   | 'ambiguous-source'
   | 'plural-category-unreachable'
+  | 'bidi-control-unpaired'
   | 'identifier-collision'
   | 'identifier-reserved'
   | 'confusable-key'
@@ -4445,7 +4458,7 @@ M5 raises no additional diagnostic for the fallback itself, because `LZ3001` and
 `LZ3002` cover the reasons that carry one and M3 already reported a lowering
 failure against that locale's own file.
 
-Raises LZ3001 through LZ3013.
+Raises LZ3001 through LZ3014.
 
 ### M6, emit
 

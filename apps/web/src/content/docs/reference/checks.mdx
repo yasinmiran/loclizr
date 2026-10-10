@@ -1,11 +1,11 @@
 ---
 title: Catalog checks
-description: Fifty-eight rules by code, with default severity, fatal scope, trigger and fix.
+description: Fifty-nine rules by code, with default severity, fatal scope, trigger and fix.
 ---
 
 import { Aside } from '@astrojs/starlight/components'
 
-Every `loclizr build` runs all fifty-eight rules: no separate lint command, no flag that turns them
+Every `loclizr build` runs all fifty-nine rules: no separate lint command, no flag that turns them
 off. Each has a permanent code and a name that is its `severity` key. Defaults: 35 `error`, 19
 `warn`, 3 `off`.
 
@@ -169,6 +169,7 @@ recorded `translated`, so a catalog seeded by copying `en.json` reports nothing.
 | `LZ3011` | `date-without-timezone` | off | never | A date or time argument whose resolved options carry no `timeZone`, once per message against the source, only while `formats.timeZone` is unset. | Set `formats.timeZone`, or leave the rule off where the viewer's own zone is wanted. |
 | `LZ3012` | `ambiguous-source` | warn | never | Keys share byte-identical source text and any one lacks a description. One diagnostic per text, listing every colliding key. | Paste the printed meta entries, or the printed `severity` line. |
 | `LZ3013` | `plural-category-unreachable` | warn | never | A keyword branch the locale's plural rules never select. | Use an exact branch (`de` never selects `zero`: write `=0`), or delete it. |
+| `LZ3014` | `bidi-control-unpaired` | warn | never | A value opens an embedding, override or isolate (U+202A to U+202E, U+2066 to U+2069) and never closes it, or closes one with nothing open. A pair balances inside one plural or select branch. U+200E and U+200F are marks and never fire it. | Close it with the printed control (U+202C, or U+2069 for an isolate), or delete it. |
 
 ### `LZ3012` is the rule an imported catalog hits first
 
