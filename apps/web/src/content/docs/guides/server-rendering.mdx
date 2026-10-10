@@ -16,14 +16,16 @@ negotiate(accepted: readonly string[], options: NegotiateOptions): string
 No mutable global locale on the server: `loclizr/server` opens an `AsyncLocalStorage` scope per
 request, so message calls resolve to that request's locale and concurrent requests never see each
 other. The negotiating functions take `NegotiateOptions`, `{ locales, sourceLocale, cookie? }`; the
-barrel exports the first two.
+barrel exports all three.
 
 ## Scope, stated first
 
 | Host | v0.1 |
 | --- | --- |
 | Web Fetch handlers: Vite SSR, Hono, TanStack Start, Bun, Deno, Workers with `nodejs_als` | `withLocale` |
-| Express, Fastify, anything with `req.headers` instead of a `Request` | `localeFromHeaders`, then `runWithLocale` around the render |
+| Express, Fastify, anything with `req.headers` instead of a `Request` | `localeFromHeaders`, then `runWithLocale` around the rest of the handler |
+| React Router, Remix | `runWithLocale` in the root `middleware`, [shown below](#react-router-and-remix); no test, no example, no promise |
+| Nuxt, Nitro | not first-class: no test, no example, no promise; [a Nitro plugin](#nuxt-and-nitro) can open the scope |
 | Next.js, App Router or Pages Router middleware | not first-class: no test, no example, no promise |
 
 [Limits](/project/limits/#nextjs-is-not-a-first-class-ssr-target) explains the Next.js gap.
@@ -40,7 +42,7 @@ barrel exports the first two.
 import { withLocale } from 'loclizr/server'
 import * as m from './loclizr/messages.js'
 
-const options = { locales: m.locales, sourceLocale: m.sourceLocale }
+const options = { locales: m.locales, sourceLocale: m.sourceLocale, cookie: m.cookie }
 
 export const handler = withLocale(
   () => new Response(`<html lang="${m.getLocale()}"><h1>${m.cart_greeting({ name: 'Ada' })}</h1></html>`),
@@ -49,7 +51,13 @@ export const handler = withLocale(
 ```
 
 `withLocale` negotiates, runs the handler in the scope, and sets `Content-Language` and
-`Vary: Accept-Language`. Yours:
+`Vary: Accept-Language`.
+
+The scope covers the handler and the async work it starts. A body produced as the client reads it
+can render source-locale text under a `Content-Language` that names the negotiated locale; see
+[Bodies produced later](#bodies-produced-later).
+
+Two steps are yours:
 
 <Steps>
 
@@ -100,45 +108,137 @@ nothing matches
 import { localeFromHeaders, runWithLocale } from 'loclizr/server'
 import * as m from '../src/loclizr/messages.js'
 
-const options = { locales: m.locales, sourceLocale: m.sourceLocale }
+const options = { locales: m.locales, sourceLocale: m.sourceLocale, cookie: m.cookie }
 
 app.get('/cart', (req, res) => {
   const locale = localeFromHeaders(
     { cookie: req.headers.cookie, acceptLanguage: req.headers['accept-language'] },
     options,
   )
-  res.set('Content-Language', locale)
-  res.send(runWithLocale(locale, () => render()))
+  runWithLocale(locale, () => {
+    res.set('Content-Language', locale)
+    res.send(render())
+  })
 })
 ```
 
 Express and Fastify hold no `Request`, so they call `localeFromHeaders`; `localeFromRequest` wraps
-it for a `Request`. `runWithLocale` installs the scope on first call; no per-request state lives
+it for a `Request`. `loclizr/server` installs the scope when it loads; no per-request state lives
 outside it. Order:
 
 1. The configured cookie.
 2. `Accept-Language`, through `negotiate`: RFC 4647 lookup by subtag truncation, ranked by quality, no dependency.
 3. The source locale.
 
+## React Router and Remix
+
+Loaders and actions run before the render, and client navigations fetch them as `.data` requests
+that never reach `entry.server`. Open the scope in the root `middleware`, so it covers the whole
+request: document and data requests, loaders, actions and the render. React Router 7 runs route
+`middleware` only with `future: { v8_middleware: true }` in `react-router.config.ts`; without it the
+export is ignored and nothing warns.
+
+```ts
+import { localeFromRequest, runWithLocale } from 'loclizr/server'
+import type { Route } from './+types/root'
+import * as m from '../src/loclizr/messages'
+
+const options = { locales: m.locales, sourceLocale: m.sourceLocale, cookie: m.cookie }
+
+export const middleware: Route.MiddlewareFunction[] = [
+  ({ request }, next) => runWithLocale(localeFromRequest(request, options), () => next()),
+]
+```
+
+A fragment of `app/root.tsx`, not covered by a test. Wrapping only the render, or wrapping
+`entry.server`'s `handleRequest` with `withLocale`, leaves loaders, actions and client `.data`
+requests in the source locale.
+
+## Nuxt and Nitro
+
+Not first-class: no test, no example, no promise. Nuxt middleware runs before the renderer and
+cannot wrap it, so the Express pattern has nowhere to go. A Nitro plugin can wrap the app handler
+instead:
+
+```ts
+import { localeFromHeaders, runWithLocale } from 'loclizr/server'
+import * as m from '../../src/loclizr/messages'
+
+const options = { locales: m.locales, sourceLocale: m.sourceLocale, cookie: m.cookie }
+
+export default defineNitroPlugin((nitroApp) => {
+  const inner = nitroApp.h3App.handler
+  nitroApp.h3App.handler = (event) =>
+    runWithLocale(
+      localeFromHeaders(
+        { cookie: getRequestHeader(event, 'cookie'), acceptLanguage: getRequestHeader(event, 'accept-language') },
+        options,
+      ),
+      () => inner(event),
+    )
+})
+```
+
+An unverified fragment of `server/plugins/loclizr.ts`, where Nuxt auto-imports `defineNitroPlugin`
+and `getRequestHeader`. Render `<html lang>` from `getLocale()` through `useHead`. Without the plugin,
+read the locale with `localeFromHeaders` and pass `{ locale }` to every message call.
+
+<Aside type="caution">
+Never call `setLocale` per request on a server. Outside a scope it sets one locale for the whole
+process, so concurrent requests render in each other's language.
+</Aside>
+
 ## Outside a request
 
 ```text
-loclizr: getLocale() ran outside a request scope, so it returned the source locale. Wrap the render in runWithLocale().
+loclizr: getLocale() ran outside a request scope, so it returned the source locale. Wrap the whole request in runWithLocale(): loaders, actions and the render.
 ```
 
 | Call | Inside a scope | Outside any scope |
 | --- | --- | --- |
 | A message | the request's locale | source-locale text, quietly |
-| `getLocale()` | the request's locale | the source locale, warning once per process outside production |
+| `getLocale()` | the request's locale | the source locale; outside production, warns once per process wherever `loclizr/server` is loaded |
 
 Inside a scope `setLocale` throws; pass `{ locale }` per call.
 
 It warns rather than throws because prerender, jobs, scripts and error boundaries run with no
-request; wrap them in `runWithLocale` for another language.
+request; wrap them in `runWithLocale` for another language. On a request the scope covers the
+whole request, loaders and actions included, not the render alone.
+
+### Bodies produced later
+
+The scope covers the handler and the async work it starts. A body produced as the client reads it
+can run outside the scope: a `ReadableStream` `pull()`, an async generator body, `ReadableStream.from`. A plain
+message call there returns source-locale text with no warning, while `Content-Language` names the
+negotiated locale.
+
+```ts title="src/stream.ts"
+import { withLocale } from 'loclizr/server'
+import * as m from './loclizr/messages.js'
+
+const options = { locales: m.locales, sourceLocale: m.sourceLocale, cookie: m.cookie }
+const encoder = new TextEncoder()
+
+export const handler = withLocale(() => {
+  const locale = m.getLocale()              // inside the scope
+  const body = new ReadableStream<Uint8Array>({
+    pull(controller) {                      // may run outside the scope
+      controller.enqueue(encoder.encode(m.cart_greeting({ name: 'Ada' }, { locale })))
+      controller.close()
+    },
+  })
+  return new Response(body)
+}, options)
+```
+
+Read `getLocale()` inside the handler and pass `{ locale }` to each message call, or wrap the
+producer's work in `runWithLocale(locale, ...)`.
 
 ## Dates on the server
 
 ```ts title="loclizr.config.ts"
+import { defineConfig } from 'loclizr'
+
 export default defineConfig({
   formats: { timeZone: 'UTC' },
   severity: { 'date-without-timezone': 'error' },

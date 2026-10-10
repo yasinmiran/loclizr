@@ -29,7 +29,8 @@ placeholder, plural and select. Runtime on top, gzipped: `loclizr` 2.1 kB, `locl
 `loclizr/server` 1.4 kB.
 
 These are ceilings: a production build drops every message the app never calls. Dev mode serves
-whole namespace modules, so a flat catalog under one top-level key is its worst case.
+whole namespace modules, and the barrel imports every one of them, so in dev the payload is the
+whole catalog whatever the layout. Only deep imports (`./loclizr/messages/cart.js`) bound it.
 
 Per-locale delivery needs to own your build; loclizr does not. At ten or more locales, Paraglide
 fits better where it can own the build.
@@ -62,6 +63,12 @@ cannot wrap a render; the App Router entry is a v0.2 question.
 
 `loclizr/react` emits no `'use client'` directive: put it on your own component file. next-intl is
 built for that stack.
+
+## Nuxt is not a first-class SSR target
+
+No test, no example, no promise. Nuxt middleware runs before the renderer and cannot wrap it, so
+the request scope needs a Nitro plugin around the app handler, or `{ locale }` on every call. See
+[Nuxt and Nitro](/guides/server-rendering/#nuxt-and-nitro).
 
 ## Generated files live in your tree
 

@@ -57,8 +57,9 @@ Then it matches by exact tag and subtag truncation, falling back to the source l
 - The first generated `_locale.js` to load registers the list. Called before any message module
   loads, it returns the stored tag or `'en'` and warns once outside production, naming the missing
   import.
-- On a server outside a request scope it returns the source locale and warns once, so a prerender
-  gets source text, not a 500.
+- On a server outside a request scope it returns the source locale, so a prerender gets source
+  text, not a 500. Where `loclizr/server` is loaded, it warns once to wrap the whole request in
+  `runWithLocale`.
 - Warnings sit behind `process.env.NODE_ENV`. Where there is no `process` global and no bundler
   define (a plain `<script type="module">` page, a Worker without Node compatibility), they are
   skipped, never thrown.
@@ -67,6 +68,7 @@ Then it matches by exact tag and subtag truncation, falling back to the source l
 
 ```ts
 import { getLocale, setLocale, subscribe } from 'loclizr'
+import * as m from './loclizr/messages'
 
 const off = subscribe(() => console.log('now', getLocale()))
 setLocale('de')                      // logs: now de
@@ -80,6 +82,7 @@ cookie (`path=/`, one year, `SameSite=Lax`).
 | Case | Behaviour |
 | --- | --- |
 | `{ persist: false }` | skips the cookie |
+| `file://` page or cookies blocked | updates and notifies, keeps nothing past reload; warns once outside production |
 | No DOM (React Native) | updates and notifies in memory, persists nothing |
 | Inside a request scope | throws `setLocale() cannot run inside a request scope. Pass { locale } per call instead.` |
 
@@ -87,6 +90,7 @@ cookie (`path=/`, one year, `SameSite=Lax`).
 
 ```ts
 import { subscribe } from 'loclizr'
+import * as m from './loclizr/messages'
 
 const unsubscribe = subscribe(() => document.title = m.app_cart())
 unsubscribe()
@@ -139,6 +143,7 @@ export declare function useSetLocale(): (locale: Locale, options?: SetLocaleOpti
 export declare function Parts(props: {
   readonly of: readonly (string | ReactNode)[];
 }): ReactElement
+export type { Locale, SetLocaleOptions }
 ```
 
 No `'use client'` directive in v0.1; add one on your own file if needed.
@@ -195,7 +200,9 @@ import * as m from './loclizr/messages'
 <Parts of={m.terms_accept({ link: (chunks) => <a href="/terms">{chunks}</a> })} />
 ```
 
-The whole component is `createElement(Fragment, null, ...props.of)`; no keys needed.
+The whole component is `createElement(Fragment, null, ...props.of)`, so `Parts` itself needs no
+keys. Once a translation nests tags, a JSX handler logs React's dev-only key warning;
+`createElement('a', { href: '/terms' }, ...chunks)` avoids it.
 
 ## `loclizr/server`
 
@@ -205,16 +212,21 @@ export declare function withLocale<A extends unknown[]>(
   handler: (request: Request, ...rest: A) => Response | Promise<Response>,
   options: NegotiateOptions,
 ): (request: Request, ...rest: A) => Promise<Response>
+export declare function withLocale<A extends unknown[]>(
+  handler: (request: Request, ...rest: A) => Response | undefined | Promise<Response | undefined>,
+  options: NegotiateOptions,
+): (request: Request, ...rest: A) => Promise<Response | undefined>
 export declare function negotiate(accepted: readonly string[], options: NegotiateOptions): string
 export declare function localeFromRequest(request: Request, options: NegotiateOptions): string
 export declare function localeFromHeaders(headers: {
   readonly cookie?: string | undefined;
   readonly acceptLanguage?: string | undefined;
 }, options: NegotiateOptions): string
+export type { NegotiateOptions }
 ```
 
-Negotiating functions take the list in `NegotiateOptions` (usually `m.locales` and
-`m.sourceLocale`), so they work without importing the tree.
+Negotiating functions take what they need in `NegotiateOptions` (usually `m.locales`,
+`m.sourceLocale` and `m.cookie`), so `loclizr/server` never imports the tree.
 
 ### `runWithLocale`
 
@@ -241,7 +253,7 @@ import * as m from './loclizr/messages'
 
 const handler = withLocale(
   async (request) => new Response(m.nav_cart()),
-  { locales: m.locales, sourceLocale: m.sourceLocale },
+  { locales: m.locales, sourceLocale: m.sourceLocale, cookie: m.cookie },
 )
 
 const response = await handler(new Request('http://x/', { headers: { cookie: 'locale=de' } }))
@@ -251,7 +263,11 @@ response.headers.get('vary')                 // 'Accept-Language'
 ```
 
 Wraps a Fetch handler: negotiates, runs it inside `runWithLocale`, sets `Content-Language` and
-adds `Accept-Language` to `Vary`. A `Response.error()` passes through untouched.
+adds `Accept-Language` to `Vary`. A `Response.error()` passes through untouched, and so does the
+`undefined` a Bun handler returns after `server.upgrade(request)`.
+
+The scope covers the handler and the async work it starts; a body produced as the client reads it
+can fall outside it. See [Bodies produced later](/guides/server-rendering/#bodies-produced-later).
 
 <Aside type="caution">
 Most CDNs ignore `Vary` outside `Accept-Encoding`. A cookie-localized response needs
@@ -262,26 +278,28 @@ Most CDNs ignore `Vary` outside `Accept-Encoding`. A cookie-localized response n
 ### `negotiate`
 
 ```ts
-negotiate(['fr', 'de-CH;q=0.8', 'en;q=0.5'], { locales: m.locales, sourceLocale: 'en' })   // 'de'
+negotiate(['fr', 'de-CH;q=0.8', 'en;q=0.5'], { locales: m.locales, sourceLocale: 'en', cookie: m.cookie })   // 'de'
 ```
 
 Hand-rolled RFC 4647 lookup over `Accept-Language` ranges:
 
-1. Sort by `q`, then order; drop `q=0` and `*`.
+1. Sort by `q`, then order; drop `q=0` and `*`. A `q` above 1 counts as 1, and a `q` that is not
+   a plain decimal counts as `q=0`.
 2. Match each by exact tag, then subtag truncation.
 3. First match wins; none yields `sourceLocale`.
 
 ### `localeFromHeaders`
 
 ```ts
-const options = { locales: m.locales, sourceLocale: 'en' }
+const options = { locales: m.locales, sourceLocale: 'en', cookie: m.cookie }
 
 localeFromHeaders({ cookie: 'locale=de-AT; theme=dark', acceptLanguage: 'en' }, options)  // 'de-AT'
 localeFromHeaders({ acceptLanguage: 'de;q=0.9, en;q=0.8' }, options)                       // 'de'
 localeFromHeaders({}, options)                                                              // 'en'
 ```
 
-The primitive: the cookie (default `locale`), then `Accept-Language`, then the source locale.
+The primitive: the cookie named by `options.cookie` (`locale` when omitted; pass `m.cookie` to match
+the config), then `Accept-Language`, then the source locale.
 
 - An unmatched cookie yields the source locale, not `Accept-Language`, so server and client
   agree across hydration.
