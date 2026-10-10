@@ -69,7 +69,7 @@ ICU parser reaches the browser; what ships is a function with a `switch`.
 
 | Where | What loads | Size, gzipped and unminified |
 | --- | --- | --- |
-| Browser | The generated tree and the `loclizr` entry (locale store, cookie reader, resolver, three `Intl` wrappers), which imports only its store chunk and no dependencies. | Example tree (26 messages, 3 locales, 10 modules): 8.8 kB raw, 1.9 kB gzipped. Store in `dist`: 6.1 kB raw, 2.1 kB gzipped. |
+| Browser | The generated tree and the `loclizr` entry (locale store, cookie reader, resolver, three `Intl` wrappers), which imports only its store chunk and no dependencies. | Example tree (26 messages, 3 locales, 10 modules): 8.8 kB raw, 1.9 kB gzipped. Store in `dist`: 5.3 kB raw, 1.9 kB gzipped. |
 | Server | Adds `loclizr/server`, which imports `node:async_hooks` for `AsyncLocalStorage`. | |
 | Build and CI | `loclizr/compiler` and the CLI, plus four production dependencies: `@formatjs/icu-messageformat-parser`, `jiti`, `picocolors`, `tinyglobby`. | |
 

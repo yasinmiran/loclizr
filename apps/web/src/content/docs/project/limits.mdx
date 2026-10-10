@@ -25,8 +25,8 @@ grows with locale count.
 
 Measured with `vite build` in library mode, importing the whole barrel with `loclizr` external,
 so nothing tree-shakes. Catalogs: one short sentence per message, a quarter each plain text,
-placeholder, plural and select. Runtime on top, gzipped: `loclizr` 2.1 kB, `loclizr/react` 0.6 kB,
-`loclizr/server` 1.4 kB.
+placeholder, plural and select. Runtime on top, built the same way: `loclizr` 1.9 kB gzipped;
+`loclizr/react` adds 0.3 kB and `loclizr/server` 0.8 kB.
 
 These are ceilings: a production build drops every message the app never calls. Dev mode serves
 whole namespace modules, and the barrel imports every one of them, so in dev the payload is the
