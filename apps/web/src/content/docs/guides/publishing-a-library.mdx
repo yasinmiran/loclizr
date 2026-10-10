@@ -1,0 +1,261 @@
+---
+title: Publishing a library
+description: Ship the generated declarations with the package, keep loclizr a peer, and leave the locale to the app.
+---
+
+import { Aside, Steps } from '@astrojs/starlight/components'
+
+```ts title="dist/index.d.ts"
+export { dialog_cancel, dialog_title } from './loclizr/messages';
+export declare function confirmDelete(count: number): string;
+```
+
+A library built with Rollup plus `tsc --emitDeclarationOnly` publishes this file and no
+`dist/loclizr`. `tsc` never copies a hand-written `.d.ts` into `outDir`, and the generated tree is
+`.js` plus a printed `.d.ts`, never `.ts`. What the app sees depends on one setting:
+
+| App `skipLibCheck` | `tsc -p .` in the app |
+| --- | --- |
+| `false` | `node_modules/@acme/ui/dist/index.d.ts(1,45): error TS2307: Cannot find module './loclizr/messages' or its corresponding type declarations.` |
+| `true`, Vite's default | exit 0: `dialog_title` is `any`, so `dialog_title({ count: '1' })` passes |
+
+The fix is to ship the generated declarations. Every block here ran against a library `@acme/ui`
+with two messages (`dialog.title`, `dialog.cancel`, in `en` and `de`), packed with `npm pack` and
+installed in an app with its own tree (`en`, `de`, `fr`).
+
+## Build with Rollup
+
+<Steps>
+
+1. ### Turn off the locale augmentation
+
+   ```ts title="loclizr.config.ts"
+   import { defineConfig } from 'loclizr'
+
+   export default defineConfig({
+     locales: ['de', 'en'],
+     sourceLocale: 'en',
+     augmentLocale: false,
+   })
+   ```
+
+   Left on, the shipped `messages.d.ts` augments `LocaleRegistry` beside the app's own tree:
+
+   ```text
+   node_modules/@acme/ui/dist/loclizr/messages.d.ts(8,5): error TS2717: Subsequent property declarations must have the same type.  Property 'locale' must be of type 'AppLocale', but here has type 'AppLocale'.
+   ```
+
+   See [Two trees in one program](/guides/monorepo/#two-trees-in-one-program).
+
+2. ### Import the tree with `.js` and export messages by name
+
+   ```ts title="src/index.ts"
+   import { dialog_title } from './loclizr/messages.js'
+
+   export { dialog_cancel, dialog_title } from './loclizr/messages.js'
+
+   export function confirmDelete(count: number): string {
+     return dialog_title({ count })
+   }
+   ```
+
+   `tsc` copies the specifier into `dist/index.d.ts` as written. Without `.js`, an app on
+   `moduleResolution: "nodenext"` fails inside the package:
+
+   ```text
+   node_modules/@acme/ui/dist/index.d.ts(1,45): error TS2834: Relative import paths need explicit file extensions in ECMAScript imports when '--moduleResolution' is 'node16' or 'nodenext'. Consider adding an extension to the import path.
+   ```
+
+3. ### Keep `loclizr` external
+
+   ```js title="rollup.config.js"
+   import typescript from '@rollup/plugin-typescript'
+
+   export default {
+     input: 'src/index.ts',
+     output: { file: 'dist/index.js', format: 'es' },
+     external: ['loclizr'],
+     plugins: [typescript({ declaration: false })],
+   }
+   ```
+
+   Rollup inlines the generated `.js` and leaves the runtime import in place:
+
+   ```js title="dist/index.js"
+   import { $configure1, $plural1, $number1 } from 'loclizr';
+   ```
+
+4. ### Emit declarations with `tsc`
+
+   ```json title="tsconfig.json"
+   {
+     "compilerOptions": {
+       "target": "ES2022",
+       "module": "ESNext",
+       "moduleResolution": "bundler",
+       "strict": true,
+       "declaration": true,
+       "rootDir": "src",
+       "outDir": "dist",
+       "skipLibCheck": true
+     },
+     "include": ["src"]
+   }
+   ```
+
+5. ### Copy the generated declarations
+
+   ```js title="scripts/copy-loclizr-types.mjs"
+   import { cpSync } from 'node:fs'
+   import { basename } from 'node:path'
+
+   // tsc never copies a hand-written .d.ts into outDir, and Rollup has already
+   // inlined the generated .js, so only the declarations are left to ship.
+   cpSync('src/loclizr', 'dist/loclizr', {
+     recursive: true,
+     filter: (path) => !path.endsWith('.js') && basename(path) !== '.gitignore',
+   })
+   ```
+
+   The filter skips the tree's self-ignoring `.gitignore`. Copied into `dist/loclizr`, it makes
+   `npm pack` ship that directory as the `.gitignore` alone.
+
+6. ### Wire the build
+
+   ```json title="package.json"
+   {
+     "name": "@acme/ui",
+     "version": "1.0.0",
+     "type": "module",
+     "exports": {
+       ".": {
+         "types": "./dist/index.d.ts",
+         "default": "./dist/index.js"
+       }
+     },
+     "files": ["dist"],
+     "scripts": {
+       "build": "loclizr build && rollup -c && tsc -p tsconfig.json --emitDeclarationOnly && node scripts/copy-loclizr-types.mjs"
+     },
+     "peerDependencies": {
+       "loclizr": "^0.1.2"
+     },
+     "devDependencies": {
+       "@rollup/plugin-typescript": "^12.3.0",
+       "loclizr": "^0.1.2",
+       "rollup": "^4.64.5",
+       "tslib": "^2.8.1",
+       "typescript": "^5.9.3"
+     }
+   }
+   ```
+
+</Steps>
+
+`npm pack` now ships the tree's declarations beside the bundle:
+
+```text
+npm notice Tarball Contents
+npm notice 131B dist/index.d.ts
+npm notice 1.3kB dist/index.js
+npm notice 461B dist/loclizr/messages.d.ts
+npm notice 162B dist/loclizr/messages/_formats.d.ts
+npm notice 282B dist/loclizr/messages/_locale.d.ts
+npm notice 390B dist/loclizr/messages/dialog.d.ts
+npm notice 568B package.json
+```
+
+<Aside type="caution">
+`@rollup/plugin-typescript` 12.3.0 fails to load under TypeScript 7.0.2 with
+`TypeError: Cannot read properties of undefined (reading 'ES2015')`, so this build pins
+`typescript` 5. The build without a bundler below runs on 7.0.2.
+</Aside>
+
+## Prove it in the app
+
+```ts title="src/wrong.ts"
+import { dialog_title } from '@acme/ui'
+
+dialog_title({ count: '1' })
+```
+
+```text
+src/wrong.ts(3,16): error TS2322: Type 'string' is not assignable to type 'number'.
+```
+
+The same line fails with `skipLibCheck` on or off, and under `moduleResolution` `bundler` or
+`nodenext` (TypeScript 7.0.2 in the app).
+
+## Build without a bundler
+
+When `tsc` compiles the library itself, `dist/index.js` imports `./loclizr/messages.js` at run
+time, so the generated `.js` ships too:
+
+```js title="scripts/copy-loclizr.mjs"
+import { cpSync } from 'node:fs'
+import { basename } from 'node:path'
+
+cpSync('src/loclizr', 'dist/loclizr', {
+  recursive: true,
+  filter: (path) => basename(path) !== '.gitignore',
+})
+```
+
+```json title="package.json"
+"build": "loclizr build && tsc -p tsconfig.json && node scripts/copy-loclizr.mjs"
+```
+
+| Build | `dist/loclizr` holds | `typescript` |
+| --- | --- | --- |
+| Rollup plus `tsc --emitDeclarationOnly` | `.d.ts` only | 5 |
+| `tsc` alone | `.js` and `.d.ts` | 5 or 7 |
+
+Steps 1 and 2 apply to both.
+
+## `loclizr` is a peer dependency
+
+The generated code imports the runtime from `loclizr`, so the library lists it in
+`peerDependencies` and keeps it external, and the app installs it. Those `$` helpers are versioned
+by the [abi digit](/project/continuity/#versions-and-upgrades): start the peer range at the version
+that built the tree.
+
+The library never creates a store. Its message functions read the app's locale, and fall back to
+their own source locale for one they lack. Run in the app, after `m.setLocale(locale)` from the
+app's tree:
+
+```text
+de | Deine Dateien | 2 Dateien löschen? | 1 Datei löschen?
+fr | Vos fichiers | Delete 2 files? | Delete 1 file?
+```
+
+The columns are `getLocale()`, the app's own message, then two library calls. Inside
+`runWithLocale('de', ...)` from `loclizr/server` the library renders `2 Dateien löschen?` as well.
+A second copy of `loclizr` nested under the library attaches to the same store: `setLocale('de')`
+imported from that copy moved the app's `getLocale()` and its messages too.
+
+Outside production, the library's tree announces itself when its locale list differs from the
+app's:
+
+```text
+loclizr: a second generated directory registered [de, en]; the first registration keeps getLocale().
+```
+
+## What each side must not do
+
+| Side | Must not | Because |
+| --- | --- | --- |
+| Library | Export the barrel's `getLocale`, `setLocale` or `locales` | They are typed with the library's list. With the app on `fr`, the barrel's `getLocale()` returned `fr` while typed `'de' \| 'en'`. |
+| Library | Call `setLocale` | It moves the app's locale. |
+| Library | Bundle `loclizr` or list it under `dependencies` | The app picks the runtime version; a peer keeps one copy to pick. |
+| App | Import the library before its own tree | The first registration keeps `getLocale()`. |
+
+Imported first, the library's list wins. With the app on `fr`, its own messages still render
+French while `getLocale()` falls back to the library's source:
+
+```text
+loclizr: a second generated directory registered [de, en, fr]; the first registration keeps getLocale().
+en | Vos fichiers | Delete 2 files?
+```
+
+Import the app's generated messages at the top of its entry module, before anything that imports
+the library.
