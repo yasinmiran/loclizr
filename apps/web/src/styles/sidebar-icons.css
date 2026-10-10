@@ -25,6 +25,10 @@
   gap: calc(var(--spacing) * 2);
 }
 
+/* The first mobile section is the header's own links, not a sidebar group. */
+.mobile-nav-section:first-child .mobile-nav-label {
+  --sidebar-icon: url(/icons/menu.svg);
+}
 .sidebar-content .container-sidebar-entry:has(a[href$='/start/quickstart/']) > .entry-title,
 .mobile-nav-section:has(a[href$='/start/quickstart/']) .mobile-nav-label,
 .page-section[data-section='start'] {
