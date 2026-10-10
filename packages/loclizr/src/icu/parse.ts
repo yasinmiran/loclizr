@@ -98,6 +98,15 @@ export function probeSkeleton(form: SkeletonForm, token: string): IntlOptions | 
   return skeletonOptions(style)
 }
 
+// The resolver throws with no location and a sentence that often names the
+// supported field, while a tokenizer failure carries a location and only an
+// ErrorKind name, which says nothing the diagnostic does not already say.
+export function skeletonRejection(form: SkeletonForm, token: string): string | null {
+  const probed = attempt(`{x, ${form}, ${token}}`, {})
+  if (probed.ok || probed.location !== null) return null
+  return probed.detail
+}
+
 // Null for a skeleton Intl has no options for.
 export function skeletonOptions(skeleton: Skeleton): IntlOptions | null {
   const options = sanitizeOptions(skeleton.parsedOptions)

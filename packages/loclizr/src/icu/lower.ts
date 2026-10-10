@@ -34,6 +34,7 @@ import {
   probeSkeleton,
   rangeOf,
   skeletonOptions,
+  skeletonRejection,
   skeletonToken,
   type ParseFailure,
   type Range,
@@ -503,16 +504,21 @@ function rejectedText(token: string, form: SkeletonForm): DiagnosticText {
       hint: 'Pair it with a unit, such as ::measure-unit/length-meter per-measure-unit/duration-second. Falling back to the bare number format.',
     }
   }
+  const reason = skeletonRejection(form, token)
   return {
-    message: `The parser rejected the skeleton "${token}".`,
+    message:
+      reason === null
+        ? `The parser rejected the skeleton "${token}".`
+        : `The parser rejected the skeleton "${token}": ${reason.replace(/\.$/, '')}.`,
     hint: `Falling back to the bare ${form} format. Fix the skeleton, or use a named style from formats.`,
   }
 }
 
-// A skeleton the tokenizer accepted can still be a stem nobody defined, which
-// formats nothing, a currency with no code, which throws in the browser the
-// first time the message renders, or a scale that is not a finite number,
-// which would render every value as NaN or infinity.
+// A skeleton the tokenizer accepted can still hold only stems the parser maps
+// to nothing, a typo and a valid ICU stem alike, which formats nothing, a
+// currency with no code, which throws in the browser the first time the
+// message renders, or a scale that is not a finite number, which would render
+// every value as NaN or infinity.
 function unusable(token: string, form: SkeletonForm, options: IntlOptions): DiagnosticText | null {
   if (options['style'] === 'currency' && options['currency'] === undefined) {
     return {
@@ -530,7 +536,7 @@ function unusable(token: string, form: SkeletonForm, options: IntlOptions): Diag
   if (Object.keys(options).length === 0) {
     return {
       message: `The skeleton "${token}" resolves to no format options.`,
-      hint: `Check the stem spelling. Falling back to the bare ${form} format.`,
+      hint: `Each stem is misspelled or not supported by loclizr. Check the spelling, or use a named style from formats. Falling back to the bare ${form} format.`,
     }
   }
   return rejectedByIntl(token, form, options)

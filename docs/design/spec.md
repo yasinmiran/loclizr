@@ -873,8 +873,18 @@ skeleton-shaped failure with `shouldParseSkeletons: false`; when that
 succeeds, each `::` style is re-validated by its own probe, the bad one raises
 `LZ2003` and lowers as the bare `{x, number}` or `{d, date}`, and the rest of
 the message lowers as written. A skeleton the tokenizer accepts but that
-resolves to an empty option set, `::currrency/USD`, `::percnt`, `::foo`, is the
-same code, so a typo is reported instead of rendering unformatted. Two limits:
+resolves to an empty option set is the same code, so it is reported instead of
+rendering unformatted. That covers a typo, `::currrency/USD`, `::percnt`,
+`::foo`, and a valid ICU stem the parser maps to nothing, `::latin`,
+`::permille`, `::.00+`, which the build cannot tell apart, so the hint says
+each stem is misspelled or not supported by loclizr. When the parser's
+resolver rejects a skeleton it throws a sentence that often names the
+supported field, such as
+`` `D/F/g` (day) patterns are not supported, use `d` instead `` for `::D`,
+and the message quotes it after the skeleton; the text
+comes from the parser dependency, not the engine, so it does not vary with the
+Node version. A failure the tokenizer raises carries only an error kind name, and
+the message quotes nothing. Two limits:
 a multi-stem skeleton with one misspelled stem, `::percent scale/100` beside a
 typo, still resolves to something and stays silent, and a failure that survives
 the retry, such as an unclosed brace after the skeleton, is `LZ2001`; an empty

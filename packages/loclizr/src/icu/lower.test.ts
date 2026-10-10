@@ -226,6 +226,42 @@ describe('lower, format styles', () => {
     })
   })
 
+  it.each([
+    ['{d, date, ::ccc}', '"::ccc": `c..ccc` (weekday) patterns are not supported.'],
+    ['{d, date, ::D}', '"::D": `D/F/g` (day) patterns are not supported, use `d` instead.'],
+    [
+      '{d, time, ::HmO}',
+      '"::HmO": `Z/O/v/V/X/x` (timeZone) patterns are not supported, use `z` instead.',
+    ],
+    [
+      '{n, number, ::integer-width/000}',
+      '"::integer-width/000": We currently do not support exact integer digits.',
+    ],
+    [
+      '{d, date, ::qqqq} {s, select, a {x}}',
+      '"::qqqq": `q/Q` (quarter) patterns are not supported.',
+    ],
+  ])('quotes the reason the parser rejected the skeleton in %s', (value, reason) => {
+    const diagnostic = only(lower(value, icuContext()).diagnostics, 'LZ2003')
+    expect(diagnostic.message).toBe(`The parser rejected the skeleton ${reason}`)
+  })
+
+  it.each([['{n, number, ::currency/}'], ['{t, time, ::}']])(
+    'quotes no parser error kind for %s, which the tokenizer refused',
+    (value) => {
+      const diagnostic = only(lower(value, icuContext()).diagnostics, 'LZ2003')
+      expect(diagnostic.message).toMatch(/^The parser rejected the skeleton "::[^"]*"\.$/)
+    },
+  )
+
+  it.each([['{n, number, ::latin}'], ['{n, number, ::currrency/USD}']])(
+    'does not call every stem in %s a misspelling when it maps to nothing',
+    (value) => {
+      const diagnostic = only(lower(value, icuContext()).diagnostics, 'LZ2003')
+      expect(diagnostic.hint).toContain('misspelled or not supported by loclizr')
+    },
+  )
+
   it('merges formats.timeZone into every resolved date and time option set', () => {
     const formats = withFormats({ timeZone: 'UTC' }).formats
     expect(optionsOf('{d, date, medium}', formats)).toStrictEqual({
