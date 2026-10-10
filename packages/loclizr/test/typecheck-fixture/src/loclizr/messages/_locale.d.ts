@@ -2,4 +2,5 @@
 import type { LocaleResolver } from 'loclizr'
 export declare const locales: readonly ['de', 'de-AT', 'en']
 export declare const sourceLocale: 'en'
+export declare const cookie: 'locale'
 export declare const $l: LocaleResolver

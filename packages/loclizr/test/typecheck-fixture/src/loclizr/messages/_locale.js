@@ -4,4 +4,5 @@ import { $configure1 } from 'loclizr'
 
 export const locales = /*#__PURE__*/ Object.freeze(['de', 'de-AT', 'en'])
 export const sourceLocale = 'en'
-export const $l = $configure1({ locales, sourceLocale, cookie: 'locale' })
+export const cookie = 'locale'
+export const $l = $configure1({ locales, sourceLocale, cookie })

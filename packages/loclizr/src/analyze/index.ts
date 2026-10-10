@@ -91,6 +91,7 @@ const RESERVED_IDENTIFIERS: ReadonlySet<string> = new Set([
   'getLocale',
   'setLocale',
   'subscribe',
+  'cookie',
 ])
 
 const PROTOTYPE_NAMES: ReadonlySet<string> = new Set(['__proto__', 'constructor', 'prototype'])

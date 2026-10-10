@@ -19,6 +19,7 @@ a minor release may break an invariant, and this file says so when it does.
   (#62 to #65).
 - The record escapes bidi controls and line separators (#66).
 - `loclizr/react` now exports `Locale` and `SetLocaleOptions`, and `loclizr/server` exports `NegotiateOptions`, so declaration emit in a consumer no longer fails with TS2742 on inferred types from those entries (TypeScript 5.4 or later) (#92).
+- the generated `_locale.js` and barrel now export `cookie`, the configured cookie name, so server code can pass `cookie: m.cookie` to `localeFromRequest`, `localeFromHeaders` and `withLocale` instead of silently reading the default `locale` cookie. `cookie` is now a reserved identifier: a root-level key `cookie` (or an `identifiers` override to it) fails with `LZ4002` and needs an `identifiers` entry. (#96).
 
 ## 0.1.1 - 2026-10-03
 

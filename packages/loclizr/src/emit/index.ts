@@ -84,7 +84,7 @@ function render(program: Program): readonly EmittedFile[] {
   const files: EmittedFile[] = [
     { path: '.gitignore', contents: textOf(['*', '!.gitignore']) },
     { path: 'messages/_locale.js', contents: localeModule(program) },
-    { path: 'messages/_locale.d.ts', contents: localeTypes(locales, program.sourceLocale) },
+    { path: 'messages/_locale.d.ts', contents: localeTypes(locales, program.sourceLocale, program.config.cookie) },
     { path: 'messages/_formats.js', contents: formatsModule(formats) },
     { path: 'messages/_formats.d.ts', contents: formatsTypes(formats) },
     { path: 'messages.js', contents: barrelModule(ordered) },
@@ -194,16 +194,18 @@ function localeModule(program: Program): string {
     '',
     `export const locales = /*#__PURE__*/ Object.freeze([${locales}])`,
     `export const sourceLocale = ${quoted(program.sourceLocale)}`,
-    `export const $l = $configure1({ locales, sourceLocale, cookie: ${quoted(program.config.cookie)} })`,
+    `export const cookie = ${quoted(program.config.cookie)}`,
+    'export const $l = $configure1({ locales, sourceLocale, cookie })',
   ])
 }
 
-function localeTypes(locales: readonly string[], sourceLocale: string): string {
+function localeTypes(locales: readonly string[], sourceLocale: string, cookie: string): string {
   return textOf([
     HEADER,
     "import type { LocaleResolver } from 'loclizr'",
     `export declare const locales: readonly [${locales.map(quoted).join(', ')}]`,
     `export declare const sourceLocale: ${quoted(sourceLocale)}`,
+    `export declare const cookie: ${quoted(cookie)}`,
     'export declare const $l: LocaleResolver',
   ])
 }
@@ -321,7 +323,7 @@ function barrelModule(namespaces: readonly Namespace[]): string {
     HEADER,
     NOCHECK,
     "export { getLocale, setLocale, subscribe } from 'loclizr'",
-    "export { locales, sourceLocale } from './messages/_locale.js'",
+    "export { cookie, locales, sourceLocale } from './messages/_locale.js'",
     ...namespaces.map((namespace) => `export * from './${namespace.module}'`),
   ])
 }
@@ -352,7 +354,7 @@ function barrelTypes(
     'export declare function getLocale(): AppLocale',
     'export declare function setLocale(locale: AppLocale, options?: SetLocaleOptions): void',
     'export declare function subscribe(listener: () => void): () => void',
-    "export { locales, sourceLocale } from './messages/_locale.js'",
+    "export { cookie, locales, sourceLocale } from './messages/_locale.js'",
     ...namespaces.map((namespace) => `export * from './${namespace.module}'`),
   )
   return textOf(lines)

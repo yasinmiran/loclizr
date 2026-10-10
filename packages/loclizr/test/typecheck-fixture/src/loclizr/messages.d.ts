@@ -12,7 +12,7 @@ declare module 'loclizr' {
 export declare function getLocale(): AppLocale
 export declare function setLocale(locale: AppLocale, options?: SetLocaleOptions): void
 export declare function subscribe(listener: () => void): () => void
-export { locales, sourceLocale } from './messages/_locale.js'
+export { cookie, locales, sourceLocale } from './messages/_locale.js'
 export * from './messages/cart.js'
 export * from './messages/dev.js'
 export * from './messages/errors.js'

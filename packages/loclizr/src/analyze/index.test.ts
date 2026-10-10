@@ -680,6 +680,7 @@ describe('identity rules', () => {
     'getLocale',
     'setLocale',
     'subscribe',
+    'cookie',
   ])('raises LZ4002 for the reserved identifier %s', (reserved) => {
     const program = run({
       config: config({ locales: ['en'] }),

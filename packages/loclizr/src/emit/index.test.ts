@@ -786,7 +786,7 @@ describe('the tree', () => {
         HEADER,
         '// @ts-nocheck',
         "export { getLocale, setLocale, subscribe } from 'loclizr'",
-        "export { locales, sourceLocale } from './messages/_locale.js'",
+        "export { cookie, locales, sourceLocale } from './messages/_locale.js'",
         "export * from './messages/alpha.js'",
         "export * from './messages/zeta.js'",
         '',
@@ -843,7 +843,7 @@ describe('the tree', () => {
         'export declare function getLocale(): AppLocale',
         'export declare function setLocale(locale: AppLocale, options?: SetLocaleOptions): void',
         'export declare function subscribe(listener: () => void): () => void',
-        "export { locales, sourceLocale } from './messages/_locale.js'",
+        "export { cookie, locales, sourceLocale } from './messages/_locale.js'",
         "export * from './messages/nav.js'",
         '',
       ),
@@ -858,8 +858,24 @@ describe('the tree', () => {
       }),
     ).files
     expect(contentsOf(files, 'messages/_locale.js')).toContain(
-      "$configure1({ locales, sourceLocale, cookie: 'lang' })",
+      "export const $l = $configure1({ locales, sourceLocale, cookie })",
     )
+  })
+
+  test('exports the configured cookie name for server negotiation', () => {
+    const files = emit(
+      program({
+        messages: [],
+        config: config({ locales: ['en'], cookie: 'lang' }),
+      }),
+    ).files
+    expect(contentsOf(files, 'messages/_locale.js')).toContain("export const cookie = 'lang'")
+    expect(contentsOf(files, 'messages/_locale.d.ts')).toContain("export declare const cookie: 'lang'")
+    for (const barrel of ['messages.js', 'messages.d.ts']) {
+      expect(contentsOf(files, barrel)).toContain(
+        "export { cookie, locales, sourceLocale } from './messages/_locale.js'",
+      )
+    }
   })
 })
 

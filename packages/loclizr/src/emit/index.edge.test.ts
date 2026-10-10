@@ -486,7 +486,7 @@ describe('the edge tree, as text', () => {
   })
 
   test('escapes a cookie name holding a quote and line terminators', () => {
-    expect(contentsOf(files, 'messages/_locale.js')).toContain("cookie: 'lang\\'\\n\\u2028'")
+    expect(contentsOf(files, 'messages/_locale.js')).toContain("export const cookie = 'lang\\'\\n\\u2028'")
   })
 
   test('labels cases with the declared tag verbatim, extension subtag included', () => {
