@@ -264,6 +264,8 @@ to list the messages that format a date without one.
 ## `scan`
 
 - Reads `include` minus `exclude`, always minus `outDir`.
+- Follows symbolic links, including ones that point outside the project root. A path whose target
+  is not a regular file, such as a FIFO or a device, is skipped.
 - Binds generated modules by specifier suffix, no resolver or alias map: `./loclizr/messages`,
   `@/loclizr/messages` and `#app/loclizr/groups` all bind. Every `m.<id>` access and bound bare
   call lands in the record's `usage`.

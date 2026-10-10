@@ -1,4 +1,4 @@
-import { readFile } from 'node:fs/promises'
+import { constants, open } from 'node:fs/promises'
 import { join } from 'node:path'
 import { glob } from 'tinyglobby'
 import { diag } from '../diagnostics'
@@ -139,9 +139,21 @@ async function matchFiles(config: Config): Promise<readonly string[]> {
   }
 }
 
+// The glob follows symlinks, so a matched path can resolve to a FIFO or a
+// device. O_NONBLOCK keeps the open from waiting on a FIFO writer, and the
+// fstat on the open handle refuses anything that is not a regular file before
+// a read could block or stream without end. Windows has no O_NONBLOCK.
+const READ_FLAGS: number = constants.O_RDONLY | (constants.O_NONBLOCK ?? 0)
+
 async function readText(file: string): Promise<string | null> {
   try {
-    return await readFile(file, 'utf8')
+    const handle = await open(file, READ_FLAGS)
+    try {
+      if (!(await handle.stat()).isFile()) return null
+      return await handle.readFile('utf8')
+    } finally {
+      await handle.close()
+    }
   } catch {
     return null
   }

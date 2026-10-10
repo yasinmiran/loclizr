@@ -2946,6 +2946,10 @@ usage at the top level of a module has `scope: null`; a braceless arrow body,
 `m?.nav_home` and `errors?.[code]`, resolves like plain access. A reference in
 type position, `typeof m.nav_home`, is a member access like any other and is
 recorded as a usage, because the tokenizer does not know a type from a value.
+The scan follows symbolic links; a path whose target is not a regular file is
+skipped, and the type is checked on the open handle, opened non-blocking where
+the platform allows, so a link to a FIFO or a device can neither block the
+build nor stream into it.
 A matched file that cannot be read is skipped with no diagnostic; neither
 `LZ5004` nor `LZ5005` covers an unreadable source file, and nothing else is
 M7's to raise.

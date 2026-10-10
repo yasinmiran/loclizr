@@ -17,7 +17,7 @@ Every file the build may delete starts with that line. Each claim names the enfo
 | Catalogs | the `catalogs` pattern, `locales/{locale}.json` by default | Parsed as JSON. Never written. |
 | Translator notes | `meta`, `locales/en.meta.json` by default | Parsed as JSON. |
 | The config | `loclizr.config.ts` or `--config` | Executed in-process by `jiti` (`src/config/index.ts`), imports included. Review it like a `vite.config.ts`. |
-| Your sources | `scan.include`, `src/**/*.{ts,tsx,js,jsx,mts,mjs,svelte,vue,astro}` by default | Scanned for usage (`src/scan/index.ts`). Never written or executed. |
+| Your sources | `scan.include`, `src/**/*.{ts,tsx,js,jsx,mts,mjs,svelte,vue,astro}` by default | Scanned for usage (`src/scan/index.ts`). Never written or executed. Symbolic links are followed; a target that is not a regular file is skipped unread. |
 | The existing tree and record | `outDir` and `record` | Compared byte for byte: unchanged files are skipped, `check` reports staleness. |
 
 ## What it writes and deletes
