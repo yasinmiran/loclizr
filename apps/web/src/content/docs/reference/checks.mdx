@@ -38,6 +38,8 @@ lower falls back like a blank one, raising only its syntax error.
 ## Levelling a rule
 
 ```ts title="loclizr.config.ts"
+import { defineConfig } from 'loclizr'
+
 export default defineConfig({
   severity: {
     'ambiguous-source': 'error',
@@ -59,7 +61,8 @@ Re-levelling moves the printed severity, not the fatal scope. `identifier-collis
 two colliding keys prints a warning, writes no tree, and still exits 1: a run that produced no
 output never exits 0. The JSON reporter shows `"severity": "warn", "fatal": true`. `off` behaves the
 same way for a diagnostic that blocks output: it prints at `warn`, since a run that wrote nothing
-has to say why.
+has to say why. Either way the summary names the code in a `nothing generated: 1 fatal (LZ4001)`
+line, under `--quiet` too.
 </Aside>
 
 ## Exit codes
@@ -77,7 +80,7 @@ has to say why.
 
 | Code | Rule | Default | Fatal | Fires when | Fix |
 | --- | --- | --- | --- | --- | --- |
-| `LZ1001` | `config-invalid` | error | always, exit 2 | The config threw, has no default export, or is missing at `--config`; a field failed validation; `sourceLocale` is not in `locales`; `outDir` holds the catalogs, meta or record path, compared without case; the `catalogs` pattern matches the `meta` or `record` path; `severity` names an unknown rule or a fixed one. | Paste the printed line for the field, such as `locales: ['en', 'de']`. |
+| `LZ1001` | `config-invalid` | error | always, exit 2 | The config threw, has no default export, or is missing at `--config`; a field failed validation; `sourceLocale` is not in `locales`; `outDir` holds the catalogs, meta or record path, compared without case; the `catalogs` pattern matches the `meta` or `record` path; `severity` names an unknown rule or a fixed one. | Paste the printed line for the field, such as `locales: ['en', 'de']`. After moving `outDir`, delete the `.gitignore` and generated files the old one holds. |
 | `LZ1002` | `locale-tag-invalid` | error | always | `Intl.getCanonicalLocales` rejects a tag in `locales` or `sourceLocale`. | Correct the tag: no formatter can be built for it. |
 | `LZ1003` | `no-catalogs-found` | error | always | The `catalogs` pattern matched no file. | Write `locales/en.json`, or point `catalogs` at your layout, such as `'public/locales/{locale}/{ns}.json'`. |
 | `LZ1004` | `source-catalog-missing` | error | always | No catalog for the source locale, or no `en` catalog and several locales to choose from. | Paste the printed config as `loclizr.config.ts`, or copy its `locales` and `sourceLocale` into the config you have: one line per discovered locale, with its file. |
@@ -93,7 +96,7 @@ has to say why.
 | `LZ1014` | `plural-suffix-orphan` | warn | never | A CLDR-suffixed key with no `_other` sibling, or `X_plural` beside a bare `X` (i18next JSON v3). Both stay ordinary keys. | Add `X_other`, rename a key that was never a plural, or run i18next's JSON v3 to v4 converter. |
 | `LZ1015` | `meta-orphan` | warn | never | A sidecar entry for a key the source catalog lacks. | Address entries by the post-fold, post-prefix key every diagnostic prints. |
 | `LZ1016` | `i18next-markup-literal` | warn | never | Tag-shaped text in an i18next value was escaped to literal text, as i18next rendered it. | Once every tag in the value lowers (its name starts with an ASCII letter, it carries no attributes, it is closed), set `i18nextMarkup: 'tags'` to lower the tags to markup arguments. Until then the warning names the tag that cannot lower: name a numbered tag and move attributes to the call site. |
-| `LZ1017` | `i18next-context-detected` | warn | never | `X_suffix` keys beside a bare `X`, once selected by `t('X', { context })` and now by nothing. | Convert the file to ICU, then use the printed `{context, select, ...}` message. |
+| `LZ1017` | `i18next-context-detected` | warn | never | `X_male` or `X_female` beside a bare `X`, once picked by `t('X', { context })`; each is now its own message with no selector. Other `X_word` keys are ordinary snake_case and raise nothing. | Convert the file to ICU, then use the printed `{context, select, ...}` message. |
 | `LZ1018` | `locale-base-missing` | warn | never | A declared region tag whose base tag is not declared. | Add the base, such as `'de'`, or expect `Accept-Language: de` to fall back to the source. |
 | `LZ1019` | `icu-data-incomplete` | warn | never | A startup probe finds small ICU (`Intl.PluralRules('ru')` under four categories), which silently answers unknown locales with English data; or a declared locale has no plural data and `Intl` answered for the host locale instead. | Run a Node with full ICU, or set `NODE_ICU_DATA` to a full data file. Until then `LZ3007` and `LZ3013` are off for the run (or that locale): no claim beats a wrong one. |
 | `LZ1020` | `icu-in-i18next-file` | warn | never | A file read as i18next holds a single-brace run shaped like a typed ICU argument, which renders as literal text. | Convert the file to ICU, or set `severity: { 'icu-in-i18next-file': 'off' }` if literal text was meant. The hint names the `{{` or suffixed key that made `'auto'` pick i18next. |
@@ -104,9 +107,12 @@ has to say why.
 - a catalog of an undeclared locale;
 - a basename that is not a locale tag (skipped);
 - a file under the catalog directory off the pattern;
-- with `locales` unset, a five to eight letter name with no BCP 47 subtag.
+- with `locales` unset, a five to eight letter name with no BCP 47 subtag;
+- a file under the pattern that parses to an object with `schema: 1`, a context record left at an
+  earlier `record` path (skipped).
 
-For a name that is not a tag, rename it to a BCP 47 tag, or move it out of the catalog pattern.
+For a name that is not a tag, rename it to a BCP 47 tag, or move it out of the catalog pattern. For
+a leftover record, delete it: the build writes the record at the configured `record` path.
 
 ## LZ2xxx: message syntax
 
@@ -114,7 +120,7 @@ For a name that is not a tag, rename it to a BCP 47 tag, or move it out of the c
 | --- | --- | --- | --- | --- | --- |
 | `LZ2001` | `icu-syntax` | error | message | The ICU parser rejected the value, other than for a missing `other` branch, or a select has two options equal under NFC. | By parser error, below the table. |
 | `LZ2002` | `icu-style-unknown` | error | never | A named style neither built in nor in `formats`. | Define it, such as `formats.number.compact`, or use an ICU skeleton. ICU carries no currency code: define `formats.number.currency`, or write `::currency/USD`. |
-| `LZ2003` | `icu-skeleton-invalid` | error | never | A `::` skeleton the parser cannot resolve or `Intl` cannot build. Falls back to the bare number format. | Fix the skeleton, or use a named style from `formats`. |
+| `LZ2003` | `icu-skeleton-invalid` | error | never | A `::` skeleton the parser cannot resolve or `Intl` cannot build. Falls back to the bare number, date or time format. | Fix the skeleton, or use a named style from `formats`. |
 | `LZ2004` | `plural-other-missing` | error | message | A plural or selectordinal with no `other` branch. | Add `other {...}` as the last branch. |
 | `LZ2005` | `select-other-missing` | error | message | A select with no `other` branch. | Add `other {...}` as the last branch. |
 | `LZ2006` | `plural-category-unknown` | error | never | A branch keyword that is neither a CLDR category nor `=N`. | Use `zero`, `one`, `two`, `few`, `many` or `other`, or an exact branch such as `=0`. |
@@ -203,8 +209,8 @@ gate` with `'error'`.
 
 `LZ4002` reserves:
 
-- identifiers in the `$` namespace, and `__proto__`, `constructor`, `prototype`, `locales`,
-  `sourceLocale`, `getLocale`, `setLocale`, `subscribe`;
+- identifiers in the `$` namespace, and `__proto__`, `constructor`, `prototype`, `cookie`,
+  `locales`, `sourceLocale`, `getLocale`, `setLocale`, `subscribe`;
 - top-level segments naming `_locale`, `_formats` or `_root`;
 - group members named `__proto__`;
 - `Object` as a group id or as the id of a grouped message, since the groups module calls
