@@ -5,7 +5,18 @@ All notable changes to `loclizr` are recorded here. The format follows
 numbers follow [Semantic Versioning](https://semver.org/) with the 0.x caveat:
 a minor release may break an invariant, and this file says so when it does.
 
-## Unreleased
+## 0.1.2 - 2026-10-10
+
+0.1.1 was tagged but never published, so an upgrade from 0.1.0 takes this
+section and the 0.1.1 section below. A project that built clean under 0.1.1
+can stop at one of the behaviour changes here.
+
+### Behaviour changes
+
+- The generated `_locale.js` and barrel now export `cookie`, the configured cookie name, so server code can pass `cookie: m.cookie` to `localeFromRequest`, `localeFromHeaders` and `withLocale` instead of silently reading the default `locale` cookie. `cookie` is now a reserved identifier: a root-level key `cookie` (or an `identifiers` override to it) fails with `LZ4002` and needs an `identifiers` entry (#96).
+- A `::` skeleton whose options `Intl` rejects, such as `::unit/furlong` or `::currency/US`, now raises `LZ2003` and falls back to the bare format instead of passing the build and throwing `RangeError` on every call; `::unit/kilometer-per-hour` and other compound `unit/` ids now resolve to the whole unit rather than `per-hour` (#78).
+- `::jm` and other date or time skeletons with `j` now render the hour in the locale's own cycle instead of dropping it; `J` and `C` raise `LZ2003`; `::measure-unit/... per-measure-unit/...` composes into a compound unit such as `meter-per-second` instead of losing the per unit (#79, #114).
+- `withLocale` now lists both `Accept-Language` and `Cookie` in `Vary` on every response, so a shared cache that honours `Vary` no longer serves a cookie-localized page to a viewer without that cookie (#67).
 
 ### Fixes
 
@@ -19,28 +30,24 @@ a minor release may break an invariant, and this file says so when it does.
   (#62 to #65).
 - The record escapes bidi controls and line separators (#66).
 - `loclizr/react` now exports `Locale` and `SetLocaleOptions`, and `loclizr/server` exports `NegotiateOptions`, so declaration emit in a consumer no longer fails with TS2742 on inferred types from those entries (TypeScript 5.4 or later) (#92).
-- the generated `_locale.js` and barrel now export `cookie`, the configured cookie name, so server code can pass `cookie: m.cookie` to `localeFromRequest`, `localeFromHeaders` and `withLocale` instead of silently reading the default `locale` cookie. `cookie` is now a reserved identifier: a root-level key `cookie` (or an `identifiers` override to it) fails with `LZ4002` and needs an `identifiers` entry. (#96).
-- a locale cookie written in RFC 6265 quoted form (`locale="de"`) now resolves to its locale on the server and the client instead of falling back to the source locale (#98).
+- A locale cookie written in RFC 6265 quoted form (`locale="de"`) now resolves to its locale on the server and the client instead of falling back to the source locale (#98).
 - `setLocale` warns once outside production when the locale cookie it wrote does not read back, as on `file://` pages (Electron `loadFile`) or with cookies blocked, where the choice lasts only until reload (#105).
 - The dev warning for `getLocale()` outside a request scope now says to wrap the whole request in `runWithLocale()` (loaders, actions and the render), not just the render, which left React Router and Remix loaders in the source locale (#75).
 - `withLocale` passes through the `undefined` a Bun handler returns after `server.upgrade()`, instead of rejecting and crashing the Bun process on the first WebSocket connection; a second overload types such handlers without a cast (#82).
 - `negotiate` and `localeFromHeaders` cap an `Accept-Language` weight above 1 at 1, and drop a range whose weight is not a plain decimal (`Infinity`, `5e0`, `0.95xyz`). A malformed weight no longer outranks a language listed earlier at full quality (#97).
-- a `::` skeleton whose options `Intl` rejects, such as `::unit/furlong` or `::currency/US`, now raises `LZ2003` and falls back to the bare format instead of passing the build and throwing `RangeError` on every call; `::unit/kilometer-per-hour` and other compound `unit/` ids now resolve to the whole unit rather than `per-hour` (#78).
 - `scale/N` in a number skeleton (`::scale/1000`, `::currency/USD scale/1000`, `::scale/0.01`) now multiplies the value before formatting instead of being passed to `Intl.NumberFormat`, which ignored it; `::percent scale/100` still renders 0.25 as 25% (#80).
 - `LZ1017 i18next-context-detected` fires only for `X_male` and `X_female` beside a bare `X`, so snake_case keys such as `accept_invitation` beside `accept` no longer raise a warning with a rewrite that would delete them, and the message no longer claims the members are selected by nothing (#90).
 - Under `i18nextMarkup: 'tags'`, an i18next value holding a self-closing tag such as `<br/>` or `<br />` is now escaped to literal text whole, in the translator's own spelling, and raises `LZ1016` instead of rendering as silent visible markup; the `LZ1016` hint no longer claims `<br/>` lowers (#100).
 - The `LZ1001` hint for an `outDir` that holds the catalogs, `meta` or `record` path now says to delete the self-ignoring `.gitignore` and generated files an earlier build left in that `outDir`. Moving `outDir` alone leaves them behind, and new catalogs stay ignored (#112).
 - A context record left under the catalogs pattern, such as `locales/context.json` after moving `record` off it for `LZ1001`, is no longer compiled as a locale named `context`; it is skipped with `LZ1006` and a hint to delete it, and the `LZ1001` hint for `record` says to delete a record already written at the old path (#113).
-- `loclizr build` and `loclizr check` now end the human report with the counts line when a fatal rule blocks the run before analysis, even with that rule set to `warn` or `off`. A blocked `--quiet` run no longer exits 1 having printed nothing. (#69).
+- `loclizr build` and `loclizr check` now end the human report with the counts line when a fatal rule blocks the run before analysis, even with that rule set to `warn` or `off`. A blocked `--quiet` run no longer exits 1 having printed nothing (#69).
 - `build` and `check` now print `nothing generated: N fatal (LZ4002)` when a fatal diagnostic blocked output, also under `--quiet` and when the rule was turned down to `warn` or `off`, and no longer print `fell back to source text` for a run that rendered no tree (#91).
 - `loclizr init` now names the config it wrote or found in the install note, so a `--config` target or an existing `loclizr.config.js` or `.mjs` is no longer reported as `loclizr.config.ts` (#76).
 - `loclizr init` on a `{ns}` catalog tree such as `public/locales/{locale}/{ns}.json` now writes the discovered `locales` list, so a stray directory beside the locales is reported as `LZ1006` rather than compiled as a locale, and writes `meta` beside catalogs outside `locales/`, with the `ambiguous-source` note naming that path (#68).
 - `loclizr init` sets `record` beside catalogs that live outside `locales/`, as it does `meta`, instead of leaving a `locales/` that holds only the record (#88).
 - `getLocale()` outside a request scope warns before the first request as well as between requests: `loclizr/server` installs its scope when it loads, as the spec states.
-- `::jm` and other date or time skeletons with `j` now render the hour in the locale's own cycle instead of dropping it; `J` and `C` raise `LZ2003`; `::measure-unit/... per-measure-unit/...` composes into a compound unit such as `meter-per-second` instead of losing the per unit (#79, #114).
 - `LZ3002 blank-translation` no longer fires on a blank target value when the source value is blank too, and the i18next import guide covers bare keys beside plurals, empty values and lone `_other` keys (#14).
 - The usage scan skips a matched path whose symlink target is not a regular file, so a link to a FIFO or a device no longer hangs or floods the build (#61).
-- `withLocale` now lists both `Accept-Language` and `Cookie` in `Vary` on every response, so a shared cache that honours `Vary` no longer serves a cookie-localized page to a viewer without that cookie (#67).
 
 ## 0.1.1 - 2026-10-03
 
