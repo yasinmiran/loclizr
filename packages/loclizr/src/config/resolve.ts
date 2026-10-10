@@ -274,7 +274,9 @@ function pathConflicts(paths: ArtifactPaths, sourceLocale: string | undefined): 
       conflicts.push(
         diag('config-invalid', {
           message: `\`${field}\` is \`${resolved}\`, which the \`catalogs\` pattern \`${catalogs}\` also matches.`,
-          hint: `a file the pattern matches is either a catalog or the ${field} file, never both. Name one it cannot match, such as '${fallback}'.`,
+          hint: `a file the pattern matches is either a catalog or the ${field} file, never both. Name one it cannot match, such as '${fallback}'.${
+            field === 'record' ? ` Then delete any record a build already wrote at '${resolved}'.` : ''
+          }`,
         }),
       )
     }

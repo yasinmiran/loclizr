@@ -30,6 +30,7 @@ a minor release may break an invariant, and this file says so when it does.
 - `LZ1017 i18next-context-detected` fires only for `X_male` and `X_female` beside a bare `X`, so snake_case keys such as `accept_invitation` beside `accept` no longer raise a warning with a rewrite that would delete them, and the message no longer claims the members are selected by nothing (#90).
 - Under `i18nextMarkup: 'tags'`, an i18next value holding a self-closing tag such as `<br/>` or `<br />` is now escaped to literal text whole, in the translator's own spelling, and raises `LZ1016` instead of rendering as silent visible markup; the `LZ1016` hint no longer claims `<br/>` lowers (#100).
 - The `LZ1001` hint for an `outDir` that holds the catalogs, `meta` or `record` path now says to delete the self-ignoring `.gitignore` and generated files an earlier build left in that `outDir`. Moving `outDir` alone leaves them behind, and new catalogs stay ignored (#112).
+- A context record left under the catalogs pattern, such as `locales/context.json` after moving `record` off it for `LZ1001`, is no longer compiled as a locale named `context`; it is skipped with `LZ1006` and a hint to delete it, and the `LZ1001` hint for `record` says to delete a record already written at the old path (#113).
 
 ## 0.1.1 - 2026-10-03
 

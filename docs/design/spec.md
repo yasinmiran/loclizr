@@ -489,7 +489,14 @@ pattern: a resolved `meta` or `record` path the pattern matches is
 `LZ1001 config-invalid`, discovery still excludes both paths, and a
 **discovered** basename that `Intl.getCanonicalLocales` rejects is skipped with
 `LZ1006 catalog-undeclared` at warn. `LZ1002 locale-tag-invalid` stays fatal for
-a locale the user **declared** in `locales`.
+a locale the user **declared** in `locales`. A discovered file that parses to an
+object with `schema: 1` is a context record, never a catalog, because no catalog
+value is a number: it is a record a build wrote under an
+earlier `record` path, `locales/context.json` after the `LZ1001` below moved it.
+It is skipped before the locale set is decided, so it declares no locale, and
+reported as `LZ1006` at warn naming the file, with a hint to delete it because
+the build writes the record at the current `record` path. The file at the
+current `record` path is excluded as before and raises nothing.
 
 One consequence worth stating for the `{ns}` layout, where `{locale}` is a
 directory segment: with `locales` unset, the discovered directories **are** the
@@ -567,7 +574,9 @@ resolve both spellings to one directory. `{sourceLocale}` resolves to the
 declared `sourceLocale` when it is a valid tag, otherwise to the inferred
 source locale, so the check runs once before discovery and once more after
 inference. A resolved `meta` or `record` path that the `catalogs` pattern
-matches is also `LZ1001`: a file is a catalog or an artifact, never both.
+matches is also `LZ1001`: a file is a catalog or an artifact, never both. For
+`record` the hint also says to delete a record a build already wrote at that
+path.
 
 `resolveConfig` validates each field's shape and every one of these is
 `LZ1001 config-invalid` with a hint naming the field: a `catalogs` pattern
@@ -2923,7 +2932,7 @@ claim one. Ranges are thematic and a range may span two owners.
 | LZ1003 | `no-catalogs-found` | error | always | M9 | the `catalogs` pattern matched nothing |
 | LZ1004 | `source-catalog-missing` | error | always | M9 | no catalog file for the source locale, or the source locale could not be inferred |
 | LZ1005 | `catalog-missing` | error | never | M9 | a declared locale has no catalog file |
-| LZ1006 | `catalog-undeclared` | warn | never | M9 | a catalog file exists for a locale absent from `locales`; a discovered basename is not a valid locale tag and was skipped, `en_US.json` included; a discovered locale's primary subtag is five to eight letters while `locales` is unset; or a `.json` file under the pattern's base directory matches neither the pattern nor `meta` nor `record` (section 3) |
+| LZ1006 | `catalog-undeclared` | warn | never | M9 | a catalog file exists for a locale absent from `locales`; a discovered basename is not a valid locale tag and was skipped, `en_US.json` included; a discovered locale's primary subtag is five to eight letters while `locales` is unset; a discovered file parses to an object with `schema: 1`, a context record left under the pattern; or a `.json` file under the pattern's base directory matches neither the pattern nor `meta` nor `record` (section 3) |
 | LZ1007 | `outdir-unsafe` | error | always, exit 2 | M9 | `outDir` resolves outside the project root, or to the root itself |
 | LZ1008 | `catalog-unreadable` | error | ifSource | M2 | the file exists and could not be read. A missing file is `LZ1005`. Never fatal for the meta sidecar |
 | LZ1009 | `catalog-json-syntax` | error | ifSource | M2 | the JSON scan failed, or the file nests more than 256 levels deep. Never fatal for the meta sidecar |
@@ -4444,7 +4453,11 @@ and the `LZ1006` skip of a discovered basename that `Intl.getCanonicalLocales`
 rejects both live in `resolveConfig`, which receives the discovered list and
 already knows both paths. The pattern layer still refuses `en.meta.json` and
 `loclizr.context.json` on its own, because `{locale}` never crosses a dot, so
-the belt holds at both layers. `resolveConfig` is pure and takes the
+the belt holds at both layers. The `LZ1006` skip of a discovered file that
+parses to a context record lives in `loadConfig`, because it reads the file and
+`resolveConfig` touches no filesystem; `loadConfig` passes `resolveConfig` the
+discovered list without those files and reports each one once the resolved
+`record` path is known. `resolveConfig` is pure and takes the
 already-discovered catalog list, so it is unit testable with no filesystem. It
 normalizes every path-valued field to POSIX relative to `root`, checks
 `LZ1007` on the resolved absolute form, applies every field check section 3

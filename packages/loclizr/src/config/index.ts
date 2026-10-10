@@ -50,11 +50,17 @@ export async function loadConfig(input: {
     const pattern = catalogsPatternOf(user)
     const { spelled, unspelled } = await discover(root, pattern)
     const discovered = [...spelled, ...unspelled]
-    const resolved = resolveConfig({ user, root, discovered })
+    const records = await recordFiles(root, discovered)
+    const resolved = resolveConfig({
+      user,
+      root,
+      discovered: discovered.filter((catalog) => !records.includes(catalog.file)),
+    })
     const stray =
       resolved.config === null ? [] : await strayCatalogs(root, pattern, discovered.map(fileOf))
     const diagnostics = [
       ...stampConfigFile(resolved.diagnostics, located.file),
+      ...leftoverRecords(records, resolved.config),
       ...unreachableCatalogs(stray, resolved.config),
     ]
     return { config: resolved.config, diagnostics }
@@ -167,6 +173,62 @@ function unreachableCatalogs(
       file: first,
     }),
   ]
+}
+
+// A record written under an earlier `record` path still sits where the
+// pattern matches, and discovered as a catalog it becomes a locale named after
+// the file. Removing it before resolveConfig costs nothing for the configured
+// record, which resolveConfig would have excluded anyway.
+async function recordFiles(
+  root: string,
+  discovered: readonly DiscoveredCatalog[],
+): Promise<readonly string[]> {
+  const records: string[] = []
+  for (const catalog of discovered) {
+    let text: string
+    try {
+      text = await readFile(resolve(root, catalog.file), 'utf8')
+    } catch {
+      continue
+    }
+    if (isRecordText(text)) records.push(catalog.file)
+  }
+  return records
+}
+
+// No catalog value is a number, so a top-level `"schema": 1` never belongs to a
+// catalog and always to the record.
+function isRecordText(text: string): boolean {
+  let parsed: unknown
+  try {
+    parsed = JSON.parse(text.replace(/^\uFEFF/, ''))
+  } catch {
+    return false
+  }
+  return (
+    typeof parsed === 'object' &&
+    parsed !== null &&
+    !Array.isArray(parsed) &&
+    (parsed as Record<string, unknown>)['schema'] === 1
+  )
+}
+
+function leftoverRecords(records: readonly string[], config: Config | null): readonly Diagnostic[] {
+  if (config === null) return []
+  const { record } = config
+  const current = record === false ? null : literalMatcher(record)
+  return records
+    .filter((file) => current === null || !current.test(file))
+    .map((file) =>
+      diag('catalog-undeclared', {
+        message: `${file} is a context record, an object with "schema": 1, not a catalog, so no locale reads it.`,
+        hint:
+          record === false
+            ? 'record is false, so the build neither reads nor writes it. Delete it.'
+            : `a build wrote it under an earlier \`record\` path. The record now lives at ${record}, which the build rewrites, so delete this copy.`,
+        file,
+      }),
+    )
 }
 
 function namespaceHint(pattern: string, stray: string): string {
