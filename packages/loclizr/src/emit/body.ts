@@ -1,4 +1,4 @@
-import type { ExactBranch, IntlOptions, Node, PluralBranch, SelectBranch } from '../types'
+import type { ExactBranch, IntlOptions, Node, NumberFormatSpec, PluralBranch, SelectBranch } from '../types'
 import { compareCodepoint } from '../util'
 import { PLURAL_KEYWORDS, formatName, isArgName, pad, quoted, templateText } from './shared'
 
@@ -224,7 +224,7 @@ function templateParts(nodes: readonly Node[], ctx: ArmContext, indent: number, 
         if (!ctx.handlers.has(node.name)) out += `\${${access(node.name)}}`
         break
       case 'number':
-        out += `\${${intlCall('$number1', access(node.name), node.format.options, ctx)}}`
+        out += `\${${intlCall('$number1', scaled(access(node.name), node.format), node.format.options, ctx)}}`
         break
       case 'dateTime':
         out += `\${${intlCall('$dateTime1', access(node.name), node.format.options, ctx)}}`
@@ -379,6 +379,11 @@ function intlCall(helper: string, value: string, options: IntlOptions, ctx: ArmC
   const name = formatName(options)
   ctx.formats.set(name, options)
   return `${helper}(l, ${value}, ${name})`
+}
+
+function scaled(value: string, format: NumberFormatSpec): string {
+  const multiplier = format.multiplier
+  return multiplier === undefined || multiplier === 1 ? value : `${value} * ${multiplier}`
 }
 
 function selectorValue(frame: Frame, ctx: ArmContext): string {

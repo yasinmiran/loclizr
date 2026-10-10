@@ -18,6 +18,7 @@ import type {
   FormatsConfig,
   IntlOptions,
   Node,
+  NumberFormatSpec,
   PluralBranch,
   RuleName,
   SelectBranch,
@@ -174,12 +175,11 @@ function lowerElement(state: State, element: MessageFormatElement, scope: Scope)
     case TYPE.number: {
       const name = register(state, element.value, NUMBER, element.location)
       const style = resolveNumberStyle(state, element)
-      return {
-        kind: 'number',
-        name,
-        style: style.style,
-        format: { kind: 'number', options: style.options },
-      }
+      const format: NumberFormatSpec =
+        style.multiplier === undefined
+          ? { kind: 'number', options: style.options }
+          : { kind: 'number', options: style.options, multiplier: style.multiplier }
+      return { kind: 'number', name, style: style.style, format }
     }
     case TYPE.date:
       return lowerDateTime(state, element, 'date')
@@ -406,16 +406,32 @@ function kindLabel(type: ArgType): string {
 interface ResolvedStyle {
   readonly style: string | null
   readonly options: IntlOptions
+  readonly multiplier?: number | undefined
 }
 
 function resolveNumberStyle(state: State, element: NumberElement): ResolvedStyle {
   const style = element.style
   if (style === null || style === undefined) return { style: null, options: BARE_NUMBER_OPTIONS }
-  if (typeof style !== 'string') return resolveSkeleton(state, style, 'number', BARE_NUMBER_OPTIONS)
+  if (typeof style !== 'string') {
+    return liftScale(resolveSkeleton(state, style, 'number', BARE_NUMBER_OPTIONS))
+  }
   const named = lookupStyle(NAMED_NUMBER_STYLES, state.context.formats.number, style)
   if (named !== undefined) return { style, options: named }
   state.diagnostics.push(unknownStyle(state, rangeOf(element.location), style, 'number'))
   return { style, options: BARE_NUMBER_OPTIONS }
+}
+
+// ICU multiplies by a skeleton's scale before formatting and Intl has no such
+// option, so it would be dropped silently. Intl's percent style already
+// multiplies by 100, which ICU's percent unit does not, so `::percent
+// scale/100` keeps rendering 0.25 as 25% with no multiplier at all.
+function liftScale(resolved: ResolvedStyle): ResolvedStyle {
+  const { scale, ...options } = resolved.options
+  if (typeof scale !== 'number') return resolved
+  const multiplier = options['style'] === 'percent' ? scale / 100 : scale
+  const kept = Object.freeze(options)
+  if (multiplier === 1) return { style: resolved.style, options: kept }
+  return { style: resolved.style, options: kept, multiplier }
 }
 
 function resolveDateTimeStyle(
@@ -480,13 +496,21 @@ function rejectedText(token: string, form: SkeletonForm): DiagnosticText {
 }
 
 // A skeleton the tokenizer accepted can still be a stem nobody defined, which
-// formats nothing, or a currency with no code, which throws in the browser the
-// first time the message renders.
+// formats nothing, a currency with no code, which throws in the browser the
+// first time the message renders, or a scale that is not a finite number,
+// which would render every value as NaN or infinity.
 function unusable(token: string, form: SkeletonForm, options: IntlOptions): DiagnosticText | null {
   if (options['style'] === 'currency' && options['currency'] === undefined) {
     return {
       message: `The skeleton "${token}" asks for a currency format with no currency code.`,
       hint: 'Write ::currency/USD, or define formats.number.currency in loclizr.config.ts.',
+    }
+  }
+  const scale = options['scale']
+  if (typeof scale === 'number' && !Number.isFinite(scale)) {
+    return {
+      message: `The skeleton "${token}" has a scale that is not a number.`,
+      hint: 'Write the scale as a number, such as scale/1000.',
     }
   }
   if (Object.keys(options).length === 0) {

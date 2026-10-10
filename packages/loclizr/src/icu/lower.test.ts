@@ -561,3 +561,67 @@ describe('lower, syntax error fixes', () => {
     }
   })
 })
+
+describe('lower, skeleton scale', () => {
+  function formatOf(icu: string): unknown {
+    const result = lower(icu, icuContext())
+    expect(result.diagnostics).toStrictEqual([])
+    const node = result.nodes[0]
+    if (node === undefined || node.kind !== 'number') throw new Error(`${icu} did not lower to a number`)
+    return node.format
+  }
+
+  it('lifts scale out of the Intl options into a multiplier', () => {
+    expect(formatOf('{n, number, ::scale/1000}')).toStrictEqual({
+      kind: 'number',
+      options: {},
+      multiplier: 1000,
+    })
+  })
+
+  it('keeps a currency format beside its scale', () => {
+    expect(formatOf('{n, number, ::currency/USD scale/1000}')).toStrictEqual({
+      kind: 'number',
+      options: { currency: 'USD', style: 'currency' },
+      multiplier: 1000,
+    })
+  })
+
+  it('carries a fractional scale', () => {
+    expect(formatOf('{n, number, ::scale/0.01}')).toStrictEqual({
+      kind: 'number',
+      options: {},
+      multiplier: 0.01,
+    })
+  })
+
+  it('reads ::percent scale/100 as plain percent, since Intl already multiplies by 100', () => {
+    expect(formatOf('{n, number, ::percent scale/100}')).toStrictEqual({
+      kind: 'number',
+      options: { style: 'percent' },
+    })
+    expect(formatOf('{n, number, ::percent scale/1000}')).toStrictEqual({
+      kind: 'number',
+      options: { style: 'percent' },
+      multiplier: 10,
+    })
+  })
+
+  it('rejects a scale that is not a number instead of rendering NaN', () => {
+    for (const icu of ['{n, number, ::scale/abc}', '{n, number, ::scale}', '{n, number, ::percent scale/abc}']) {
+      const result = lower(icu, icuContext())
+      expect(codes(result.diagnostics)).toStrictEqual(['LZ2003'])
+      const node = result.nodes[0]
+      if (node === undefined || node.kind !== 'number') throw new Error(`${icu} did not lower to a number`)
+      expect(node.format).toStrictEqual({ kind: 'number', options: {} })
+    }
+  })
+
+  it('lifts scale on the retry path a bad sibling skeleton forces', () => {
+    const result = lower('{n, number, ::scale/1000} {d, date, ::qqqq}', icuContext())
+    expect(codes(result.diagnostics)).toStrictEqual(['LZ2003'])
+    expect(result.nodes[0]).toMatchObject({
+      format: { kind: 'number', options: {}, multiplier: 1000 },
+    })
+  })
+})

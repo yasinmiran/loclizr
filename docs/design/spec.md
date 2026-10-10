@@ -841,9 +841,9 @@ Verified behaviour of the installed parser, version 3.5.19:
 | `{x, date, short\|medium\|long\|full}` | `{ dateStyle: <style> }` |
 | `{x, time}` | `{ timeStyle: 'medium' }` |
 | `{x, time, short\|medium\|long\|full}` | `{ timeStyle: <style> }` |
-| `{x, number\|date\|time, ::skeleton}` | `style.parsedOptions` verbatim, except the `unit/` stem below |
+| `{x, number\|date\|time, ::skeleton}` | `style.parsedOptions` verbatim, except the `unit/` stem and a number skeleton's `scale`, which moves to `NumberFormatSpec.multiplier` (both below) |
 | any other named style | looked up in `config.formats.number` or `config.formats.dateTime`, else `LZ2002 icu-style-unknown` |
-| a `::` skeleton the parser rejects, that resolves to no options at all, or whose options `Intl` cannot build | `LZ2003 icu-skeleton-invalid`, and that node falls back to the bare form |
+| a `::` skeleton the parser rejects, that resolves to no options at all, whose `scale` is not a finite number, or whose options `Intl` cannot build | `LZ2003 icu-skeleton-invalid`, and that node falls back to the bare form |
 
 `LZ2003` is `fatal: never`, so the message must survive a bad skeleton, and
 the parser reports one as a failed parse. `lower` therefore reparses a
@@ -871,6 +871,18 @@ diagnostic never quotes the engine's error text. The parser also reads the
 as a type prefix, but `unit/` takes a bare core unit id, so the compiler keeps
 its whole option: `{x, number, ::unit/kilometer-per-hour}` resolves to
 `{ style: 'unit', unit: 'kilometer-per-hour' }`, not `unit: 'per-hour'`.
+
+`scale/N` in a number skeleton is ICU's multiply-before-formatting, and
+`Intl.NumberFormat` has no such option, so `lower` takes `scale` out of the
+options and sets `NumberFormatSpec.multiplier`; the generated code formats
+`value * multiplier`. `Intl`'s `percent` style already multiplies by 100, which
+ICU's `percent` unit does not, so under `style: 'percent'` the multiplier is
+`N / 100`, and a multiplier of 1 is omitted. `::scale/1000` renders 2 as
+`2,000`, `::currency/USD scale/1000` renders 2 as `$2,000.00`, `::scale/0.01`
+renders 500 as `5`, and `::percent scale/100` renders 0.25 as `25%`, exactly
+like `::percent`. The parser reads `scale/abc` and a bare `scale` as `NaN`,
+so a scale that is not a finite number is `LZ2003`, with the bare number
+options as the fallback, instead of rendering every value as `NaN`.
 
 A `date` or `time` argument whose resolved options contain no `timeZone` raises
 `LZ3011 date-without-timezone`, **default `off`**, once per message against the
@@ -2956,7 +2968,7 @@ so a truncated ICU makes **no** category claims rather than wrong ones.
 | --- | --- | --- | --- | --- | --- |
 | LZ2001 | `icu-syntax` | error | message | M3 | any parser `ErrorKind` other than the two below, or two options of one select equal under NFC |
 | LZ2002 | `icu-style-unknown` | error | never | M3 | a named style absent from the built-in table and from `config.formats` |
-| LZ2003 | `icu-skeleton-invalid` | error | never | M3 | a `::` skeleton the parser rejects or resolves to no options, `::currency` with no code, or options `Intl` cannot build; the node falls back to its bare form (section 5.2) |
+| LZ2003 | `icu-skeleton-invalid` | error | never | M3 | a `::` skeleton the parser rejects or resolves to no options, `::currency` with no code, a `scale` that is not a finite number, or options `Intl` cannot build; the node falls back to its bare form (section 5.2) |
 | LZ2004 | `plural-other-missing` | error | message | M3 | `MISSING_OTHER_CLAUSE` on a plural or selectordinal |
 | LZ2005 | `select-other-missing` | error | message | M3 | `MISSING_OTHER_CLAUSE` on a select |
 | LZ2006 | `plural-category-unknown` | error | never | M3 | a branch keyword that is neither a CLDR category nor `=N` |
@@ -3381,6 +3393,9 @@ export type IntlOptions = Readonly<Record<string, string | number | boolean>>
 export interface NumberFormatSpec {
   readonly kind: 'number'
   readonly options: IntlOptions
+  // An ICU skeleton's scale, which Intl has no option for, so the generated
+  // code multiplies the value by it before formatting. Absent means 1.
+  readonly multiplier?: number | undefined
 }
 
 export interface DateTimeFormatSpec {

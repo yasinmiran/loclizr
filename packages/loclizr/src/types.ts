@@ -116,6 +116,9 @@ export type IntlOptions = Readonly<Record<string, string | number | boolean>>
 export interface NumberFormatSpec {
   readonly kind: 'number'
   readonly options: IntlOptions
+  // An ICU skeleton's scale, which Intl has no option for, so the generated
+  // code multiplies the value by it before formatting. Absent means 1.
+  readonly multiplier?: number | undefined
 }
 
 export interface DateTimeFormatSpec {
