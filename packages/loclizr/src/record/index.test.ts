@@ -568,6 +568,100 @@ describe('serializeRecord', () => {
   })
 })
 
+describe('checkDescriptions on placeholder notes', () => {
+  function greeting(placeholders: readonly { name: string; note: string }[]): Message {
+    return message({
+      key: 'cart.greeting',
+      id: 'cart_greeting',
+      namespace: 'cart',
+      source: 'Hello, {name}',
+      args: [{ name: 'name', type: { kind: 'stringish' } }],
+      description: 'Heading',
+      placeholders,
+    })
+  }
+
+  it('reports a note whose name is no argument of the message, with the real arguments', () => {
+    const diagnostics = checkDescriptions(
+      program({ messages: [greeting([{ name: 'nmae', note: 'First name of the user' }])] }),
+    )
+
+    expect(diagnostics).toHaveLength(1)
+    const [diagnostic] = diagnostics
+    expect(diagnostic?.code).toBe('LZ1022')
+    expect(diagnostic?.rule).toBe('meta-placeholder-orphan')
+    expect(diagnostic?.severity).toBe('warn')
+    expect(diagnostic?.fatal).toBe(false)
+    expect(diagnostic?.key).toBe('cart.greeting')
+    expect(diagnostic?.file).toBe('locales/en.meta.json')
+    expect(diagnostic?.message).toContain('"nmae"')
+    expect(diagnostic?.message).toContain('takes name')
+    expect(diagnostic?.hint).toContain('"nmae"')
+  })
+
+  it('says so when the message takes no arguments at all', () => {
+    const diagnostics = checkDescriptions(
+      program({
+        messages: [
+          message({
+            key: 'nav.home',
+            id: 'nav_home',
+            namespace: 'nav',
+            source: 'Home',
+            placeholders: [{ name: 'count', note: 'Unread items' }],
+          }),
+        ],
+      }),
+    )
+
+    expect(diagnostics.map((diagnostic) => diagnostic.rule)).toEqual(['meta-placeholder-orphan'])
+    expect(diagnostics[0]?.message).toContain('takes no arguments')
+  })
+
+  it('accepts a note spelled NFD for an NFC argument, and a note on a markup tag', () => {
+    const diagnostics = checkDescriptions(
+      program({
+        messages: [
+          message({
+            key: 'cafe.open',
+            id: 'cafe_open',
+            namespace: 'cafe',
+            source: '<b>{caf\u00e9}</b>',
+            kind: 'markup',
+            markupTags: ['b'],
+            args: [
+              { name: 'b', type: { kind: 'markup' } },
+              { name: 'caf\u00e9', type: { kind: 'stringish' } },
+            ],
+            description: 'Opening hours',
+            placeholders: [
+              { name: 'cafe\u0301', note: 'Name of the cafe' },
+              { name: 'b', note: 'Bold' },
+            ],
+          }),
+        ],
+      }),
+    )
+
+    expect(diagnostics).toEqual([])
+  })
+
+  it('reports orphans in name order, whatever order the sidecar listed them', () => {
+    const notes = [
+      { name: 'zed', note: 'z' },
+      { name: 'alpha', note: 'a' },
+    ]
+    const forward = checkDescriptions(program({ messages: [greeting(notes)] }))
+    const backward = checkDescriptions(program({ messages: [greeting([...notes].reverse())] }))
+
+    expect(forward.map((diagnostic) => diagnostic.message)).toEqual(
+      backward.map((diagnostic) => diagnostic.message),
+    )
+    expect(forward[0]?.message).toContain('"alpha"')
+    expect(forward[1]?.message).toContain('"zed"')
+  })
+})
+
 describe('checkDescriptions', () => {
   it('reports a message that takes arguments and has no description', () => {
     const diagnostics = checkDescriptions(

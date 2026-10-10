@@ -64,6 +64,7 @@ export function serializeRecord(record: ContextRecord): string {
 export function checkDescriptions(program: Program): readonly Diagnostic[] {
   const diagnostics: Diagnostic[] = []
   for (const message of byKey(program.messages)) {
+    diagnostics.push(...orphanNotes(message, program))
     if (message.description !== null && message.description.trim() !== '') continue
     if (message.args.length === 0 && message.markupTags.length === 0) continue
     diagnostics.push(missingDescription(message, program))
@@ -242,6 +243,27 @@ A translator receives the string with nothing that says what it holds or where i
     file: located?.file,
     span: located?.span,
   })
+}
+
+// The record attaches a note by argument name and drops the rest, so a renamed
+// argument or a typo in the sidecar would otherwise lose the note unseen.
+function orphanNotes(message: Message, program: Program): readonly Diagnostic[] {
+  const names = new Set(message.args.map((arg) => arg.name.normalize('NFC')))
+  const meta = program.config.meta
+  const file = meta === false ? undefined : meta.replaceAll('{sourceLocale}', program.sourceLocale)
+  return message.placeholders
+    .filter((entry) => !names.has(entry.name.normalize('NFC')))
+    .map((entry) => entry.name)
+    .sort(compareCodepoint)
+    .map((name) =>
+      diag('meta-placeholder-orphan', {
+        message: `The placeholder note ${JSON.stringify(name)} on ${message.key} names no argument: ${message.key} ${message.args.length === 0 ? 'takes no arguments' : shapeOf(message)}.
+The note is dropped, so a translator never sees it.`,
+        hint: `rename ${JSON.stringify(name)} to the argument it describes, or delete it.`,
+        key: message.key,
+        file,
+      }),
+    )
 }
 
 // A tag name is an argument of kind markup, so a tagged message always takes one.

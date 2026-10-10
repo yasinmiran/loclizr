@@ -460,7 +460,11 @@ separate file cannot leak.
 The value is an object. `description` is a sentence for the translator.
 `placeholders` maps an argument name to a note about what that argument holds.
 An entry whose key is not in the source catalog is `LZ1015 meta-orphan` and is
-dropped. Keys are the post-fold, post-prefix form, so a split catalog's note is
+dropped. A `placeholders` key that names no argument of its message, compared by
+NFC name, is `LZ1022 meta-placeholder-orphan` and its note is dropped: a renamed
+argument or a typo would otherwise leave `note: null` in the record with no
+signal. M8 raises it, since the arguments are only known once the message is
+parsed. Keys are the post-fold, post-prefix form, so a split catalog's note is
 addressed `common.nav.home`, the same string the record and every diagnostic
 print.
 
@@ -2475,7 +2479,7 @@ this rule; the flag is never consulted by any other module.
 **`--max-warnings` defaults to no cap**, matching eslint's `-1`, so warnings
 alone never produce exit 1. `exitCodeFor` receives `Number.POSITIVE_INFINITY`
 when the flag is absent. That default decides whether a fresh i18next import
-exits 0 or 1, since eighteen rules default to `warn`, so it is stated here
+exits 0 or 1, since nineteen rules default to `warn`, so it is stated here
 rather than left for M10 and M11 to each pick one.
 
 ### 10.1 Diagnostics
@@ -3054,7 +3058,7 @@ own identifiers.
 
 ## 13. Rule catalog
 
-Fifty-six rules. Every code is stable forever. `severity` in the config
+Fifty-seven rules. Every code is stable forever. `severity` in the config
 re-levels any of them to `off`, `warn` or `error`, except `LZ1001`, `LZ1007` and
 `LZ5001`, which are not re-levelable (section 3).
 
@@ -3091,6 +3095,7 @@ claim one. Ranges are thematic and a range may span two owners.
 | LZ1019 | `icu-data-incomplete` | warn | never | M10 | the build machine's `Intl` has truncated ICU data |
 | LZ1020 | `icu-in-i18next-file` | warn | never | M2 | a file read as i18next contains a single-brace run shaped like a typed ICU argument, which will render as literal text |
 | LZ1021 | `outdir-foreign-file` | warn | never | M10 | a file under `outDir` does not carry the generated header, so it was neither overwritten nor pruned; or a symlink sits at an emitted path, so it was neither read nor replaced; or a headered orphan the prune could not delete |
+| LZ1022 | `meta-placeholder-orphan` | warn | never | M8 | a `placeholders` key in the meta sidecar whose NFC name is no argument of its message, so the note reaches no `RecordArg`; the message names the arguments the message does take |
 
 `LZ1020` is the one mistake `catalogFormat: 'auto'` can make invisible, so it is
 the one it reports. A run is any `{`, not doubled, followed by an argument name,
@@ -3459,6 +3464,7 @@ export type RuleName =
   | 'icu-data-incomplete'
   | 'icu-in-i18next-file'
   | 'outdir-foreign-file'
+  | 'meta-placeholder-orphan'
   | 'icu-syntax'
   | 'icu-style-unknown'
   | 'icu-skeleton-invalid'
@@ -4556,7 +4562,8 @@ the projection in section 13, and M10 owns it; M8's signatures are unchanged by
 it. A `RecordArg.note` is looked up by the argument's NFC name, with the
 tie-break of section 2.2 when two sidecar spellings land on one argument, so
 the winner never depends on `Message.placeholders` order, which the replay
-reverses. Raises LZ5006.
+reverses. Raises LZ5006, and LZ1022 for each note no argument matches, sorted
+by note name within each message.
 
 ### M9, config
 

@@ -34,6 +34,7 @@ export const RULES: Readonly<Record<RuleName, Rule>> = {
   'icu-data-incomplete': { code: 'LZ1019', name: 'icu-data-incomplete', severity: 'warn', fatal: 'never', exitTwo: false, owner: 'M10' },
   'icu-in-i18next-file': { code: 'LZ1020', name: 'icu-in-i18next-file', severity: 'warn', fatal: 'never', exitTwo: false, owner: 'M2' },
   'outdir-foreign-file': { code: 'LZ1021', name: 'outdir-foreign-file', severity: 'warn', fatal: 'never', exitTwo: false, owner: 'M10' },
+  'meta-placeholder-orphan': { code: 'LZ1022', name: 'meta-placeholder-orphan', severity: 'warn', fatal: 'never', exitTwo: false, owner: 'M8' },
   'icu-syntax': { code: 'LZ2001', name: 'icu-syntax', severity: 'error', fatal: 'message', exitTwo: false, owner: 'M3' },
   'icu-style-unknown': { code: 'LZ2002', name: 'icu-style-unknown', severity: 'error', fatal: 'never', exitTwo: false, owner: 'M3' },
   'icu-skeleton-invalid': { code: 'LZ2003', name: 'icu-skeleton-invalid', severity: 'error', fatal: 'never', exitTwo: false, owner: 'M3' },

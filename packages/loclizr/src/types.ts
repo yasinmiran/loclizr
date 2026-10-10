@@ -22,6 +22,7 @@ export type RuleName =
   | 'icu-data-incomplete'
   | 'icu-in-i18next-file'
   | 'outdir-foreign-file'
+  | 'meta-placeholder-orphan'
   | 'icu-syntax'
   | 'icu-style-unknown'
   | 'icu-skeleton-invalid'

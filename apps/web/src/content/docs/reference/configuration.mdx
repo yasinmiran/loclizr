@@ -140,6 +140,7 @@ Files read as i18next only.
 Flat-key JSON, per key a `description` and `placeholders` map. The path takes `{sourceLocale}`.
 
 - An entry for a key the source catalog lacks: `LZ1015 meta-orphan`.
+- A `placeholders` key that names no argument of its message: `LZ1022 meta-placeholder-orphan`.
 - `false` switches descriptions off; `LZ3012` and `LZ5006` then hint at setting `meta`.
 - The default stays under `locales/` whatever `catalogs` says. `loclizr init` sets it beside
   catalogs that live elsewhere; a hand-written config moves it the same way:
