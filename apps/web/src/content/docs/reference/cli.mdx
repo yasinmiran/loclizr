@@ -71,7 +71,7 @@ Add this step to CI, before any step that runs loclizr build:
 | No source catalog, or an empty one | `severity: { 'ambiguous-source': 'error' }`, a hard gate from the first commit |
 | Existing catalogs | the same line, commented out |
 | A generated tree (`messages.js` with the header, outside `node_modules`, `dist`, `build` and `outDir`) | `augmentLocale: false`, since two trees augmenting the registry in one program is TS2717 |
-| Another layout, such as `public/locales/{locale}/{ns}.json` | that `catalogs` pattern and no seed file, which would otherwise hide the real catalogs |
+| Another layout, such as `public/locales/{locale}/{ns}.json` or `lang/{locale}.json` | that `catalogs` pattern; `meta` and `record` in the layout's base directory when that is not `locales` (`lang/{sourceLocale}.meta.json`, `lang/loclizr.context.json`; `public/locales/` for the `{ns}` layout); `locales` with the list it found when the pattern has `{ns}`; and no seed file, which would otherwise hide the real catalogs |
 | Catalogs under a directory `catalogs` cannot spell, such as `app/(marketing)/locales/` | the default pattern, the gate commented out and no seed file; the output names the directory and says to move it |
 
 <Tabs>
@@ -107,6 +107,27 @@ export default defineConfig({
 ```
 
 </TabItem>
+<TabItem label="public/locales tree">
+
+```ts title="loclizr.config.ts, over public/locales/{en,de}/common.json"
+import { defineConfig } from 'loclizr'
+
+export default defineConfig({
+  locales: ['de', 'en'],
+  sourceLocale: 'en',
+  catalogs: 'public/locales/{locale}/{ns}.json',
+  meta: 'public/locales/{sourceLocale}.meta.json',
+  record: 'public/locales/loclizr.context.json',
+  outDir: 'src/loclizr',
+  // Turn this on once public/locales/en.meta.json describes your keys. It
+  // reports keys that share source text where at least one of them has no
+  // description, so on a catalog imported without descriptions it fires on
+  // every shared string at once.
+  // severity: { 'ambiguous-source': 'error' },
+})
+```
+
+</TabItem>
 </Tabs>
 
 The seed catalog writes its plural as ICU (`{count, plural, one {...} other {...}}`), not
@@ -115,22 +136,74 @@ imported i18next file. The config never sets `catalogFormat`.
 
 ### `loclizr build`
 
-```txt title="npx loclizr build, first run"
+<Tabs>
+<TabItem label="New project">
+
+```txt title="npx loclizr build, first run, with no src/loclizr and no record yet"
 wrote src/loclizr (21 files) and locales/loclizr.context.json
 commit locales/loclizr.context.json; `loclizr check` compares it
 26 messages, 3 locales (source en), 0 errors, 0 warnings
 ```
 
-Runs every rule, scans sources for usage, writes the tree under `outDir` and the record beside
-the catalogs.
+</TabItem>
+<TabItem label="Example checkout">
 
-- **Write-if-changed.** An unchanged rerun prints no `wrote` line.
+```txt title="npx loclizr build, in a fresh clone of the example"
+wrote src/loclizr (20 files)
+26 messages, 3 locales (source en), 0 errors, 0 warnings
+```
+
+</TabItem>
+</Tabs>
+
+The 21st file is the self-ignoring `.gitignore`, written only when `outDir` does not exist at the
+start of the run. The example tracks that file and its committed record already matches, so a
+clone's first build writes 20 files and leaves the record alone, with no `commit` line.
+
+Runs every rule, scans sources for usage, writes the tree under `outDir` and the record at
+`record`: `locales/loclizr.context.json` by default whatever `catalogs` is. `init` points it beside
+catalogs that live elsewhere.
+
+- **Write-if-changed.** An unchanged rerun prints no `wrote` line. A run that a fatal
+  diagnostic blocked prints `nothing generated: 1 fatal (LZ4002)` in its place.
 - **Prune.** Header-carrying files under `outDir` this emit did not produce are deleted, so a
   renamed top-level key leaves no `messages/old.js`. Files without the header are kept and raise
   `LZ1021 outdir-foreign-file`.
 - **Non-fatal errors still emit.** A missing German string still writes `messages.js` from the
   fallback chain, prints `LZ3001` and exits 1.
-- **Fatal diagnostics write nothing:** identifier collision, no catalogs, invalid config.
+- **Fatal diagnostics write nothing:** identifier collision, no catalogs, invalid config. A config
+  that cannot run (`LZ1001`, `LZ1007`) exits 2 with no summary. Every other fatal run that stops
+  before the write step exits 1, names the fatal codes in a `nothing generated` line, and prints no
+  `fell back to source text` line, since no tree was rendered.
+- **`LZ5001 output-unwritable` fails at the write step.** The tree was rendered, so the run keeps
+  its summary and its `fell back to source text` line, prints no `nothing generated` line, and
+  exits 2.
+
+```txt title="npx loclizr build, after adding a top-level subscribe key to en.json"
+error  LZ3001  missing-translation  locales/de-AT.json  de-AT  subscribe
+
+  The de-AT catalog has no value for this key, so this message renders en text.
+
+  fix  add "subscribe" to locales/de-AT.json
+
+error  LZ3001  missing-translation  locales/de.json  de  subscribe
+
+  The de catalog has no value for this key, so this message renders en text.
+
+  fix  add "subscribe" to locales/de.json
+
+error  LZ4002  identifier-reserved  locales/en.json:2:17  subscribe
+
+  The key "subscribe" produces the reserved identifier "subscribe".
+
+  fix  The generated barrel already exports that name, and a star export loses to it silently. Map the key in loclizr.config.ts: identifiers: { 'subscribe': 'subscribeMessage' }
+
+nothing generated: 1 fatal (LZ4002)
+27 messages, 3 locales (source en), 3 errors, 0 warnings
+```
+
+The `nothing generated` line prints under `--quiet` too, and when the rule was turned down to
+`warn` or `off`: the rule still blocks the tree.
 
 ### `loclizr check`
 
@@ -180,7 +253,7 @@ Global, after the command. `--max-warnings 0` and `--max-warnings=0` are equival
 | `--config <path>` | first of `loclizr.config.ts`, `.mts`, `.js`, `.mjs`; none means defaults | Relative to `--cwd`. Names no file: `LZ1001 config-invalid`, exit 2. |
 | `--reporter human\|json` | `human` | Anything else: usage error. |
 | `--max-warnings <n>` | no cap (also any negative `n`) | Exit 1 above `n` warnings. Non-integer: usage error. |
-| `--quiet` | off | Errors only; the summary stays when warnings were hidden. No effect on JSON. |
+| `--quiet` | off | Errors only; the counts line stays when warnings were hidden, and a `nothing generated` line always stays. No effect on JSON. |
 | `--no-fail` | off | `build` only; [below](#--no-fail). |
 | `-v`, `--version` | | The installed version, exit 0, with or without a command. |
 | `-h`, `--help` | | Usage block, exit 0, with or without a command. |
@@ -245,7 +318,7 @@ second on a laptop, so each loop is a full rebuild.
 | Code | Meaning |
 | --- | --- |
 | 0 | Clean, or warnings at or under `--max-warnings`. Also any `build --no-fail` that reached the write step. |
-| 1 | At least one error, or warnings over `--max-warnings`. |
+| 1 | At least one error, warnings over `--max-warnings`, or a fatal diagnostic that blocked the tree at any severity. |
 | 2 | The tool could not run. |
 
 Exit 2 has exactly these causes:
@@ -296,7 +369,7 @@ error  LZ3012  ambiguous-source  locales/en.json:5:14
 | Header | Severity, code, rule, then whichever of `file:line:column`, locale and key apply. |
 | Related | A three-column table, when the rule has related locations. |
 | `fix` | The rule's hint, line breaks kept. |
-| Summary | One line of counts, last. On `build`, preceded by the `wrote` line and a commit reminder (unless `LZ5007` already says so), and followed by `fell back to source text: de 2, de-AT 1` when any message resolved all the way to source text. |
+| Summary | One line of counts. On `build`, preceded by the `wrote` line and a commit reminder (unless `LZ5007` already says so), and followed by `fell back to source text: de 2, de-AT 1` when any message resolved all the way to source text. A run that a fatal diagnostic blocked prints `nothing generated: 1 fatal (LZ4002)` in place of the `wrote` line and no fallback line; with nothing analyzed, the counts name no source locale (`0 messages, 0 locales, 1 error, 0 warnings`). |
 
 Terminal control characters print as `<U+009B>`, and a newline in a key becomes one space.
 

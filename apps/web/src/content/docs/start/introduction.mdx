@@ -73,9 +73,10 @@ No extractor: run this loop one screen at a time.
 
 5. ### Turn on `unused-message`
 
-   When the last literal is gone, raise `LZ5005`, which ships `off`.
+   When the last literal is gone, raise `LZ5005`, which ships `off`, under `severity` in
+   `loclizr.config.ts`:
 
-   ```ts title="loclizr.config.ts"
+   ```ts
    severity: { 'unused-message': 'warn' }
    ```
 

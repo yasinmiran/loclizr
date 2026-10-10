@@ -5,8 +5,9 @@ description: The schema of locales/loclizr.context.json, and what the gate compa
 
 import { Aside } from '@astrojs/starlight/components'
 
-`loclizr build` writes `locales/loclizr.context.json` beside the catalogs; commit it. Whoever
-translates next, a person, a model or a TMS, reads it.
+`loclizr build` writes the record to the `record` path, `locales/loclizr.context.json` by default
+whatever `catalogs` says; commit it. `loclizr init` points it beside catalogs that live elsewhere.
+Whoever translates next, a person, a model or a TMS, reads it.
 
 It is a pure function of the catalogs, the meta sidecar, the scanned sources and the config, and
 never reads its own previous value. A fresh and an incremental regenerate agree byte for byte, and

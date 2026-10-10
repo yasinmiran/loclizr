@@ -107,14 +107,17 @@ fell back to source text: de 2, de-AT 1
 
 The generated tree is still written, with the broken messages filled from the
 fallback chain, so the app keeps typechecking and the real errors are not
-buried under "cannot find module". The exit code is what gates. Every rule can
-be re-levelled to `off`, `warn` or `error` under `severity` in
+buried under "cannot find module". The exit code is what gates. A fatal
+diagnostic, such as a key that produces a reserved identifier, writes nothing,
+and the summary names its code in a `nothing generated` line. Every rule but
+the three fixed ones (`LZ1001`, `LZ1007`, `LZ5001`, the only ones that exit 2)
+can be re-levelled to `off`, `warn` or `error` under `severity` in
 `loclizr.config.ts`.
 
 The same pass reports blank translations, arguments that differ between locales,
 markup tag mismatches, incomplete plural categories, and source strings shared
 by several keys where a translator could not tell them apart. Every rule has a
-code and can be re-levelled to `off`, `warn` or `error` under `severity`. Other
+code. Other
 tools check catalogs as well, usually as a step you add; here the check is part
 of `build` and on from the first run.
 
