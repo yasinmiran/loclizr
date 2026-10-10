@@ -90,7 +90,7 @@ export function requiredCategories(locale: string, ordinal: boolean): readonly s
   if (cached !== undefined) return cached
   // Intl answers a locale it has no data for with the build machine's default
   // locale, which would make the fold and the checks a function of $LANG.
-  // Empty means unknown: no lone `_other` folds and `_zero` stays `=0`.
+  // Empty means unknown: `_zero` stays `=0`.
   const categories = Object.freeze(
     Intl.PluralRules.supportedLocalesOf(locale).length === 0
       ? []

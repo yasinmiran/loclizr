@@ -333,7 +333,7 @@ describe('classifyFormat', () => {
     })
   })
 
-  it('does not classify on a suffix the fold step would not fold', () => {
+  it('does not classify on an orphan suffix, a v3 plural or a lone other', () => {
     expect(classifyFormat(keys({ items_one: 'one' })).format).toBe('icu')
     expect(classifyFormat(keys({ items: 'one', items_plural: 'many' })).format).toBe('icu')
     expect(classifyFormat(keys({ items_other: 'many' })).format).toBe('icu')
@@ -522,10 +522,58 @@ describe('foldPluralSuffixes diagnostics', () => {
     expect(result.diagnostics[0]?.hint).toContain('items_other')
   })
 
-  it('leaves a lone other alone where the locale has a sibling category', () => {
-    const result = foldPluralSuffixes(entries({ items_other: 'many' }), 'en', 'locales/en.json')
-    expect(result.entries.map((entry) => entry.key)).toEqual(['items_other'])
+  it('folds a lone other where the locale has a second category it lacks', () => {
+    const result = foldPluralSuffixes(
+      entries({ items_other: '{count} items' }),
+      'en',
+      'locales/en.json',
+    )
+    expect(result.entries.map((entry) => entry.key)).toEqual(['items'])
+    expect(valueOf(result, 'items')).toBe('{count, plural, other {{count} items}}')
     expect(result.diagnostics).toEqual([])
+  })
+
+  it('leaves a lone other alone beside a sibling that is not a plural category', () => {
+    const result = foldPluralSuffixes(
+      entries({ gender_male: 'Male', gender_female: 'Female', gender_other: 'Other' }),
+      'en',
+      'locales/en.json',
+    )
+    expect(result.entries.map((entry) => entry.key)).toEqual([
+      'gender_male',
+      'gender_female',
+      'gender_other',
+    ])
+    expect(result.diagnostics).toEqual([])
+  })
+
+  it('leaves a lone other alone beside the bare key it would fold to', () => {
+    const result = foldPluralSuffixes(
+      entries({ option: 'Option', option_other: 'Other' }),
+      'en',
+      'locales/en.json',
+    )
+    expect(result.entries.map((entry) => entry.key)).toEqual(['option', 'option_other'])
+    expect(result.diagnostics).toEqual([])
+  })
+
+  it('still folds a lone other beside a dotted or plural sibling', () => {
+    const result = foldPluralSuffixes(
+      entries({ items_other: 'many', 'items_list.title': 'List', items_ordinal_other: 'nth' }),
+      'en',
+      'locales/en.json',
+    )
+    expect(result.entries.map((entry) => entry.key)).toEqual([
+      'items',
+      'items_list.title',
+      'items_ordinal',
+    ])
+    const beside = foldPluralSuffixes(
+      entries({ place_other: 'many', place_ordinal: 'nth' }),
+      'en',
+      'locales/en.json',
+    )
+    expect(beside.entries.map((entry) => entry.key)).toEqual(['place', 'place_ordinal'])
   })
 
   it('folds a lone other where the locale has no second category to pair it with', () => {
@@ -549,9 +597,9 @@ describe('foldPluralSuffixes diagnostics', () => {
     expect(valueOf(result, 'place')).toBe('{count, selectordinal, other {{count}.}}')
   })
 
-  it('leaves a lone cardinal other of that same locale alone', () => {
+  it('folds a lone cardinal other of that same locale too', () => {
     const result = foldPluralSuffixes(entries({ place_other: 'Plätze' }), 'de', 'locales/de.json')
-    expect(result.entries.map((entry) => entry.key)).toEqual(['place_other'])
+    expect(result.entries.map((entry) => entry.key)).toEqual(['place'])
   })
 
   it('reports the i18next JSON v3 pair and keeps both keys', () => {

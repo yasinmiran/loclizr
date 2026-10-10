@@ -38,7 +38,7 @@ Every message still gets a function, so no page goes blank while you fix the cat
 | `{{user.name}}`, or any name ICU cannot read | `LZ1013`, error | Literal text; the hint names the flat name. |
 | JSON v3 `X` beside `X_plural` | `LZ1014 plural-suffix-orphan`, warn | Both stay ordinary keys. |
 | Bare `X` beside `X_one`, `X_other` | `LZ1011 duplicate-key`, error | The folded plural wins. i18next served the bare key only for a call with no count: delete or rename it. |
-| `X_other` with no CLDR sibling | none, or `LZ3001` and `LZ3003` | Folds alone only in a locale with one plural category: `ja` and `zh` cardinals, `de` ordinals. Elsewhere it stays the key `X_other`, so an `en` source holding only `items_other` reports `ja` missing `items_other` and holding an extra `items`. Give the source locale its full category set, `items_one` and `items_other` in `en`, and every locale folds to `items`. |
+| `X_other` with no CLDR sibling | `LZ3007 plural-category-incomplete`, warn, where the locale has more categories | Folds alone to `X` in every locale, so `ja` and an `en` source holding only `items_other` both fold to `items`; the warning names the `items_one` `en` lacks. It stays the key `X_other` when the file also holds a bare `X`, or an `X_word` whose word is not a plural category, such as `gender_other` beside `gender_male`. |
 | Context suffixes `friend_male` and `friend_female` | `LZ1017 i18next-context-detected`, warn | Each suffix is its own message. Detected only for `_male` and `_female`, and only when the bare `friend` exists; any other `X_word` key is an ordinary key. |
 | An empty or whitespace-only target value | `LZ3002 blank-translation`, error | Falls back to the source text. `severity: { 'blank-translation': 'off' }` is the equivalent of i18next's `returnEmptyString: false`: the fallback stays and the error goes. No setting renders the empty target the way i18next's default `returnEmptyString: true` does. |
 | An empty source value | none | Renders an empty string. Keys sharing the source text `""` group under `LZ3012`, like any shared text. A blank target under it raises nothing: its fallback renders the same empty string. |
@@ -109,13 +109,15 @@ An argument reaches the string exactly as passed, with no HTML escaping. Render 
 
 | File | Read as |
 | --- | --- |
-| Any value contains `{{`, or any key carries a CLDR plural suffix that would fold | i18next |
+| Any value contains `{{`, or an `X_other` has a CLDR sibling such as `X_one` | i18next |
 | Otherwise | ICU |
 
 Decided per file, after flattening and before any conversion, so a stray `{{` never flips one
 string on its own. No hybrid:
 single-brace ICU in an i18next file is literal text; `{{name}}` in an ICU file is a brace around an
-argument.
+argument. A file holding only lone `X_other` keys and no `{{` reads as ICU and keeps the key
+`X_other`, while an i18next source folds its `items_other` to `items`; pin `catalogFormat: 'i18next'`
+for such a set.
 
 `catalogFormat: 'icu'` or `'i18next'` pins every file. The example app's ICU `de.json` and
 i18next `de-AT.json` sit side by side under the default.

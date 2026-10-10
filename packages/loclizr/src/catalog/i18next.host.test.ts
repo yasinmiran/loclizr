@@ -29,9 +29,11 @@ function entries(pairs: Readonly<Record<string, string>>): readonly RawEntry[] {
 }
 
 describe('foldPluralSuffixes for a locale Intl has no plural data for', () => {
-  it('does not fold a lone _other on the host answer', () => {
+  it('folds a lone _other without reading the host answer', () => {
     const result = foldPluralSuffixes(entries({ files_other: '{count} files' }), 'xx', 'f.json')
-    expect(result.entries.map((entry) => entry.key)).toEqual(['files_other'])
+    expect(result.entries.map((entry) => entry.value)).toEqual([
+      '{count, plural, other {{count} files}}',
+    ])
   })
 
   it('writes _zero as =0 whatever the host answer carries', () => {

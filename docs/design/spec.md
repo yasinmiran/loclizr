@@ -139,8 +139,8 @@ entries:
   `{name, selectordinal ...}`, `{name, number ...}`, `{name, date ...}` or
   `{name, time ...}`, which is the one place valid ICU writes a `{{`: a branch
   body opening straight onto an argument, `one {{count} Artikel}`. Or when any
-  key belongs to a plural group that section 2.1 step 4 would fold with no
-  locale in hand, an `X_other` with at least one CLDR sibling;
+  key belongs to a plural group of section 2.1 step 4 that has two members or
+  more, an `X_other` with at least one CLDR sibling;
 - otherwise the file is **ICU**.
 
 A file is exactly one format. There is no hybrid parse: ICU argument syntax
@@ -156,12 +156,14 @@ without being read as i18next, and it is the narrowest rule that does: a `{{`
 in prose around a stray brace, `a { color: {{c}} }`, still counts as a
 placeholder, because no ICU value is shaped like that. Two misses are known and
 accepted. A `{{` written inside ICU quoted literal text, `'{{x}}'`, still
-classifies the file as i18next. And classification takes no locale, so a lone
-`X_other` never decides it: a file for a single-category locale (section 2.1
-step 4) that holds only lone `_other` keys and no `{{` reads as ICU and is never
-folded. `catalogFormat` is project-wide, so the way out for such a file is a
-value that classifies on its own, any `{{` placeholder, or pinning
-`catalogFormat: 'i18next'` for the whole catalog set.
+classifies the file as i18next. And a lone `X_other` never decides it, because
+`reason_other` is as likely an ordinary ICU key as an i18next plural: a file
+that holds only lone `_other` keys and no `{{` reads as ICU and is never
+folded, so its key `items_other` disagrees with an i18next source that folds
+the same key to `items` (section 2.1 step 4). `catalogFormat` is
+project-wide, so the way out for such a file is a value that classifies on its
+own, any `{{` placeholder, or pinning `catalogFormat: 'i18next'` for the whole
+catalog set.
 
 Section 2.1 steps 1 through 4, and `LZ1012` through `LZ1014`, `LZ1016` and
 `LZ1017`, apply **only to a file read as i18next**. An `X_one` with no `X_other`
@@ -354,17 +356,28 @@ changing meaning.
    two with a call-site option the compiler does not have, so the compiler keeps
    both rather than guessing.
 
-   **A lone `X_other` folds where the locale has a single category.** Where
-   `requiredCategories(locale, ordinal)` has exactly one member, which is
-   cardinal ja, zh, ko, th, vi and id, and the ordinal of German, Spanish,
-   Dutch, Polish and most of Europe, `X_other` can never have a sibling and is
-   already the whole plural, so it folds alone. Without that, a fully
-   translated ja catalog keeps the key `items_other` while the en source folds
-   to `items`, every plural message is reported `LZ3001` missing and `LZ3003`
-   extra at once, and the app ships English plurals to a translated locale.
-   The rule is locale driven, never source-key driven, so the fold stays pure.
-   Everywhere else a lone `X_other` stays an ordinary key and raises nothing:
-   i18next selects it for every count, so nothing is lost.
+   **A lone `X_other` folds in every locale.** `_other` is i18next's plural
+   form everywhere, so `X_other` with no CLDR sibling becomes the key `X` with
+   the value `{count, plural, other {...}}`, and a lone `X_ordinal_other`
+   becomes `{count, selectordinal, other {...}}` on the same rule. A ja catalog
+   can hold nothing but `_other`, because cardinal ja, zh, ko, th, vi and id
+   have one category, and an en source holding the same lone `items_other`
+   must fold to the same key `items`, or every plural message is reported
+   `LZ3001` missing and `LZ3003` extra at once and the app ships the source
+   text to a translated locale. The fold reads no locale data, so it is the
+   same on every machine and for a locale `Intl` has no plural data for; the
+   categories the source lacks are `LZ3007`'s to report (section 5.3).
+
+   **A lone `X_other` folds only where the key looks like a plural.** It stays
+   an ordinary key, and raises nothing, when the same file also holds the bare
+   key `X`, or a key `X_<word>` whose `<word>` holds no `_` or `.` and is
+   neither a CLDR category nor `ordinal`. `gender_other` beside `gender_male`
+   and `gender_female`, or `option_other` beside a bare `option`, is a value
+   that i18next reaches as a context, `t('option', { context: 'other' })`, not
+   a plural, and folding it would rename a working key and demand a `count`.
+   `items_other` beside `items_list.title` or `items_ordinal_other` still
+   folds, because a nested key and plural spelling say nothing about the base.
+   The test reads that one file's keys, so the fold stays pure.
 
    Branches are ordered `=0, zero, one, two, few, many, other`. The plural
    selector is always named `count`, because that is i18next's fixed selector
@@ -987,12 +1000,11 @@ The set of categories a locale requires comes from
 when `Intl.PluralRules.supportedLocalesOf(locale)` is non-empty and `[]`
 otherwise, so there is no hand-maintained CLDR table and a locale `Intl` has no
 data for never borrows the build machine's default locale's categories. `[]`
-means unknown, not none: M2 folds no lone `_other` and keeps `_zero` as `=0`
-for such a locale, and M5 would read every keyword branch of it as `LZ3013`,
-including `other`, which is correct only because M10 drops `LZ3007` and
-`LZ3013` for every locale without plural data before reporting (section 16,
-M10 step 0). It lives in M1's `src/util` because M2's
-suffix folding and M5's checks both need it; M3 never calls it, because
+means unknown, not none: M2 keeps `_zero` as `=0` for such a locale, and M5
+would read every keyword branch of it as `LZ3013`, including `other`, which is
+correct only because M10 drops `LZ3007` and `LZ3013` for every locale without
+plural data before reporting (section 16, M10 step 0). It lives in M1's
+`src/util` because M2's suffix folding and M5's checks both need it; M3 never calls it, because
 `LZ2006` tests the universal CLDR keyword set and every locale-specific rule is
 M5's. A locale missing one of its required categories raises
 `LZ3007 plural-category-incomplete` as a warning. Only keyword branches count:
@@ -3042,7 +3054,7 @@ claim one. Ranges are thematic and a range may span two owners.
 | LZ1011 | `duplicate-key` | error | never | M2 | the same flat key path from a nested and a dotted form where both end in a message string, from a JSON key written twice in one object whatever the values, from a bare `X` beside a group that folds to `X`, or from two namespace files of one locale. `JSON.parse` silently keeps the last one, which is how a translation disappears with no diff |
 | LZ1012 | `i18next-nesting-unsupported` | error | never | M2 | a value contains `$t(` |
 | LZ1013 | `i18next-format-unsupported` | error | never | M2 | a placeholder carries an inline formatter, `{{val, fmt}}`, or a name ICU cannot read as an argument, `{{user.name}}` |
-| LZ1014 | `plural-suffix-orphan` | warn | never | M2 | a CLDR-suffixed key with no `_other` sibling, or an `X_plural` beside a bare `X` (i18next JSON v3). A lone `X_other` is not this: i18next selects it for every count |
+| LZ1014 | `plural-suffix-orphan` | warn | never | M2 | a CLDR-suffixed key with no `_other` sibling, or an `X_plural` beside a bare `X` (i18next JSON v3). A lone `X_other` is not this: it folds, or stays a key beside a sibling that says it is not a plural (section 2.1 step 4) |
 | LZ1015 | `meta-orphan` | warn | never | M2 | a meta entry for a key absent from the source catalog |
 | LZ1016 | `i18next-markup-literal` | warn | never | M2 | an i18next value contained tag-shaped text, which was escaped to literal text |
 | LZ1017 | `i18next-context-detected` | warn | never | M2 | a key `X_male` or `X_female` beside a bare `X`, which i18next picked at run time and which is now its own message with no selector. No other suffix is a context, because `X_<word>` beside `X` is ordinary snake_case naming |
@@ -4189,9 +4201,9 @@ i18next. Under an explicit `'icu'` or `'i18next'`, `classifyFormat` is not
 called and the configured value is stamped on every catalog. `classifyFormat` is
 pure and takes only the entries, which is what makes section 2's rule unit
 testable: a `{{` outside a typed ICU argument run in any value, or a key that
-belongs to an `X_other`-plus-sibling group, means i18next; otherwise ICU. It
-has no locale in hand, so a lone `X_other` never decides the format even where
-`foldPluralSuffixes` would later fold it (section 2).
+belongs to an `X_other`-plus-sibling group, means i18next; otherwise ICU. A lone
+`X_other` never decides the format even though `foldPluralSuffixes` folds it in
+a file read as i18next (section 2).
 
 Section 2.1 and `LZ1012` through `LZ1014`, `LZ1016` and `LZ1017` therefore apply
 to a file read as i18next and to no other. `readCatalogs` raises `LZ1020` per

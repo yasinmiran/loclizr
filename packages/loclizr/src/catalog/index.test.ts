@@ -256,6 +256,20 @@ describe('readCatalogs format decisions', () => {
     expect(result.diagnostics).toEqual([])
   })
 
+  it('folds a lone source other onto the key a single category locale folds to', async () => {
+    const root = await tree({
+      'locales/en.json': json({ items_other: '{{count}} items' }),
+      'locales/ja.json': json({ items_other: '{{count}} 個' }),
+    })
+    const result = await readCatalogs(
+      makeConfig(root, { locales: ['en', 'ja'], meta: false }),
+    )
+
+    expect(entryOf(result, 'en', 'items')?.value).toBe('{count, plural, other {{count} items}}')
+    expect(entryOf(result, 'ja', 'items')?.value).toBe('{count, plural, other {{count} 個}}')
+    expect(result.diagnostics).toEqual([])
+  })
+
   it('lowers tags to markup under i18nextMarkup tags', async () => {
     const root = await tree({ 'locales/en.json': json({ terms: 'Read <b>{{what}}</b>' }) })
     const result = await readCatalogs(

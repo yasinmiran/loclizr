@@ -85,9 +85,10 @@ interface Piece {
 }
 
 export function classifyFormat(entries: readonly RawEntry[]): FormatVerdict {
-  // Classification is locale free by signature, so a lone `_other` never
-  // decides the format even where the locale would fold it.
-  const folded = foldedIndices(pluralGroups(entries.map((entry) => entry.key), null))
+  // `reason_other` is as likely an ordinary ICU key as an i18next plural, so a
+  // lone `_other` never decides the format even though a file read as i18next
+  // folds it.
+  const folded = foldedIndices(pluralGroups(entries.map((entry) => entry.key), false))
   for (const [index, entry] of entries.entries()) {
     if (hasPlaceholder(entry.value)) return { format: 'i18next', because: entry.value }
     if (folded.has(index)) return { format: 'i18next', because: entry.key }
@@ -179,7 +180,7 @@ export function foldPluralSuffixes(
 ): FoldResult {
   const diagnostics: Diagnostic[] = []
   const known = hasPluralData(locale)
-  const groups = pluralGroups(entries.map((entry) => entry.key), known ? locale : null)
+  const groups = pluralGroups(entries.map((entry) => entry.key), true)
   const startsGroup = new Map(groups.map((group) => [group.first, group]))
   const consumed = foldedIndices(groups)
   const foldedKeys = new Set(groups.map((group) => group.key))
@@ -254,8 +255,8 @@ function orphanOf(
     ]
   }
   const suffix = suffixOf(entry.key)
-  // A lone `_other` is what i18next selects for every count, so nothing is lost
-  // and nothing folds; every other category with no `_other` sibling is dead.
+  // A lone `_other` left unfolded sits beside a sibling that says it is not a
+  // plural; every other category with no `_other` sibling is dead.
   if (suffix === null || suffix.category === 'other') return []
   const sibling = suffix.ordinal ? `${suffix.base}_ordinal_other` : `${suffix.base}_other`
   return [
@@ -313,9 +314,8 @@ function contextsOf(
   return diagnostics
 }
 
-// `locale` decides whether a lone `X_other` is a group; a caller with no locale
-// in hand passes null and never folds one.
-function pluralGroups(keys: readonly string[], locale: string | null): readonly PluralGroup[] {
+function pluralGroups(keys: readonly string[], foldLone: boolean): readonly PluralGroup[] {
+  const notPlural = foldLone ? nonPluralBases(keys) : new Set<string>()
   const buckets = new Map<string, Bucket>()
   for (const [index, key] of keys.entries()) {
     const suffix = suffixOf(key)
@@ -325,7 +325,7 @@ function pluralGroups(keys: readonly string[], locale: string | null): readonly 
     bucket.members.push({ category: suffix.category, index })
     buckets.set(id, bucket)
   }
-  const complete = [...buckets.values()].filter((bucket) => isGroup(bucket, locale))
+  const complete = [...buckets.values()].filter((bucket) => isGroup(bucket, foldLone, notPlural))
   const cardinalBases = new Set(
     complete.filter((bucket) => !bucket.ordinal).map((bucket) => bucket.base),
   )
@@ -339,15 +339,32 @@ function pluralGroups(keys: readonly string[], locale: string | null): readonly 
   }))
 }
 
-// `X_other` plus one CLDR sibling is a group. Where the locale has a single
-// category, `X_other` can never have a sibling and is already the whole plural,
-// so it folds alone: ja, zh and ko cardinal, and most of Europe's ordinals.
-// Leaving it unfolded would make the key of a fully translated locale disagree
-// with the source key and report the message missing and extra at once.
-function isGroup(bucket: Bucket, locale: string | null): boolean {
+// `X_other` plus one CLDR sibling is a group. A lone `X_other` is one too,
+// because `_other` is i18next's plural form in every locale: a ja catalog holds
+// nothing else, and folding it only there would make its key disagree with an
+// en source holding the same lone `_other`. LZ3007 then names the categories
+// the source lacks.
+function isGroup(bucket: Bucket, foldLone: boolean, notPlural: ReadonlySet<string>): boolean {
   if (!bucket.members.some((member) => member.category === 'other')) return false
   if (bucket.members.length > 1) return true
-  return locale !== null && requiredCategories(locale, bucket.ordinal).length === 1
+  return foldLone && !notPlural.has(bucket.base)
+}
+
+// Bases whose lone `X_other` is a value beside its siblings rather than a
+// plural: `gender_other` beside `gender_male`, or `option_other` beside a bare
+// `option`, which i18next reaches as `t('option', { context: 'other' })`.
+// A dotted suffix is a nested key and a CLDR or ordinal suffix is plural
+// spelling, so neither says anything about the base.
+function nonPluralBases(keys: readonly string[]): ReadonlySet<string> {
+  const bases = new Set(keys)
+  for (const key of keys) {
+    const cut = key.lastIndexOf('_')
+    if (cut <= 0) continue
+    const suffix = key.slice(cut + 1)
+    if (suffix.includes('.') || suffix === 'ordinal' || CLDR_CATEGORIES.includes(suffix)) continue
+    bases.add(key.slice(0, cut))
+  }
+  return bases
 }
 
 // Intl answers a tag it has no plural data for, `xx` or `shared`, with the build
