@@ -684,7 +684,7 @@ The resolution result is recorded as one of three origins:
 | --- | --- | --- |
 | `translated` | the locale's own catalog had a value it can render | none |
 | `inherited` | no own value; resolved through a declared non-source ancestor whose own value renders | none |
-| `fallback` | fell all the way through to the source locale | `LZ3001` for reason `missing`, `LZ3002` for `blank`, and none of its own for `invalid`, whose cause M3 or M5 already reported |
+| `fallback` | fell all the way through to the source locale | `LZ3001` for reason `missing`, `LZ3002` for `blank` unless the source value is blank too, and none of its own for `invalid`, whose cause M3 or M5 already reported |
 
 This makes sparse regional overlays first class. A `de-AT.json` holding twelve
 overrides on top of a complete `de.json` is a valid catalog, not 388 errors.
@@ -3089,7 +3089,7 @@ nothing reporting it anywhere.
 | Code | Rule | Default | Fatal | Owner | Trigger |
 | --- | --- | --- | --- | --- | --- |
 | LZ3001 | `missing-translation` | error | never | M5 | the locale resolved by falling through to the source locale, reason `missing` |
-| LZ3002 | `blank-translation` | error | never | M5 | the same, reason `blank`: an empty or whitespace-only value |
+| LZ3002 | `blank-translation` | error | never | M5 | the same, reason `blank`: an empty or whitespace-only value. Not raised where the source value is blank by the same test, since the fallback renders the same blank text |
 | LZ3003 | `extra-translation` | warn | never | M5 | a key present in a target catalog and absent from the source, read off `Program.extras` |
 | LZ3004 | `arg-missing` | error | never | M5 | a source argument absent from a translation |
 | LZ3005 | `arg-extra` | error | never | M5 | a translation introduces an argument, or a markup tag, the source does not have |

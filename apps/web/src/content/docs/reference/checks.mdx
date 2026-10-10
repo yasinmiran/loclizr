@@ -156,7 +156,7 @@ recorded `translated`, so a catalog seeded by copying `en.json` reports nothing.
 | Code | Rule | Default | Fatal | Fires when | Fix |
 | --- | --- | --- | --- | --- | --- |
 | `LZ3001` | `missing-translation` | error | never | A locale has no value (`null` counts) and fell through to the source. Inheriting from a declared ancestor (`de-AT` from `de`) is not this. | Add the key to the target catalog. |
-| `LZ3002` | `blank-translation` | error | never | The same, with an empty or whitespace-only value. | Write a value. |
+| `LZ3002` | `blank-translation` | error | never | The same, with an empty or whitespace-only value. Not raised where the source value is blank too. | Write a value. |
 | `LZ3003` | `extra-translation` | warn | never | A target key the source catalog lacks. No message is generated for it. | Add it to the source catalog, or delete it from the target. |
 | `LZ3004` | `arg-missing` | error | never | A source argument the translation does not use. | Add the argument, such as `{name}`, to the translation. |
 | `LZ3005` | `arg-extra` | error | never | The translation uses an argument or tag the source lacks. That locale renders source text. | Fix the spelling, remove the tag, or add it to the source. |

@@ -54,11 +54,15 @@ export function runChecks(program: Program): readonly Diagnostic[] {
 }
 
 function checkOrigins(program: Program, message: Message, out: Diagnostic[]): void {
+  // A blank value under a blank source falls back to the same blank text it
+  // wrote, so there is nothing for a translator to fix.
+  const blankSource = message.source.trim() === ''
   for (const entry of byLocale(message.origins)) {
     if (entry.locale === program.sourceLocale) continue
     if (entry.origin.status !== 'fallback') continue
     if (entry.origin.reason === 'invalid') continue
     const blank = entry.origin.reason === 'blank'
+    if (blank && blankSource) continue
     const file = catalogFile(program, message, entry.locale)
     out.push(
       diag(blank ? 'blank-translation' : 'missing-translation', {

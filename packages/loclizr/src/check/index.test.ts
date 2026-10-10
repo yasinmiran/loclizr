@@ -121,6 +121,26 @@ describe('missing and blank translations', () => {
     expect(blank.span?.line).toBe(7)
   })
 
+  it('stays quiet on a blank value under a blank source value', () => {
+    const blankUnder = (source: string): readonly Diagnostic[] =>
+      runChecks(
+        program({
+          messages: [
+            message({
+              key: 'spacer',
+              source,
+              bodies: [body('en', { nodes: source === '' ? [] : [text(source)] })],
+              origins: [translated('en'), fellBack('de', 'en', 'blank')],
+            }),
+          ],
+        }),
+      )
+
+    expect(withCode(blankUnder(''), 'LZ3002')).toEqual([])
+    expect(withCode(blankUnder(' \n\t'), 'LZ3002')).toEqual([])
+    expect(only(blankUnder('Spacer'), 'LZ3002').locale).toBe('de')
+  })
+
   it('stays quiet for translated and inherited locales', () => {
     const diagnostics = runChecks(
       program({

@@ -38,6 +38,7 @@ a minor release may break an invariant, and this file says so when it does.
 - `loclizr init` sets `record` beside catalogs that live outside `locales/`, as it does `meta`, instead of leaving a `locales/` that holds only the record (#88).
 - `getLocale()` outside a request scope warns before the first request as well as between requests: `loclizr/server` installs its scope when it loads, as the spec states.
 - `::jm` and other date or time skeletons with `j` now render the hour in the locale's own cycle instead of dropping it; `J` and `C` raise `LZ2003`; `::measure-unit/... per-measure-unit/...` composes into a compound unit such as `meter-per-second` instead of losing the per unit (#79, #114).
+- `LZ3002 blank-translation` no longer fires on a blank target value when the source value is blank too, and the i18next import guide covers bare keys beside plurals, empty values and lone `_other` keys (#14).
 
 ## 0.1.1 - 2026-10-03
 
