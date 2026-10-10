@@ -34,9 +34,11 @@ body {
 
 /* Type one step up from the theme, which pins every element in the content
    to 15px: body text at 16px, the headings and the side columns in scale.
-   Code keeps its own size, and widgets outside the prose keep theirs. */
+   Code keeps its own size, and widgets outside the prose keep theirs. Being
+   unlayered already beats the theme, so :where keeps this at the theme's own
+   weight and the heading and code sizes below still win. */
 @media (min-width: 40rem) {
-  .sl-markdown-content *:not(.expressive-code, .expressive-code *, .not-content, .not-content *) {
+  .sl-markdown-content :where(*:not(.expressive-code, .expressive-code *, .not-content, .not-content *)) {
     font-size: 1rem;
   }
   .sl-markdown-content :not(pre) > code {
