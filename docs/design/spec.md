@@ -2625,7 +2625,7 @@ object of two optional strings rather than a `Headers`, so nothing outside a
 Fetch runtime has to construct one: Express hands it
 `{ cookie: req.headers.cookie, acceptLanguage: req.headers['accept-language'] }`,
 Fastify the same, and a Next Pages Router handler the same, and each then wraps
-its render in `runWithLocale`. Section 1 excludes Next as a first-class target
+the whole request in `runWithLocale`. Section 1 excludes Next as a first-class target
 and this does not change that; it removes the reason the exclusion would have
 been a wall rather than a missing example.
 
