@@ -2519,6 +2519,10 @@ withLocale<A extends unknown[]>(
   handler: (request: Request, ...rest: A) => Response | Promise<Response>,
   options: NegotiateOptions,
 ): (request: Request, ...rest: A) => Promise<Response>
+withLocale<A extends unknown[]>(
+  handler: (request: Request, ...rest: A) => Response | undefined | Promise<Response | undefined>,
+  options: NegotiateOptions,
+): (request: Request, ...rest: A) => Promise<Response | undefined>
 negotiate(accepted: readonly string[], options: NegotiateOptions): string
 localeFromRequest(request: Request, options: NegotiateOptions): string
 localeFromHeaders(
@@ -2594,6 +2598,12 @@ that a response whose locale came from the cookie must not enter a shared cache.
 Either `Cache-Control: private`, or a CDN cache key that includes the locale
 cookie. A network error from `Response.error()` has neither mutable headers nor
 a status a rebuilt response can carry, so `withLocale` returns it unchanged.
+A handler that returns `undefined` has no response at all: Bun's `fetch`
+returns it after `server.upgrade(request)` takes the socket for a WebSocket and
+answers the handshake itself. `withLocale` resolves to that `undefined`
+unchanged, and the second overload types it, so the upgrade still runs inside
+the negotiated scope, while a handler typed to return only `Response` still gets
+`Promise<Response>` from the first overload.
 
 `getLocale()` on the server outside any scope returns the source locale and
 warns once per process outside production. It does **not** throw. Static
@@ -4647,6 +4657,12 @@ export declare function withLocale<A extends unknown[]>(
   handler: (request: Request, ...rest: A) => Response | Promise<Response>,
   options: NegotiateOptions,
 ): (request: Request, ...rest: A) => Promise<Response>
+// Bun's fetch handler returns undefined once server.upgrade() has taken the
+// socket, and Bun answers the handshake itself.
+export declare function withLocale<A extends unknown[]>(
+  handler: (request: Request, ...rest: A) => Response | undefined | Promise<Response | undefined>,
+  options: NegotiateOptions,
+): (request: Request, ...rest: A) => Promise<Response | undefined>
 export declare function negotiate(accepted: readonly string[], options: NegotiateOptions): string
 export declare function localeFromRequest(request: Request, options: NegotiateOptions): string
 // The primitive. localeFromRequest is a thin wrapper that reads the two headers

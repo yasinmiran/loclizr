@@ -23,6 +23,7 @@ a minor release may break an invariant, and this file says so when it does.
 - a locale cookie written in RFC 6265 quoted form (`locale="de"`) now resolves to its locale on the server and the client instead of falling back to the source locale (#98).
 - `setLocale` warns once outside production when the locale cookie it wrote does not read back, as on `file://` pages (Electron `loadFile`) or with cookies blocked, where the choice lasts only until reload (#105).
 - The dev warning for `getLocale()` outside a request scope now says to wrap the whole request in `runWithLocale()` (loaders, actions and the render), not just the render, which left React Router and Remix loaders in the source locale (#75).
+- `withLocale` passes through the `undefined` a Bun handler returns after `server.upgrade()`, instead of rejecting and crashing the Bun process on the first WebSocket connection; a second overload types such handlers without a cast (#82).
 
 ## 0.1.1 - 2026-10-03
 

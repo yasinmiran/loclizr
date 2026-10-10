@@ -18,10 +18,21 @@ export function runWithLocale<T>(locale: string, fn: () => T): T {
 export function withLocale<A extends unknown[]>(
   handler: (request: Request, ...rest: A) => Response | Promise<Response>,
   options: NegotiateOptions,
-): (request: Request, ...rest: A) => Promise<Response> {
+): (request: Request, ...rest: A) => Promise<Response>
+// Bun's fetch handler returns undefined once server.upgrade() has taken the
+// socket, and Bun answers the handshake itself.
+export function withLocale<A extends unknown[]>(
+  handler: (request: Request, ...rest: A) => Response | undefined | Promise<Response | undefined>,
+  options: NegotiateOptions,
+): (request: Request, ...rest: A) => Promise<Response | undefined>
+export function withLocale<A extends unknown[]>(
+  handler: (request: Request, ...rest: A) => Response | undefined | Promise<Response | undefined>,
+  options: NegotiateOptions,
+): (request: Request, ...rest: A) => Promise<Response | undefined> {
   return async (request, ...rest) => {
     const locale = localeFromRequest(request, options)
     const response = await runWithLocale(locale, () => handler(request, ...rest))
+    if (response === undefined) return response
     return announce(response, locale)
   }
 }

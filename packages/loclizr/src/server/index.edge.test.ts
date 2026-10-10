@@ -384,6 +384,42 @@ describe('withLocale', () => {
   })
 })
 
+describe('withLocale on a WebSocket upgrade', () => {
+  // Bun's fetch contract: once server.upgrade() takes the socket, the handler
+  // returns undefined and Bun answers the handshake itself.
+  interface UpgradingServer {
+    upgrade(request: Request, options: { data: { locale: string } }): boolean
+  }
+
+  test('passes undefined through and runs the handler in the negotiated scope', async () => {
+    const resolve = $configure1(SETUP)
+    const upgraded: string[] = []
+    const server: UpgradingServer = {
+      upgrade(_incoming, options) {
+        upgraded.push(options.data.locale)
+        return true
+      },
+    }
+    const handler = withLocale((incoming: Request, host: UpgradingServer) => {
+      if (host.upgrade(incoming, { data: { locale: resolve() } })) return
+      return new Response(resolve())
+    }, OPTIONS)
+    await expect(handler(request({ cookie: 'locale=de-AT' }), server)).resolves.toBeUndefined()
+    expect(upgraded).toEqual(['de-AT'])
+  })
+
+  test('still stamps the response when the upgrade is refused', async () => {
+    const handler = withLocale(
+      (incoming: Request, host: UpgradingServer) =>
+        host.upgrade(incoming, { data: { locale: 'fr' } }) ? undefined : new Response('plain'),
+      OPTIONS,
+    )
+    const response = await handler(request({ cookie: 'locale=fr' }), { upgrade: () => false })
+    expect(await response?.text()).toBe('plain')
+    expect(response?.headers.get('Content-Language')).toBe('fr')
+  })
+})
+
 describe('withLocale on Vary', () => {
   async function varyAfter(headers: HeadersInit): Promise<string | null> {
     const handler = withLocale(() => new Response('ok', { headers }), OPTIONS)
