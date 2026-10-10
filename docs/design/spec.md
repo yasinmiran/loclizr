@@ -394,20 +394,22 @@ changing meaning.
    select, which M5 would then report as `LZ3013`. Section 5.3 tests exact
    branches before the category lookup, so both forms work.
 
-   **i18next context suffixes are detected, not converted.** A key set matching
-   `X_<suffix>` where a bare `X` also exists raises
-   `LZ1017 i18next-context-detected` as a warning. It is evaluated over the
-   post-fold key set, so a context under a folded base, `friend` beside
-   `friend_male` folded from `friend_male_one` and `friend_male_other`, is
-   caught, and the suffixes `plural`, `ordinal` and the six CLDR categories are
-   never contexts, because those are the two plural shapes above. A suffix
-   holding a dot is never a context either: `user_settings.title` beside `user`
-   is a nested key under an underscored segment, and a dotted selector would not
-   parse in the rewrite. i18next
-   selected contexts at run time with `t('friend', { context: gender })`, and
-   after import they are `m.friend_male` and `m.friend_female` selected by
-   nothing. The typed lookup tier is prefix based and cannot reach a suffix, so
-   the hint prints the exact one-line rewrite instead:
+   **i18next context suffixes are detected, not converted.** A key
+   `X_male` or `X_female` where a bare `X` also exists raises
+   `LZ1017 i18next-context-detected` as a warning. Only those two suffixes
+   count: `X_<word>` beside `X` is the ordinary snake_case naming of many
+   catalogs (`accept` beside `accept_invitation`, `basic` beside `basic_desc`),
+   and reading it as a context group reports separate messages as lost and
+   prints a rewrite that deletes them. That also rules out `plural`, `ordinal`,
+   the six CLDR categories and any suffix holding a dot, such as
+   `user_settings.title` beside `user`. It is evaluated over the post-fold key
+   set, so a context under a folded base, `friend` beside `friend_male` folded
+   from `friend_male_one` and `friend_male_other`, is caught. i18next picked
+   contexts at run time with `t('friend', { context: gender })`, and after
+   import `m.friend_male` and `m.friend_female` are each their own message,
+   with no selector picking between them. The typed lookup tier is prefix
+   based and cannot reach a suffix, so the hint prints the exact one-line
+   rewrite instead:
    `{context, select, male {...} female {...} other {...}}`, **together with the
    instruction to convert this file to ICU first**, because that line pasted
    into a file read as i18next is literal text and `LZ1020`. That turns a silent
@@ -2927,7 +2929,7 @@ claim one. Ranges are thematic and a range may span two owners.
 | LZ1014 | `plural-suffix-orphan` | warn | never | M2 | a CLDR-suffixed key with no `_other` sibling, or an `X_plural` beside a bare `X` (i18next JSON v3). A lone `X_other` is not this: i18next selects it for every count |
 | LZ1015 | `meta-orphan` | warn | never | M2 | a meta entry for a key absent from the source catalog |
 | LZ1016 | `i18next-markup-literal` | warn | never | M2 | an i18next value contained tag-shaped text, which was escaped to literal text |
-| LZ1017 | `i18next-context-detected` | warn | never | M2 | a key set `X_<suffix>` beside a bare `X`, which i18next selected at run time and nothing selects now. A suffix that is `plural`, `ordinal`, a CLDR category or holds a dot is not a context |
+| LZ1017 | `i18next-context-detected` | warn | never | M2 | a key `X_male` or `X_female` beside a bare `X`, which i18next picked at run time and which is now its own message with no selector. No other suffix is a context, because `X_<word>` beside `X` is ordinary snake_case naming |
 | LZ1018 | `locale-base-missing` | warn | never | M9 | a declared non-source locale carries a subtag, region or script, whose base tag is not also declared |
 | LZ1019 | `icu-data-incomplete` | warn | never | M10 | the build machine's `Intl` has truncated ICU data |
 | LZ1020 | `icu-in-i18next-file` | warn | never | M2 | a file read as i18next contains a single-brace run shaped like a typed ICU argument, which will render as literal text |

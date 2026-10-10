@@ -578,6 +578,47 @@ describe('foldPluralSuffixes diagnostics', () => {
     ])
   })
 
+  it('does not read ordinary snake_case keys beside their base as contexts', () => {
+    const result = foldPluralSuffixes(
+      entries({
+        accept: 'Accept',
+        accept_invitation: 'Accept invitation',
+        accept_license: 'Accept license',
+        basic: 'Basic',
+        basic_desc: 'Basic description',
+      }),
+      'en',
+      'locales/en.json',
+    )
+    expect(result.diagnostics).toEqual([])
+  })
+
+  it('reports only the context suffixes of a base that also has snake_case siblings', () => {
+    const result = foldPluralSuffixes(
+      entries({ friend: 'A friend', friend_male: 'A boyfriend', friend_request: 'Add friend' }),
+      'en',
+      'locales/en.json',
+    )
+    expect(codes(result.diagnostics)).toEqual(['LZ1017'])
+    const [reported] = result.diagnostics
+    expect(reported?.related.map((one) => one.key)).toEqual(['friend_male'])
+    expect(reported?.hint).toContain('{context, select, male {...} other {...}}')
+  })
+
+  it('does not claim a context member is unreachable, since it keeps its own function', () => {
+    const result = foldPluralSuffixes(
+      entries({ friend: 'A friend', friend_male: 'A boyfriend' }),
+      'en',
+      'locales/en.json',
+    )
+    expect(codes(result.diagnostics)).toEqual(['LZ1017'])
+    const [reported] = result.diagnostics
+    expect(reported?.message).not.toContain('nothing selects')
+    expect(reported?.related.map((one) => one.message)).not.toContain(
+      'selected by nothing after import',
+    )
+  })
+
   it('sees a context under a folded base', () => {
     const result = foldPluralSuffixes(
       entries({

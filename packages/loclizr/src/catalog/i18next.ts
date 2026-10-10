@@ -26,6 +26,9 @@ export interface FormatVerdict {
 }
 
 const CLDR_CATEGORIES: readonly string[] = ['zero', 'one', 'two', 'few', 'many', 'other']
+// i18next's own context example. Any wider net catches snake_case naming:
+// `accept_invitation` beside `accept` is two messages, not a context group.
+const CONTEXT_SUFFIXES: readonly string[] = ['male', 'female']
 const CATEGORIES = CLDR_CATEGORIES.join('|')
 const ORDINAL_SUFFIX = new RegExp(`^(.+)_ordinal_(${CATEGORIES})$`)
 const PLAIN_SUFFIX = new RegExp(`^(.+)_(${CATEGORIES})$`)
@@ -279,13 +282,7 @@ function contextsOf(
     if (cut <= 0) continue
     const base = entry.key.slice(0, cut)
     const suffix = entry.key.slice(cut + 1)
-    // `_ordinal` is i18next's own infix on a folded key, never a context, and
-    // `_plural` and the CLDR categories are the two plural shapes above.
-    if (suffix === '' || suffix === 'plural' || suffix === 'ordinal') continue
-    if (CLDR_CATEGORIES.includes(suffix)) continue
-    // `user_settings.title` beside `user` is a nested key under an underscored
-    // segment, and a dotted selector would not parse in the rewrite.
-    if (suffix.includes('.')) continue
+    if (!CONTEXT_SUFFIXES.includes(suffix)) continue
     if (!byKey.has(base)) continue
     const found = bases.get(base)
     if (found === undefined) bases.set(base, [entry])
@@ -297,7 +294,7 @@ function contextsOf(
     const rewrite = suffixes.map((suffix) => `${suffix} {...}`).join(' ')
     diagnostics.push(
       diag('i18next-context-detected', {
-        message: `"${base}" carries ${members.length === 1 ? 'a context suffix' : `${members.length} context suffixes`}. i18next selected these with t('${base}', { context }), and after import nothing selects them.`,
+        message: `"${base}" carries ${members.length === 1 ? 'a context suffix' : `${members.length} context suffixes`}. i18next picks between them with t('${base}', { context }); after import each is its own message and no selector picks between them.`,
         hint: `convert this file to ICU first, then replace them with one message:\n  "${base}": "{context, select, ${rewrite} other {...}}"`,
         file,
         locale,
@@ -308,7 +305,7 @@ function contextsOf(
           locale,
           key: member.key,
           span: member.span,
-          message: 'selected by nothing after import',
+          message: `its own message; "${base}" no longer selects it`,
         })),
       }),
     )
