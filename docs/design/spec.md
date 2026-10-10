@@ -2249,6 +2249,15 @@ the second bullet below, and it could not express a per-message failure at all.
   nothing and exited 1. A run that blocked output exits 1 even when every printed
   diagnostic is a warning, so nothing ever exits 0 having written nothing. The
   three rules that exit 2 are not re-levelable at all (section 3).
+- Outside `--quiet` (section 10), every run that exits 0 or 1 closes the human
+  report on the counts line, a blocked one included; only a run that exits 2
+  having built no program (`LZ1001`, `LZ1007`) prints no summary, and `LZ5001`,
+  raised after analysis, keeps it. A run blocked before analysis built no
+  program, so the line names no source locale and counts what the JSON summary
+  counts: zero messages, and the configured locales, or zero when the config
+  itself did not resolve (`LZ1002`, `LZ1003`, `LZ1004`). A malformed source
+  catalog under `'catalog-json-syntax': 'off'` closes on
+  `0 messages, 1 locale, 0 errors, 1 warning`.
 
 ## 10. CLI
 
@@ -2273,7 +2282,8 @@ and `init`'s text go to stdout, so `loclizr check --reporter json | jq
 **`--quiet`** drops warn-level diagnostics from the human reporter and keeps
 errors. The summary's artifact lines are dropped too, and the counts line is
 printed only when the filter dropped something, so a run that exits 1 under
-`--max-warnings` never produces zero bytes on both streams. The JSON reporter
+`--max-warnings`, or because a fatal rule turned down to `warn` or `off`
+blocked output, never produces zero bytes on both streams. The JSON reporter
 is untouched by it (section 10.1), and so is the exit code, because M10 never
 sees the flag. **`--max-warnings`** takes an integer; the no-cap value is
 written `--max-warnings=-1`, because `node:util.parseArgs` cannot tell a

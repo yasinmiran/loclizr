@@ -87,6 +87,69 @@ describe('renderReport, human', () => {
     expect(text).toContain('LZ3001')
     expect(text).not.toContain('messages,')
   })
+
+  it('keeps the summary when output was unwritable after the program was built', () => {
+    const text = renderReport(
+      buildResult({
+        exitCode: 2,
+        ok: false,
+        diagnostics: [diag('output-unwritable', { message: 'src/loclizr/index.js could not be written.' })],
+        summary: summary({ errors: 1, messages: 4, locales: 2 }),
+      }),
+      plain,
+    )
+
+    expect(text).toContain('LZ5001')
+    expect(text.trimEnd().split('\n').at(-1)).toBe('4 messages, 2 locales (source en), 1 error, 0 warnings')
+  })
+})
+
+describe('renderReport, a run a fatal diagnostic blocked', () => {
+  const syntax: Diagnostic = {
+    ...diag('catalog-json-syntax', {
+      message: 'locales/en.json is not valid JSON.',
+      file: 'locales/en.json',
+      locale: 'en',
+    }),
+    severity: 'warn',
+  }
+  const blocked = buildResult({
+    program: null,
+    exitCode: 1,
+    ok: true,
+    diagnostics: [syntax],
+    summary: summary({ warnings: 1, locales: 1 }),
+  })
+
+  it('closes on the counts line, even though no program was built', () => {
+    const text = renderReport(blocked, plain)
+
+    expect(text).toContain('LZ1009')
+    expect(text.trimEnd().split('\n').at(-1)).toBe('0 messages, 1 locale, 0 errors, 1 warning')
+  })
+
+  it('keeps that counts line under --quiet, which dropped the warning', () => {
+    expect(renderReport(blocked, { ...plain, quiet: true })).toBe(
+      '0 messages, 1 locale, 0 errors, 1 warning\n',
+    )
+  })
+
+  it('counts zero locales when the config itself did not resolve', () => {
+    const text = renderReport(
+      buildResult({
+        program: null,
+        exitCode: 1,
+        ok: false,
+        diagnostics: [
+          diag('no-catalogs-found', { message: 'locales/{locale}.json matched nothing.' }),
+        ],
+        summary: summary({ errors: 1 }),
+      }),
+      plain,
+    )
+
+    expect(text.trimEnd().split('\n').at(-1)).toBe('0 messages, 0 locales, 1 error, 0 warnings')
+  })
 })
 
 describe('renderReport, what the run produced', () => {

@@ -24,17 +24,21 @@ export function renderReport(result: BuildResult, options: ReportOptions): strin
   const blocks: string[] = []
   const diagnostics = renderHuman(sortDiagnostics(shown), { color: options.color })
   if (diagnostics !== '') blocks.push(diagnostics)
-  const program = result.program
-  if (program !== null && (!options.quiet || accountsForHidden)) {
-    blocks.push(renderSummary(result, program, options.quiet))
+  // Only a run that exits 2 with no program never got far enough to count
+  // anything. A run a fatal diagnostic blocked built no program yet still exits
+  // 1 and owes its counts, and an unwritable output (exit 2) analyzed every
+  // message first. --no-fail never touches 2, so this gate is safe from it.
+  const counted = result.program !== null || result.exitCode !== 2
+  if (counted && (!options.quiet || accountsForHidden)) {
+    blocks.push(renderSummary(result, result.program, options.quiet))
   }
 
   return blocks.length === 0 ? '' : `${blocks.join('\n\n')}\n`
 }
 
-function renderSummary(result: BuildResult, program: Program, quiet: boolean): string {
-  const lines = quiet ? [] : [...artifactLines(result, program.config)]
-  lines.push(counts(result.summary, program.sourceLocale))
+function renderSummary(result: BuildResult, program: Program | null, quiet: boolean): string {
+  const lines = quiet || program === null ? [] : [...artifactLines(result, program.config)]
+  lines.push(counts(result.summary, program?.sourceLocale ?? null))
   if (result.summary.fellBack.length > 0) {
     const fellBack = result.summary.fellBack
       .map((entry) => `${entry.locale} ${entry.count}`)
@@ -68,11 +72,12 @@ function artifactLines(result: BuildResult, config: Config): readonly string[] {
 
 // The source locale is inferred where no config declares it, and a project
 // holding only `locales/de.json` compiles with `de` as source and no other sign
-// of it anywhere in the run.
-function counts(summary: Summary, sourceLocale: string): string {
+// of it anywhere in the run. A blocked run built no program to name it from.
+function counts(summary: Summary, sourceLocale: string | null): string {
+  const locales = countOf(summary.locales, 'locale')
   return [
     countOf(summary.messages, 'message'),
-    `${countOf(summary.locales, 'locale')} (source ${sourceLocale})`,
+    sourceLocale === null ? locales : `${locales} (source ${sourceLocale})`,
     countOf(summary.errors, 'error'),
     countOf(summary.warnings, 'warning'),
   ].join(', ')
