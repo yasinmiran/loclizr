@@ -66,7 +66,8 @@ The last two steps are the app's own. They assume a `typecheck` script (`tsc -b`
 template, as in the [Quickstart](/start/quickstart/)) and a `test` script
 ([Testing](/guides/testing/)); drop either step the app does not have.
 
-Transcripts come from `examples/vite-react` (26 messages, 3 locales). The two warning transcripts
+Transcripts come from `examples/vite-react` (26 messages, 3 locales), except the out-of-memory one
+under [Memory on small runners](#memory-on-small-runners). The two warning transcripts
 drop its `'group-args-heterogeneous': 'off'` line from `loclizr.config.ts`, so that rule warns.
 
 ## `build --no-fail`
@@ -229,3 +230,54 @@ That is `check --max-warnings 0`, exit 1. The same run through `--reporter json`
 | 0 | clean, or warnings only and at or under `--max-warnings` |
 | 1 | at least one error, or warnings over `--max-warnings` |
 | 2 | the tool could not run: invalid usage, invalid config, unsafe `outDir`, unwritable output |
+
+Exit 134 is not loclizr's: it is Node running out of heap, see
+[Memory on small runners](#memory-on-small-runners).
+
+## Memory on small runners
+
+`check` and `build` need a heap that grows with messages times locales, from 64 MB at 1000 x 10 to
+704 MB at 10000 x 30; [Honest limits](/project/limits/#build-memory-grows-with-the-catalog) has the
+table. Those are the smallest heaps that passed, with no margin. Node gives a container about half
+its memory limit as heap, so a container needs more than twice the smallest heap to run with no
+flags: the 10000 x 30 catalog passes in 1.5 GB.
+
+On a smaller one, set the heap once for the job. `prebuild` and `pretypecheck` both run
+`loclizr build`, so `check`, `build` and `typecheck` all need it:
+
+```yaml title=".github/workflows/loclizr.yml"
+jobs:
+  loclizr:
+    runs-on: ubuntu-latest
+    env:
+      NODE_OPTIONS: --max-old-space-size=768
+    # steps as in the complete workflow above
+```
+
+Keep the value above the table's smallest heap and below the container's memory. 768 is what the
+10000 x 30 catalog passed with in a 1 GB container. The flag is a ceiling, not a reservation: the
+kernel steps in only when the process outgrows the container, so `--max-old-space-size=1024` still
+passes in that 1 GB container, while in a 512 MB container the same catalog ends in `Killed`,
+exit 137.
+
+Container figures come from `node:22-slim` with Node 22.23 on arm64; GitHub's `ubuntu-latest`
+runners are x64.
+
+Without the flag, that 1 GB container stops `check` here (the `----- Native stack trace -----`
+section and the shell's `Aborted (core dumped)` line left out):
+
+```text
+<--- Last few GCs --->
+
+[10:0xfa11d4760000]     9765 ms: Mark-Compact 502.7 (520.6) -> 498.9 (520.9) MB, pooled: 2 MB, 82.61 / 0.10 ms  (average mu = 0.064, current mu = 0.053) allocation failure; scavenge might not succeed
+[10:0xfa11d4760000]     9871 ms: Mark-Compact 502.8 (520.9) -> 499.0 (520.6) MB, pooled: 2 MB, 100.49 / 0.09 ms  (average mu = 0.059, current mu = 0.052) allocation failure; scavenge might not succeed
+
+
+<--- JS stacktrace --->
+
+FATAL ERROR: Ineffective mark-compacts near heap limit Allocation failed - JavaScript heap out of memory
+```
+
+Some runs print `Reached heap limit Allocation failed - JavaScript heap out of memory` instead.
+Either way the exit code is 134: Node aborts before any handler runs, so loclizr prints no
+diagnostic and no summary line.

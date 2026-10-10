@@ -35,6 +35,37 @@ whole catalog whatever the layout. Only deep imports (`./loclizr/messages/cart.j
 Per-locale delivery needs to own your build; loclizr does not. At ten or more locales, Paraglide
 fits better where it can own the build.
 
+## Build memory grows with the catalog
+
+`build` and `check` compile every message in every locale in one Node process, so the heap they
+need grows with messages times locales.
+
+| Messages x locales | Catalog JSON | Smallest heap | Peak RSS, `build` | Peak RSS, `check` |
+| --- | --- | --- | --- | --- |
+| 1000 x 10 | 0.8 MB | 64 MB | 151 to 154 MB | 151 to 153 MB |
+| 1000 x 30 | 2.6 MB | 96 MB | 213 to 225 MB | 211 to 221 MB |
+| 5000 x 10 | 4.3 MB | 160 MB | 353 to 357 MB | 348 to 356 MB |
+| 5000 x 30 | 13.2 MB | 352 MB | 712 to 813 MB | 698 to 768 MB |
+| 10000 x 10 | 8.6 MB | 288 MB | 557 to 701 MB | 546 to 696 MB |
+| 10000 x 30 | 26.6 MB | 704 MB | 1131 to 1358 MB | 1061 to 1320 MB |
+
+Catalogs are shaped like the ones in the size table above, in namespaces of 50 messages. Catalog
+JSON is the total size of the locale files in decimal megabytes; heap and RSS megabytes are
+1024 x 1024 bytes, the unit `--max-old-space-size` takes. Smallest heap is the lowest
+`--max-old-space-size`, in 32 MB steps, at which both commands passed three runs; one step lower
+failed at least once. Peak RSS is the maximum resident set size `/usr/bin/time -l` reports, as the
+range over nine runs with Node 22.22 on arm64 macOS and the default heap, some of them with other
+work on the machine; `check` ran without the generated tree, as it does in CI.
+
+Size by the heap column, not the RSS columns. With memory to spare V8 collects late, which is why
+the 10000 x 30 build peaks above 1.1 GB on a workstation yet passes in a 1 GB container once it is
+given a heap. Inside a container Node sets the default heap to about half the memory limit (524 MB
+under 1 GB, 1048 MB under 2 GB, measured in `node:22-slim` with Node 22.23 on arm64), so the
+10000 x 30 catalog runs out of heap in a 1 GB container with no flags and passes in 1.5 GB. At
+1 GB it passes with `NODE_OPTIONS=--max-old-space-size=768`;
+[Continuous integration](/guides/continuous-integration/#memory-on-small-runners) has the step and
+the error you see without it.
+
 ## Translations are a build input
 
 A translation fix is a commit and a deploy, which suits a TMS that opens pull requests. Copy that
