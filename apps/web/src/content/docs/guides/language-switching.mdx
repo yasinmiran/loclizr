@@ -12,7 +12,7 @@ export type AppLocale = 'de' | 'de-AT' | 'en'
 export declare function getLocale(): AppLocale
 export declare function setLocale(locale: AppLocale, options?: SetLocaleOptions): void
 export declare function subscribe(listener: () => void): () => void
-export { locales, sourceLocale } from './messages/_locale.js'
+export { cookie, locales, sourceLocale } from './messages/_locale.js'
 ```
 
 The barrel re-exports the one store in `loclizr`, narrowed to your locales. Outside React, use
@@ -99,12 +99,13 @@ Not `negotiate`: `loclizr/server` imports `node:async_hooks` and does not bundle
 ## Persistence
 
 `setLocale('de')` writes the cookie (`cookie` in `loclizr.config.ts`, default `locale`), sets
-`document.documentElement.lang`, then notifies subscribers. The cookie is the only persistence,
-since a server reads it back.
+`document.documentElement.lang`, then notifies subscribers. Where the page keeps cookies, the cookie
+is the only persistence, since a server reads it back.
 
 | Case | Effect |
 | --- | --- |
 | `{ persist: false }` | this page load only |
+| `file://` page (Electron `loadFile`) or cookies blocked | this page load only; persist the choice yourself and call `setLocale` on startup. Outside production loclizr warns once: `loclizr: the locale cookie was not stored (file:// or blocked), so the choice ends on reload. Persist it and call setLocale() on startup.` |
 | No `document`, React Native included | memory only, subscribers still notified |
 
 Cookie attributes are fixed in v0.1: `path=/`, `max-age` one year, `SameSite=Lax`, no `Domain`, no
@@ -114,9 +115,9 @@ choice.
 `setLocale` never sets `dir`; for an RTL locale set it yourself from `useLocale()` or a `subscribe`
 listener.
 
-After a reload following a persisted switch, a client-only app warns once outside production:
-`<html lang="en"> disagrees with the resolved locale "de"`. The hook already fixed `lang`, so ignore
-it; [React](/guides/react/) has the server-side fix.
+After a reload following a persisted switch, the store reads the cookie and sets `<html lang>` to
+match, so a client-only app sees no `<html lang>` warning; [React](/guides/react/) covers the
+server-rendered case.
 
 <Aside type="caution">
 `setLocale` throws inside a server request scope:

@@ -6,7 +6,7 @@ description: A Vue 3 composable over subscribe and getLocale, and the two ways t
 import { Aside, Steps } from '@astrojs/starlight/components'
 
 A Vite and Vue 3 app whose templates follow `setLocale`, with a test that proves it. There is no
-`loclizr/vue` entry: an eleven-line composable over `subscribe` and `getLocale` is the whole
+`loclizr/vue` entry: a fourteen-line composable over `subscribe` and `getLocale` is the whole
 binding.
 
 <Steps>
@@ -59,21 +59,27 @@ binding.
 3. ### Write the composable
 
    ```ts title="src/useLocale.ts"
-   import { onScopeDispose, shallowRef, type ShallowRef } from 'vue'
+   import { onMounted, onUnmounted, shallowRef, type ShallowRef } from 'vue'
    import * as m from './loclizr/messages'
 
    export function useLocale(): ShallowRef<m.AppLocale> {
      const locale = shallowRef(m.getLocale())
-     const off = m.subscribe(() => {
-       locale.value = m.getLocale()
+     let off = (): void => {}
+     onMounted(() => {
+       off = m.subscribe(() => {
+         locale.value = m.getLocale()
+       })
      })
-     onScopeDispose(off)
+     onUnmounted(() => off())
      return locale
    }
    ```
 
    `subscribe` calls its listener with no argument and never on attach, so the ref starts from
-   `getLocale()`. `onScopeDispose` removes the listener when the component unmounts.
+   `getLocale()`. The listener attaches in `onMounted` and detaches in `onUnmounted`. Neither hook
+   runs in a server render, so a server-rendered component, such as an
+   [Astro island](/guides/astro/#islands), leaves no listener on the process-wide store. Call
+   `useLocale` from a component's setup.
 
    `./loclizr/messages` resolves once a build has run: `npm run dev`, `npm test` or
    `npx loclizr build` writes it.
@@ -167,7 +173,7 @@ binding.
    ```ts title="src/locale.test.ts"
    // @vitest-environment jsdom
    import { mount } from '@vue/test-utils'
-   import { computed, defineComponent, effectScope, h, nextTick } from 'vue'
+   import { computed, defineComponent, h, nextTick, type ShallowRef } from 'vue'
    import { setLocale } from 'loclizr'
    import { beforeEach, expect, test } from 'vitest'
    import App from './App.vue'
@@ -206,10 +212,13 @@ binding.
      expect(wrapper.text()).toBe('Home')
    })
 
-   test('the subscription ends with its scope', () => {
-     const scope = effectScope()
-     const locale = scope.run(() => useLocale())!
-     scope.stop()
+   test('the subscription ends on unmount', () => {
+     let locale!: ShallowRef<m.AppLocale>
+     const Probe = defineComponent(() => {
+       locale = useLocale()
+       return () => h('span', locale.value)
+     })
+     mount(Probe).unmount()
      setLocale('de', { persist: false })
      expect(locale.value).toBe('en')
    })
@@ -231,4 +240,4 @@ binding.
 
 In the browser, `setLocale` also writes the `locale` cookie and `<html lang>`; see
 [Language switching](/guides/language-switching/) and the [Runtime API](/reference/runtime-api/).
-This page is a client-rendered app; Nuxt is out of scope for v0.1.
+This page is a client-rendered app; [Nuxt is out of scope for v0.1](/guides/server-rendering/#scope-stated-first).

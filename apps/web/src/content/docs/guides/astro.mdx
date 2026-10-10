@@ -159,7 +159,7 @@ This replaces the static setup: one page at `/` picks the language per request. 
    import { localeFromRequest, runWithLocale } from 'loclizr/server'
    import * as m from './loclizr/messages'
 
-   const options = { locales: m.locales, sourceLocale: m.sourceLocale }
+   const options = { locales: m.locales, sourceLocale: m.sourceLocale, cookie: m.cookie }
 
    export const onRequest = defineMiddleware(async (context, next) => {
      const locale = localeFromRequest(context.request, options)
@@ -170,7 +170,8 @@ This replaces the static setup: one page at `/` picks the language per request. 
    })
    ```
 
-   `localeFromRequest` reads the `locale` cookie, then `Accept-Language`, then the source locale.
+   `localeFromRequest` reads the configured cookie (`m.cookie`), then `Accept-Language`, then the
+   source locale.
 
 3. ### Serve the page from `/`
 
@@ -242,6 +243,36 @@ it: Node, Bun, Deno, or Cloudflare with the `nodejs_als` flag. This page covers 
 
 ## Islands
 
-Render `<html lang>` from `m.getLocale()`, as above: the client store reads it, so an island
-hydrates in the server's language. Wire the island like any client app:
-[React](/guides/react/), [Svelte](/guides/svelte/), [Vue](/guides/vue/) or [Solid](/guides/solid/).
+Wire the island like any client app: [React](/guides/react/), [Svelte](/guides/svelte/),
+[Vue](/guides/vue/) or [Solid](/guides/solid/). A server-rendered Vue island must not subscribe
+during the server render, or each render leaves a listener on the process-wide store; the
+[Vue composable](/guides/vue/#write-the-composable) subscribes in `onMounted`, which runs only in
+the browser.
+
+With on-demand rendering, render `<html lang>` from `m.getLocale()`, as above. The client store
+reads the cookie, then `<html lang>`, and the server negotiated from the same cookie or
+`Accept-Language`, so an island hydrates in the server's language.
+
+On the static `[lang]` route the URL picks the language, but the client store still reads the
+cookie before `<html lang>`. Once a visitor has the cookie:
+
+- An island on `/en/` hydrates in the cookie's language, and React reports a hydration mismatch.
+- The store rewrites `<html lang>` to the cookie's language.
+- A `setLocale` switcher updates only the islands; Astro-rendered text stays in the URL's language.
+
+The locale comes from the cookie by design ([Limits](/project/limits/#the-locale-never-comes-from-the-url)).
+On this route, switch language by linking to `/{tag}/`, and sync the cookie to the URL's locale
+before any island hydrates:
+
+```astro title="src/pages/[lang]/index.astro" {4-6}
+<html lang={m.getLocale()}>
+  <head>
+    <meta charset="utf-8" />
+    <script is:inline define:vars={{ lang: m.getLocale(), cookie: m.cookie }}>
+      document.cookie = `${cookie}=${lang}; path=/; max-age=31536000; SameSite=Lax`
+    </script>
+    <title>{m.nav_cart()}</title>
+  </head>
+```
+
+With it, `/en/` hydrates in English whatever cookie the visitor brought, and `/de/` writes `de`.

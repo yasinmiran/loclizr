@@ -200,6 +200,23 @@ test that proves both.
    A markup message returns an array, not a string, and `Parts` renders it. `Terms` is memoized so
    the test can show the key reaching it.
 
+   Inside `of={...}` the prop type tells TypeScript the parts are `ReactNode`. Hoisted into a
+   `const`, the call has nothing to read that from and infers `unknown`, so `{chunks}` does not
+   compile. Pass the type:
+
+   ```tsx
+   import type { ReactNode } from 'react'
+
+   const terms = m.terms_accept<ReactNode>({ link: (chunks) => <a href="#terms">{chunks}</a> })
+   ```
+
+   Annotating the handler works too: `(chunks: readonly ReactNode[]) => ...`.
+
+   Once tags nest, as in `<link><b>full</b> terms</link>`, the outer handler's `chunks` holds an
+   element and React logs a key warning in development; a translator may nest tags the source keeps
+   apart. The output is still correct. Spreading the chunks into `createElement` avoids the warning:
+   `createElement('a', { className: 'terms__link', href: '#terms' }, ...chunks)`.
+
 6. ### Test the switch
 
    ```bash
