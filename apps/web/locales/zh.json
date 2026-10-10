@@ -51,6 +51,7 @@
   "ui": {
     "onThisPage": "本页内容",
     "search": "搜索",
+    "menu": "菜单",
     "language": "语言",
     "docsInEnglish": "文档为英文；导航和本落地页会跟随你的语言。"
   },

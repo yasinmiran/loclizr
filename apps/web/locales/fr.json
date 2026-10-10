@@ -51,6 +51,7 @@
   "ui": {
     "onThisPage": "Sur cette page",
     "search": "Rechercher",
+    "menu": "Menu",
     "language": "Langue",
     "docsInEnglish": "La documentation est en anglais ; la navigation et cette page d'accueil suivent votre langue."
   },

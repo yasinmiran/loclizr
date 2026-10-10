@@ -70,7 +70,10 @@ function setText(element: Element, text: string, locale: AppLocale): void {
 
 export function applySiteLocale(locale: AppLocale): void {
   const options = { locale }
-  for (const link of document.querySelectorAll<HTMLAnchorElement>('.sidebar-content a.entry-link, .mobile-nav-links a')) {
+  // The first mobile menu section holds the header's own links, which stay in
+  // English as they do in the desktop header. Docs shares its href with
+  // Introduction, so matching by href there would relabel it.
+  for (const link of document.querySelectorAll<HTMLAnchorElement>('.sidebar-content a.entry-link, .mobile-nav-section:not(:first-child) a')) {
     const key = navKeyFor(link.getAttribute('href') ?? '')
     if (key) setText(link, nav[key]({}, options), locale)
   }
@@ -86,8 +89,12 @@ export function applySiteLocale(locale: AppLocale): void {
     const key = element.dataset.ui ?? ''
     if (isKey(ui, key)) setText(element, ui[key]({}, options), locale)
   }
-  const toc = document.querySelector('#starlight__on-this-page')
-  if (toc) setText(toc, ui.onThisPage({}, options), locale)
+  for (const label of document.querySelectorAll('black-menu-button button > :is(.label, .sr-only), .mobile-nav-section:first-child > .mobile-nav-label')) {
+    setText(label, ui.menu({}, options), locale)
+  }
+  for (const toc of document.querySelectorAll('#starlight__on-this-page, #starlight__on-this-page--mobile > .toggle')) {
+    setText(toc, ui.onThisPage({}, options), locale)
+  }
   for (const select of document.querySelectorAll<HTMLSelectElement>('[data-site-language]')) select.title = ui.docsInEnglish({}, options)
   for (const label of document.querySelectorAll('site-search button[data-open-modal] > span')) setText(label, ui.search({}, options), locale)
   for (const element of document.querySelectorAll<HTMLElement>('[data-home]')) {
