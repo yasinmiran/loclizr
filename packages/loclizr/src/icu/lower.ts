@@ -30,7 +30,7 @@ import {
   parseIcu,
   probeSkeleton,
   rangeOf,
-  sanitizeOptions,
+  skeletonOptions,
   skeletonToken,
   type ParseFailure,
   type Range,
@@ -455,7 +455,7 @@ function resolveSkeleton(
   const token = skeletonToken(state.icu, skeleton)
   const range = rangeOf(skeleton.location)
   const resolved = state.skeletonsResolved
-    ? sanitizeOptions(skeleton.parsedOptions)
+    ? skeletonOptions(skeleton)
     : probeSkeleton(form, token)
   if (resolved === null) {
     state.diagnostics.push(report(state, 'icu-skeleton-invalid', range, rejectedText(token, form)))
@@ -489,10 +489,39 @@ function unusable(token: string, form: SkeletonForm, options: IntlOptions): Diag
       hint: 'Write ::currency/USD, or define formats.number.currency in loclizr.config.ts.',
     }
   }
-  if (Object.keys(options).length > 0) return null
-  return {
-    message: `The skeleton "${token}" resolves to no format options.`,
-    hint: `Check the stem spelling. Falling back to the bare ${form} format.`,
+  if (Object.keys(options).length === 0) {
+    return {
+      message: `The skeleton "${token}" resolves to no format options.`,
+      hint: `Check the stem spelling. Falling back to the bare ${form} format.`,
+    }
+  }
+  return rejectedByIntl(token, form, options)
+}
+
+// The parser passes a unit or currency code through unchecked, and Intl throws a
+// RangeError on every call for one it does not know. Validity does not depend on
+// the locale, so the host default stands in for every catalog locale, and the
+// engine's own error text stays out of the diagnostic so the output is the same
+// on every Node version.
+function rejectedByIntl(
+  token: string,
+  form: SkeletonForm,
+  options: IntlOptions,
+): DiagnosticText | null {
+  try {
+    if (form === 'number') new Intl.NumberFormat(undefined, options)
+    else new Intl.DateTimeFormat(undefined, options)
+    return null
+  } catch {
+    const constructor = form === 'number' ? 'Intl.NumberFormat' : 'Intl.DateTimeFormat'
+    const fix =
+      form === 'number'
+        ? 'Use a unit or currency code Intl supports, such as ::unit/kilometer or ::currency/USD.'
+        : 'Fix the skeleton, or use a named style from formats.'
+    return {
+      message: `${constructor} rejects the options the skeleton "${token}" resolves to.`,
+      hint: `${fix} Falling back to the bare ${form} format.`,
+    }
   }
 }
 

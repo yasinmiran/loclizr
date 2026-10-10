@@ -94,7 +94,20 @@ export function probeSkeleton(form: SkeletonForm, token: string): IntlOptions | 
   if (element === undefined || !('style' in element)) return null
   const style = element.style
   if (style === null || style === undefined || typeof style === 'string') return null
-  return sanitizeOptions(style.parsedOptions)
+  return skeletonOptions(style)
+}
+
+// The parser reads `unit/` like `measure-unit/` and drops everything up to the
+// first hyphen as a type prefix, but `unit/` takes a bare core unit id, so
+// `unit/kilometer-per-hour` would otherwise reach Intl as `per-hour`.
+export function skeletonOptions(skeleton: Skeleton): IntlOptions {
+  const options = sanitizeOptions(skeleton.parsedOptions)
+  if (isDateTimeSkeleton(skeleton)) return options
+  const last = skeleton.tokens.findLast(
+    (token) => token.stem === 'unit' || token.stem === 'measure-unit',
+  )
+  const unit = last?.stem === 'unit' ? last.options[0] : undefined
+  return unit === undefined ? options : sanitizeOptions({ ...options, unit })
 }
 
 export function skeletonToken(icu: string, skeleton: Skeleton): string {

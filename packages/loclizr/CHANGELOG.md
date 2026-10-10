@@ -25,6 +25,7 @@ a minor release may break an invariant, and this file says so when it does.
 - The dev warning for `getLocale()` outside a request scope now says to wrap the whole request in `runWithLocale()` (loaders, actions and the render), not just the render, which left React Router and Remix loaders in the source locale (#75).
 - `withLocale` passes through the `undefined` a Bun handler returns after `server.upgrade()`, instead of rejecting and crashing the Bun process on the first WebSocket connection; a second overload types such handlers without a cast (#82).
 - `negotiate` and `localeFromHeaders` cap an `Accept-Language` weight above 1 at 1, and drop a range whose weight is not a plain decimal (`Infinity`, `5e0`, `0.95xyz`). A malformed weight no longer outranks a language listed earlier at full quality (#97).
+- a `::` skeleton whose options `Intl` rejects, such as `::unit/furlong` or `::currency/US`, now raises `LZ2003` and falls back to the bare format instead of passing the build and throwing `RangeError` on every call; `::unit/kilometer-per-hour` and other compound `unit/` ids now resolve to the whole unit rather than `per-hour` (#78).
 
 ## 0.1.1 - 2026-10-03
 

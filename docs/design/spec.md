@@ -841,9 +841,9 @@ Verified behaviour of the installed parser, version 3.5.19:
 | `{x, date, short\|medium\|long\|full}` | `{ dateStyle: <style> }` |
 | `{x, time}` | `{ timeStyle: 'medium' }` |
 | `{x, time, short\|medium\|long\|full}` | `{ timeStyle: <style> }` |
-| `{x, number\|date\|time, ::skeleton}` | `style.parsedOptions` verbatim |
+| `{x, number\|date\|time, ::skeleton}` | `style.parsedOptions` verbatim, except the `unit/` stem below |
 | any other named style | looked up in `config.formats.number` or `config.formats.dateTime`, else `LZ2002 icu-style-unknown` |
-| a `::` skeleton the parser rejects, or that resolves to no options at all | `LZ2003 icu-skeleton-invalid`, and that node falls back to the bare form |
+| a `::` skeleton the parser rejects, that resolves to no options at all, or whose options `Intl` cannot build | `LZ2003 icu-skeleton-invalid`, and that node falls back to the bare form |
 
 `LZ2003` is `fatal: never`, so the message must survive a bad skeleton, and
 the parser reports one as a failed parse. `lower` therefore reparses a
@@ -860,6 +860,17 @@ skeleton, `{x, number, ::}`, is `LZ2003` like the typos above. `{x, number, ::cu
 code resolves to `{ style: 'currency' }`, which makes `Intl.NumberFormat` throw
 in the browser, so it is `LZ2003` carrying the `currency` row's hint above,
 with the bare number options as the fallback.
+
+The parser passes unit and currency codes through unchecked, so every resolved
+skeleton is probed with `new Intl.NumberFormat` or `new Intl.DateTimeFormat`
+at build time, and one that throws is `LZ2003` with the bare form as the
+fallback: `::unit/furlong`, `::currency/US`. The probe uses the host's default
+locale, since an option's validity does not depend on the locale, and the
+diagnostic never quotes the engine's error text. The parser also reads the
+`unit/` stem like `measure-unit/` and drops everything up to the first hyphen
+as a type prefix, but `unit/` takes a bare core unit id, so the compiler keeps
+its whole option: `{x, number, ::unit/kilometer-per-hour}` resolves to
+`{ style: 'unit', unit: 'kilometer-per-hour' }`, not `unit: 'per-hour'`.
 
 A `date` or `time` argument whose resolved options contain no `timeZone` raises
 `LZ3011 date-without-timezone`, **default `off`**, once per message against the
@@ -2945,7 +2956,7 @@ so a truncated ICU makes **no** category claims rather than wrong ones.
 | --- | --- | --- | --- | --- | --- |
 | LZ2001 | `icu-syntax` | error | message | M3 | any parser `ErrorKind` other than the two below, or two options of one select equal under NFC |
 | LZ2002 | `icu-style-unknown` | error | never | M3 | a named style absent from the built-in table and from `config.formats` |
-| LZ2003 | `icu-skeleton-invalid` | error | never | M3 | a `::` skeleton the parser rejects or resolves to no options, or `::currency` with no code; the node falls back to its bare form (section 5.2) |
+| LZ2003 | `icu-skeleton-invalid` | error | never | M3 | a `::` skeleton the parser rejects or resolves to no options, `::currency` with no code, or options `Intl` cannot build; the node falls back to its bare form (section 5.2) |
 | LZ2004 | `plural-other-missing` | error | message | M3 | `MISSING_OTHER_CLAUSE` on a plural or selectordinal |
 | LZ2005 | `select-other-missing` | error | message | M3 | `MISSING_OTHER_CLAUSE` on a select |
 | LZ2006 | `plural-category-unknown` | error | never | M3 | a branch keyword that is neither a CLDR category nor `=N` |
