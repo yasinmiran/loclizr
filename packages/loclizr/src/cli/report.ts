@@ -102,7 +102,8 @@ function artifactLines(result: BuildResult, config: Config): readonly string[] {
 
 // The source locale is inferred where no config declares it, and a project
 // holding only `locales/de.json` compiles with `de` as source and no other sign
-// of it anywhere in the run. A blocked run built no program to name it from.
+// of it anywhere in the run. A run blocked before analysis built no program to
+// name it from.
 function counts(summary: Summary, sourceLocale: string | null): string {
   const locales = countOf(summary.locales, 'locale')
   return [

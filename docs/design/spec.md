@@ -2485,8 +2485,9 @@ untouched: M5 still **stamps** the diagnostic at the rule's default severity,
 `warn`, and M10 still re-levels the whole set. M5 reads the setting to name it,
 never to decide whether or at what level to emit.
 
-The human summary closes the report, and only when a program was analyzed: a
-run that halted before analysis prints its diagnostics alone. Its lines come in
+The human summary closes the report on every run except one that exits 2
+having built no program (section 9); a run blocked before analysis prints it
+without a source locale. Its lines come in
 this order. First, on `build`, the `wrote` line naming the generated tree and
 the record, when write-if-changed wrote anything, and the reminder to commit the
 record unless `LZ5007` already says so. A run that blocked
