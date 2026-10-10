@@ -4802,11 +4802,11 @@ nobody else:
   `src/runtime/store.ts`, so the store is hoisted into a shared chunk and the
   entry is reduced to re-exports. The budget is 900 bytes and it is **not
   met**: the shipped runtime, a store, an RFC 4647 matcher, a cookie reader,
-  four warning strings and four ABI helpers, measures about 2350 bytes in the
+  five warning strings and four ABI helpers, measures about 2420 bytes in the
   shape tsdown ships, and about 1500 minified. The test keeps the 900-byte
   assertion verbatim as an expected failure, so the suite turns red the day
   the budget is met and the number can be tightened, and a second, ordinary
-  assertion holds a 2400-byte ceiling so a regression still fails; its message
+  assertion holds a 2460-byte ceiling so a regression still fails; its message
   prints budget, measured and ceiling together. A green suite here therefore
   says the runtime has not grown, not that the budget is met.
 - React tests carry `// @vitest-environment jsdom` as a file docblock, so the

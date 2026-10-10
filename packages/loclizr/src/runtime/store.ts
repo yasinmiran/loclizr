@@ -15,7 +15,7 @@ export function getLocale(): Locale {
     if (raw === '' && detached() && process.env.NODE_ENV !== 'production') {
       warnOnce(
         'detached',
-        'getLocale() ran outside a request scope, so it returned the source locale. Wrap the whole request in runWithLocale(): loaders, actions and the render, not the render alone.',
+        'getLocale() ran outside a request scope, so it returned the source locale. Wrap the whole request in runWithLocale(): loaders, actions and the render.',
       )
     }
   } catch {}
@@ -60,7 +60,7 @@ export function setLocale(locale: Locale, options?: SetLocaleOptions): void {
         ) {
           warnOnce(
             'unstored',
-            'the locale cookie was not stored (file:// or cookies blocked), so the choice lasts until reload. Persist it yourself and call setLocale() on startup.',
+            'the locale cookie was not stored (file:// or blocked), so the choice ends on reload. Persist it and call setLocale() on startup.',
           )
         }
       } catch {}
