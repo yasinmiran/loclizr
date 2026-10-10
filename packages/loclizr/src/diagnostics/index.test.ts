@@ -381,6 +381,82 @@ describe('renderHuman', () => {
     expect(renderHuman([], { color: false })).toBe('')
   })
 
+  test('collapses a rule and key repeated across locale files into one report naming each file', () => {
+    const nesting = (locale: string, line: number): Diagnostic =>
+      diag('i18next-nesting-unsupported', {
+        message: 'This value nests another key with $t().',
+        hint: 'inline the nested text here.',
+        file: `locales/${locale}.json`,
+        locale,
+        key: 'a',
+        span: span(line, 9, 10),
+      })
+    const other = diag('i18next-nesting-unsupported', {
+      message: 'This value nests another key with $t().',
+      hint: 'inline the nested text here.',
+      file: 'locales/de.json',
+      locale: 'de',
+      key: 'b',
+      span: span(3, 9, 30),
+    })
+    expect(
+      renderHuman(sortDiagnostics([nesting('fr', 2), other, nesting('de', 2), nesting('en', 12)]), {
+        color: false,
+      }),
+    ).toBe(
+      [
+        'error  LZ1012  i18next-nesting-unsupported  a  3 files',
+        '',
+        '  This value nests another key with $t().',
+        '',
+        '    de    locales/de.json:2:9',
+        '    en    locales/en.json:12:9',
+        '    fr    locales/fr.json:2:9',
+        '',
+        '  fix  inline the nested text here.',
+        '',
+        'error  LZ1012  i18next-nesting-unsupported  locales/de.json:3:9  de  b',
+        '',
+        '  This value nests another key with $t().',
+        '',
+        '  fix  inline the nested text here.',
+      ].join('\n'),
+    )
+  })
+
+  test('keeps repeats apart when their text differs or they carry related rows', () => {
+    const format = (locale: string, raw: string): Diagnostic =>
+      diag('i18next-format-unsupported', {
+        message: `The placeholder {{${raw}}} carries an i18next formatter.`,
+        file: `locales/${locale}.json`,
+        locale,
+        key: 'a',
+      })
+    const related = (file: string): Diagnostic =>
+      diag('ambiguous-source', {
+        message: 'Two keys share the source text "Open".',
+        file,
+        key: 'a',
+        related: [{ file, locale: null, key: 'b', span: null, message: 'no description' }],
+      })
+    const rendered = renderHuman(
+      [
+        format('de', 'n, number'),
+        format('en', 'count, number'),
+        related('a.json'),
+        related('b.json'),
+      ],
+      { color: false },
+    )
+    const headers = rendered.split('\n').filter((line) => /^(error|warn) {2}LZ/u.test(line))
+    expect(headers).toEqual([
+      'error  LZ1013  i18next-format-unsupported  locales/de.json  de  a',
+      'error  LZ1013  i18next-format-unsupported  locales/en.json  en  a',
+      'warn  LZ3012  ambiguous-source  a.json  a',
+      'warn  LZ3012  ambiguous-source  b.json  a',
+    ])
+  })
+
   test('paints the severity when colour is asked for', () => {
     vi.stubEnv('NO_COLOR', '')
     const painted = renderHuman([diag('arg-missing', { message: 'name' })], { color: true })

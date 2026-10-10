@@ -2543,6 +2543,33 @@ untouched: M5 still **stamps** the diagnostic at the rule's default severity,
 `warn`, and M10 still re-levels the whole set. M5 reads the setting to name it,
 never to decide whether or at what level to emit.
 
+**A repeat prints once, with every file listed.** `renderHuman` folds
+diagnostics that agree on severity, code, key, message and hint, and that carry
+a `file` and no `related` rows, into one report at the position of the first.
+Its header names the key and the number of distinct files in place of the
+location and locale, and under the message one row per diagnostic gives its
+locale and `file:line:column`:
+
+```
+error  LZ1013  i18next-format-unsupported  cart.total  3 files
+
+  The placeholder {{amount, number}} carries an i18next formatter, which has no ICU equivalent. It renders as the raw value.
+
+    de    locales/de.json:4:15
+    en    locales/en.json:4:15
+    fr    locales/fr.json:4:15
+
+  fix  name the style in formats.number, convert this file to ICU, and write {amount, number, yourStyle}.
+```
+
+An imported i18next tree carries its own copy of `$t()` and `{{x, fmt}}` in
+every locale file, and M2 checks each file on its own content, so `LZ1012` and
+`LZ1013` repeat once per file. Each file needs its own edit, so no row is
+dropped; folding removes only the repeated text. A diagnostic with `related`
+rows keeps its own report, because two tables under one header would not say
+which rows belong to which file. The JSON reporter and the summary counts are
+untouched: they still hold one diagnostic per file.
+
 The human summary closes the report on every run except one that exits 2
 having built no program (section 9); a run blocked before analysis prints it
 without a source locale. Its lines come in

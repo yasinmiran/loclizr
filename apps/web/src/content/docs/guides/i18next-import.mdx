@@ -72,6 +72,36 @@ An argument reaches the string exactly as passed, with no HTML escaping. Render 
    text, name the number style in `formats` and write the ICU form, or flatten a dotted
    placeholder to one name.
 
+   Every locale file carries its own copy of `$t()` and `{{x, fmt}}`, so these errors repeat once
+   per file and each file needs the same edit. `--quiet` does not thin them, because both rules are
+   errors. The human reporter prints a repeat once and lists every file under it:
+
+   ```txt frame="terminal" title="npx loclizr build, en, de and fr each holding $t(brand) and {{amount, number}}"
+   error  LZ1012  i18next-nesting-unsupported  welcome  3 files
+
+     This value nests another key with $t(), which ICU cannot express, so the call renders as literal text.
+
+       de    locales/de.json:6:15
+       en    locales/en.json:6:15
+       fr    locales/fr.json:6:15
+
+     fix  inline the nested text here, or split the sentence into two messages.
+
+   error  LZ1013  i18next-format-unsupported  cart.total  3 files
+
+     The placeholder {{amount, number}} carries an i18next formatter, which has no ICU equivalent. It renders as the raw value.
+
+       de    locales/de.json:4:15
+       en    locales/en.json:4:15
+       fr    locales/fr.json:4:15
+
+     fix  name the style in formats.number, convert this file to ICU, and write {amount, number, yourStyle}.
+
+   wrote src/loclizr (11 files) and locales/loclizr.context.json
+   commit locales/loclizr.context.json; `loclizr check` compares it
+   3 messages, 3 locales (source en), 6 errors, 0 warnings
+   ```
+
 3. ### Pick `i18nextMarkup`
 
    `'tags'` if the app used `Trans`, otherwise the default `'literal'`.

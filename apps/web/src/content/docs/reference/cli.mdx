@@ -368,6 +368,7 @@ error  LZ3012  ambiguous-source  locales/en.json:5:14
 | --- | --- |
 | Header | Severity, code, rule, then whichever of `file:line:column`, locale and key apply. |
 | Related | A three-column table, when the rule has related locations. |
+| Repeats | Diagnostics that share severity, code, key, message and hint print once: the header ends with the key and the number of distinct files, such as `3 files`, and one row per diagnostic gives its locale and `file:line:column`. A diagnostic with related locations always prints on its own. The JSON output and the counts keep one entry per diagnostic. |
 | `fix` | The rule's hint, line breaks kept. |
 | Summary | One line of counts. On `build`, preceded by the `wrote` line and a commit reminder (unless `LZ5007` already says so), and followed by `fell back to source text: de 2, de-AT 1` when any message resolved all the way to source text. A run that a fatal diagnostic blocked prints `nothing generated: 1 fatal (LZ4002)` in place of the `wrote` line and no fallback line; with nothing analyzed, the counts name no source locale (`0 messages, 0 locales, 1 error, 0 warnings`). |
 

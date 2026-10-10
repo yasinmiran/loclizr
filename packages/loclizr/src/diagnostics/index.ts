@@ -149,7 +149,7 @@ export function renderHuman(
   options: { readonly color: boolean },
 ): string {
   const paint = colors(options.color)
-  return diagnostics.map((diagnostic) => renderOne(diagnostic, paint)).join('\n\n')
+  return groupRepeats(diagnostics).map((group) => renderOne(group, paint)).join('\n\n')
 }
 
 export function renderJson(diagnostics: readonly Diagnostic[], summary: Summary): string {
@@ -206,9 +206,51 @@ function compareNullable(a: string | null, b: string | null): number {
   return compareCodepoint(a, b)
 }
 
-function renderOne(diagnostic: Diagnostic, paint: Palette): string {
-  const lines: string[] = [renderHeader(diagnostic, paint), '']
+// An imported i18next tree repeats one construct in every locale file, and each
+// file needs its own edit, so a repeat prints its text once and keeps every
+// file as a row rather than dropping any. A diagnostic with related rows keeps
+// its own block, since two tables under one header would not say which rows
+// belong to which file.
+function groupRepeats(
+  diagnostics: readonly Diagnostic[],
+): readonly (readonly [Diagnostic, ...Diagnostic[]])[] {
+  const groups: [Diagnostic, ...Diagnostic[]][] = []
+  const byText = new Map<string, [Diagnostic, ...Diagnostic[]]>()
+  for (const diagnostic of diagnostics) {
+    const text =
+      diagnostic.file === null || diagnostic.related.length > 0
+        ? null
+        : JSON.stringify([
+            diagnostic.severity,
+            diagnostic.code,
+            diagnostic.key,
+            diagnostic.message,
+            diagnostic.hint,
+          ])
+    const group = text === null ? undefined : byText.get(text)
+    if (group !== undefined) {
+      group.push(diagnostic)
+      continue
+    }
+    const fresh: [Diagnostic, ...Diagnostic[]] = [diagnostic]
+    groups.push(fresh)
+    if (text !== null) byText.set(text, fresh)
+  }
+  return groups
+}
+
+function renderOne(group: readonly [Diagnostic, ...Diagnostic[]], paint: Palette): string {
+  const [diagnostic] = group
+  const repeated = group.length > 1
+  const lines: string[] = [
+    repeated ? renderGroupHeader(group, paint) : renderHeader(diagnostic, paint),
+    '',
+  ]
   for (const line of bodyLines(diagnostic.message)) lines.push(indent(line, 2))
+  if (repeated) {
+    lines.push('')
+    for (const line of renderLocations(group, paint)) lines.push(line)
+  }
   if (diagnostic.related.length > 0) {
     lines.push('')
     for (const line of renderRelated(diagnostic.related)) lines.push(line)
@@ -234,6 +276,27 @@ function renderHeader(diagnostic: Diagnostic, paint: Palette): string {
   if (diagnostic.locale !== null) parts.push(oneLine(diagnostic.locale))
   if (diagnostic.key !== null) parts.push(oneLine(diagnostic.key))
   return parts.join('  ')
+}
+
+function renderGroupHeader(group: readonly [Diagnostic, ...Diagnostic[]], paint: Palette): string {
+  const [first] = group
+  const parts = [paint.severity(first.severity), paint.code(first.code), first.rule]
+  if (first.key !== null) parts.push(oneLine(first.key))
+  const files = new Set(group.map((diagnostic) => diagnostic.file)).size
+  parts.push(`${files} ${files === 1 ? 'file' : 'files'}`)
+  return parts.join('  ')
+}
+
+function renderLocations(group: readonly Diagnostic[], paint: Palette): readonly string[] {
+  const rows = group.map((diagnostic) => ({
+    label: oneLine(diagnostic.locale ?? ''),
+    location: oneLine(locationOf(diagnostic.file, diagnostic.span)),
+  }))
+  const labelWidth = Math.max(...rows.map((row) => row.label.length))
+  return rows.map((row) => {
+    const label = labelWidth > 0 ? row.label.padEnd(labelWidth + RELATED_KEY_GAP) : ''
+    return indent(label + paint.location(row.location), 4)
+  })
 }
 
 function renderRelated(related: readonly Related[]): readonly string[] {
