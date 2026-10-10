@@ -113,7 +113,8 @@ What works: import the app's tree first, `augmentLocale` on, and give the shared
 For a published package, set `augmentLocale: false`. A library cannot match locale lists it never
 sees, and a consumer with its own tree would get TS2717 inside `node_modules` once `skipLibCheck`
 is off, tsc's default. A tree packed from `dist` also needs its generated `.gitignore` deleted:
-left in place, `npm pack` ships the directory empty.
+left in place, `npm pack` ships the directory empty. [Publishing a library](/guides/publishing-a-library/)
+has the full build.
 
 ## Declaration emit
 

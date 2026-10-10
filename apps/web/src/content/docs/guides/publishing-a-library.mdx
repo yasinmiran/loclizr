@@ -12,12 +12,14 @@ export declare function confirmDelete(count: number): string;
 
 A library built with Rollup plus `tsc --emitDeclarationOnly` publishes this file and no
 `dist/loclizr`. `tsc` never copies a hand-written `.d.ts` into `outDir`, and the generated tree is
-`.js` plus a printed `.d.ts`, never `.ts`. What the app sees depends on one setting:
+`.js` plus a printed `.d.ts`, never `.ts`. What `tsc -p .` in the app reports depends on two of its
+settings:
 
-| App `skipLibCheck` | `tsc -p .` in the app |
-| --- | --- |
-| `false` | `node_modules/@acme/ui/dist/index.d.ts(1,45): error TS2307: Cannot find module './loclizr/messages' or its corresponding type declarations.` |
-| `true`, Vite's default | exit 0: `dialog_title` is `any`, so `dialog_title({ count: '1' })` passes |
+| App `skipLibCheck` | App `moduleResolution` | `tsc -p .` in the app |
+| --- | --- | --- |
+| `false` | `bundler` | `node_modules/@acme/ui/dist/index.d.ts(1,45): error TS2307: Cannot find module './loclizr/messages' or its corresponding type declarations.` |
+| `false` | `nodenext` | `node_modules/@acme/ui/dist/index.d.ts(1,45): error TS2834: Relative import paths need explicit file extensions in ECMAScript imports when '--moduleResolution' is 'node16' or 'nodenext'. Consider adding an extension to the import path.` |
+| `true`, Vite's default | either | exit 0: `dialog_title` is `any`, so `dialog_title({ count: '1' })` passes |
 
 The fix is to ship the generated declarations. Every block here ran against a library `@acme/ui`
 with two messages (`dialog.title`, `dialog.cancel`, in `en` and `de`), packed with `npm pack` and
@@ -39,13 +41,9 @@ installed in an app with its own tree (`en`, `de`, `fr`).
    })
    ```
 
-   Left on, the shipped `messages.d.ts` augments `LocaleRegistry` beside the app's own tree:
-
-   ```text
-   node_modules/@acme/ui/dist/loclizr/messages.d.ts(8,5): error TS2717: Subsequent property declarations must have the same type.  Property 'locale' must be of type 'AppLocale', but here has type 'AppLocale'.
-   ```
-
-   See [Two trees in one program](/guides/monorepo/#two-trees-in-one-program).
+   Left on, the shipped `messages.d.ts` augments `LocaleRegistry` beside the app's own tree: TS2717
+   inside `node_modules` when the two locale lists differ and the app has `skipLibCheck` off. See
+   [Two trees in one program](/guides/monorepo/#two-trees-in-one-program).
 
 2. ### Import the tree with `.js` and export messages by name
 
@@ -219,32 +217,30 @@ The generated code imports the runtime from `loclizr`, so the library lists it i
 by the [abi digit](/project/continuity/#versions-and-upgrades): start the peer range at the version
 that built the tree.
 
-The library never creates a store. Its message functions read the app's locale, and fall back to
-their own source locale for one they lack. Run in the app, after `m.setLocale(locale)` from the
-app's tree:
+The library has no store of its own; it shares the app's. Its message functions read the app's
+locale, and fall back to their own source locale for one they lack. Run in the app, after
+`m.setLocale(locale)` from the app's tree:
 
 ```text
+loclizr: a second generated directory registered [de, en]; the first registration keeps getLocale().
 de | Deine Dateien | 2 Dateien löschen? | 1 Datei löschen?
 fr | Vos fichiers | Delete 2 files? | Delete 1 file?
 ```
 
-The columns are `getLocale()`, the app's own message, then two library calls. Inside
+The first line is the library's tree registering after the app's. Outside production it prints
+whenever the library's `locales`, `sourceLocale` or `cookie` differ from the app's, so it appears in
+this correct setup too, and neither the library nor the app has an option to silence it.
+
+Below it, the columns are `getLocale()`, the app's own message, then two library calls. Inside
 `runWithLocale('de', ...)` from `loclizr/server` the library renders `2 Dateien löschen?` as well.
 A second copy of `loclizr` nested under the library attaches to the same store: `setLocale('de')`
 imported from that copy moved the app's `getLocale()` and its messages too.
-
-Outside production, the library's tree announces itself when its locale list differs from the
-app's:
-
-```text
-loclizr: a second generated directory registered [de, en]; the first registration keeps getLocale().
-```
 
 ## What each side must not do
 
 | Side | Must not | Because |
 | --- | --- | --- |
-| Library | Export the barrel's `getLocale`, `setLocale` or `locales` | They are typed with the library's list. With the app on `fr`, the barrel's `getLocale()` returned `fr` while typed `'de' \| 'en'`. |
+| Library | Export the barrel's `getLocale` or `setLocale` | They are typed with the library's list. With the app on `fr`, the barrel's `getLocale()` returned `fr` while typed `'de' \| 'en'`. |
 | Library | Call `setLocale` | It moves the app's locale. |
 | Library | Bundle `loclizr` or list it under `dependencies` | The app picks the runtime version; a peer keeps one copy to pick. |
 | App | Import the library before its own tree | The first registration keeps `getLocale()`. |

@@ -39,7 +39,9 @@ The one fallback block names its own catalog.
 </FileTree>
 
 - `.js` plus a printed `.d.ts`, never `.ts`: immune to the host tsconfig (`jsx`, aliases,
-  `strict`), no `allowJs`, outside the app's typecheck, no `typescript` needed.
+  `strict`), no `allowJs`, outside the app's typecheck, no `typescript` needed. A library therefore
+  ships the tree itself, since `tsc` never copies it into `outDir`: see
+  [Publishing a library](/guides/publishing-a-library/).
 - Relative imports carry `.js` for Node during a server render.
 - Dotless keys land in `_root`.
 
