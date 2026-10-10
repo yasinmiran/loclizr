@@ -270,8 +270,8 @@ The scope covers the handler and the async work it starts; a body produced as th
 can fall outside it. See [Bodies produced later](/guides/server-rendering/#bodies-produced-later).
 
 <Aside type="caution">
-Most CDNs ignore `Vary` outside `Accept-Encoding`. A cookie-localized response needs
-`Cache-Control: private` or a cache key with the cookie; see
+Most CDNs ignore `Vary` outside `Accept-Encoding`. A localized response needs
+`Cache-Control: private` or a cache key with the locale cookie; see
 [Server rendering](/guides/server-rendering/).
 </Aside>
 

@@ -67,7 +67,7 @@ Two steps are yours:
    markup as English for a visitor with no cookie. Use `getLocale()`; outside production `useLocale`
    warns once on a mismatch ([React](/guides/react/)).
 
-2. ### Keep cookie responses out of shared caches
+2. ### Keep localized responses out of shared caches
 
    A shared cache in front of the handler must honour `Vary` or key on the locale cookie. Most CDNs
    ignore `Vary` outside `Accept-Encoding`, so unless yours keys on the cookie, send

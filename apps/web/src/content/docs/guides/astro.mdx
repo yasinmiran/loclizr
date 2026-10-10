@@ -231,8 +231,8 @@ This replaces the static setup: one page at `/` picks the language per request. 
    <!DOCTYPE html><html lang="de"><head><meta charset="utf-8"><title>Warenkorb</title></head><body><h1>Hallo Ada, dein Warenkorb ist bereit</h1><p>3 Artikel in deinem Warenkorb</p></body></html>
    ```
 
-   The cookie beats `Accept-Language`. Keep cookie-driven responses out of shared caches, as
-   [Server rendering](/guides/server-rendering/) explains.
+   The cookie beats `Accept-Language`. Keep localized responses out of shared caches unless the
+   cache keys on the locale cookie, as [Server rendering](/guides/server-rendering/) explains.
 
 </Steps>
 
