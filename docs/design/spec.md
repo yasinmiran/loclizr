@@ -2638,6 +2638,12 @@ either one guarantees a hydration mismatch.
 `setLocale` persists to that same cookie by default (`path=/`, one year,
 `SameSite=Lax`) and updates `document.documentElement.lang`. The cookie is the
 only persistence channel, because it is the only one the server can read.
+A `file://` page (Electron `loadFile`) or a page with cookies blocked takes the
+write and keeps nothing while `navigator.cookieEnabled` still reports `true`, so
+the choice lasts only until reload and the app has to persist it itself and
+call `setLocale` on startup. Outside production `setLocale` therefore reads
+the cookie back after writing it and warns once when it does not hold the
+written value.
 `setLocale(locale, { persist: false })` skips the cookie write only;
 `document.documentElement.lang` is still updated, because `lang` is live
 document state rather than persistence. When step 1 of client detection finds
@@ -4678,7 +4684,7 @@ nobody else:
   `src/runtime/store.ts`, so the store is hoisted into a shared chunk and the
   entry is reduced to re-exports. The budget is 900 bytes and it is **not
   met**: the shipped runtime, a store, an RFC 4647 matcher, a cookie reader,
-  four warning strings and four ABI helpers, measures about 2100 bytes in the
+  four warning strings and four ABI helpers, measures about 2350 bytes in the
   shape tsdown ships, and about 1500 minified. The test keeps the 900-byte
   assertion verbatim as an expected failure, so the suite turns red the day
   the budget is met and the number can be tightened, and a second, ordinary

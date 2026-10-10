@@ -49,8 +49,21 @@ export function setLocale(locale: Locale, options?: SetLocaleOptions): void {
       // A lone surrogate is the one string encodeURIComponent rejects; written
       // as U+FFFD it reads back as an unknown tag, which resolves exactly as the
       // stored one does.
-      const encoded = encodeURIComponent(locale.replace(/\p{Cs}/gu, '\uFFFD'))
-      document.cookie = `${cookieName()}=${encoded}; path=/; max-age=${ONE_YEAR}; SameSite=Lax`
+      const stored = locale.replace(/\p{Cs}/gu, '\uFFFD')
+      const name = cookieName()
+      document.cookie = `${name}=${encodeURIComponent(stored)}; path=/; max-age=${ONE_YEAR}; SameSite=Lax`
+      // A file:// page keeps no cookie while navigator.cookieEnabled says true.
+      try {
+        if (
+          process.env.NODE_ENV !== 'production' &&
+          (readCookie(document.cookie, name) ?? '') !== stored
+        ) {
+          warnOnce(
+            'unstored',
+            'the locale cookie was not stored (file:// or cookies blocked), so the choice lasts until reload. Persist it yourself and call setLocale() on startup.',
+          )
+        }
+      } catch {}
     }
     document.documentElement.lang = locale
   }

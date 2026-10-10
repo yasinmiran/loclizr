@@ -264,3 +264,57 @@ describe('setLocale in a browser', () => {
     expect(getLocale()).toBe('de')
   })
 })
+
+// A file:// page (Electron loadFile) or a profile that blocks cookies takes the
+// write and keeps nothing, while navigator.cookieEnabled still reports true.
+function dropCookieWrites(): void {
+  Object.defineProperty(document, 'cookie', {
+    configurable: true,
+    get: () => '',
+    set: () => {},
+  })
+}
+
+describe('a cookie write the page does not keep', () => {
+  test('warns once outside production that the choice lasts only until reload', () => {
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {})
+    dropCookieWrites()
+    registerDefaults(SETUP)
+    setLocale('de')
+    setLocale('de-AT')
+    expect(getLocale()).toBe('de-AT')
+    expect(warn).toHaveBeenCalledTimes(1)
+    expect(String(warn.mock.calls[0]?.[0])).toMatch(/cookie was not stored.*setLocale\(\) on startup/)
+  })
+
+  test('stays silent when the cookie sticks, a lone surrogate and an empty tag included', () => {
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {})
+    registerDefaults(SETUP)
+    setLocale('de')
+    setLocale('\uD800')
+    setLocale('')
+    expect(warn).not.toHaveBeenCalled()
+  })
+
+  test('stays silent when persistence is declined', () => {
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {})
+    dropCookieWrites()
+    registerDefaults(SETUP)
+    setLocale('de', { persist: false })
+    expect(warn).not.toHaveBeenCalled()
+  })
+
+  test('stays silent in production', () => {
+    vi.stubEnv('NODE_ENV', 'production')
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {})
+    try {
+      dropCookieWrites()
+      registerDefaults(SETUP)
+      setLocale('de')
+      expect(getLocale()).toBe('de')
+      expect(warn).not.toHaveBeenCalled()
+    } finally {
+      vi.unstubAllEnvs()
+    }
+  })
+})
