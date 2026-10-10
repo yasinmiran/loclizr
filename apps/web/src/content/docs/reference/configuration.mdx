@@ -230,6 +230,9 @@ Replaces the mangled identifier: fixes a collision without renaming a key i18nex
   `constructor` or `prototype`.
 - Fixes a top-level segment that mangles to `_locale`, `_formats` or `_root`, or two that differ
   only by case (a case-insensitive filesystem merges them).
+- An entry whose key is no source key, top-level segment or group name is
+  `LZ4007 identifier-orphan`, a warning naming the closest one, so a typo or a renamed key is not
+  silently ignored.
 
 ## `fallback`
 

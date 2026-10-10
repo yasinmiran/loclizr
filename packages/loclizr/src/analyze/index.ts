@@ -210,6 +210,7 @@ export function analyze(input: {
   diagnostics.push(...checkIdentity(messages, config, sourceEntries))
   const groups = buildGroups(config, messages, sourceEntries)
   diagnostics.push(...groups.diagnostics)
+  diagnostics.push(...checkOrphanIdentifiers(config, sourceEntries))
 
   return {
     config,
@@ -792,6 +793,120 @@ function buildGroups(
   diagnostics.push(...checkGroupCollisions(groups))
   diagnostics.push(...checkGroupMemberIds(groups, sourceEntries))
   return { groups, diagnostics }
+}
+
+// An entry is looked up by catalog key, by top-level segment and by group name,
+// so one that none of them names renames nothing, and a typo or a key renamed
+// after the entry was written would otherwise leave the build green.
+function checkOrphanIdentifiers(
+  config: Config,
+  sourceEntries: ReadonlyMap<string, CatalogEntry> | undefined,
+): readonly Diagnostic[] {
+  // A missing source catalog is already LZ1004, and every entry would echo it.
+  if (sourceEntries === undefined) return []
+  const names = new Set<string>(Object.keys(config.groups))
+  for (const key of sourceEntries.keys()) {
+    names.add(key)
+    names.add(namespaceOf(key))
+  }
+  // `_root` is the namespace of a dotless key, so an entry for it renames that
+  // module, but no typo aims at it, so it is never the name offered.
+  const candidates = [...names]
+    .filter((name) => name !== '_root')
+    .sort(compareCodepoint)
+    .map((name) => ({ name, points: codePoints(name) }))
+  const diagnostics: Diagnostic[] = []
+  for (const entry of Object.keys(config.identifiers).sort(compareCodepoint)) {
+    if (names.has(entry)) continue
+    const closest = closestName(entry, candidates)
+    diagnostics.push(
+      diag('identifier-orphan', {
+        message: `The identifiers entry "${entry}" matches no catalog key, top-level key segment or group name, so it renames nothing.`,
+        hint:
+          closest === null
+            ? 'Remove the entry from loclizr.config.ts.'
+            : `The closest existing name is "${closest}". Fix the entry in loclizr.config.ts: identifiers: { '${closest}': '${config.identifiers[entry] ?? ''}' }, or remove it.`,
+      }),
+    )
+  }
+  return diagnostics
+}
+
+interface NameCandidate {
+  readonly name: string
+  readonly points: Int32Array
+}
+
+function codePoints(value: string): Int32Array {
+  return Int32Array.from(value, (char) => char.codePointAt(0) ?? 0)
+}
+
+// Candidates arrive in code point order and only a strictly smaller distance
+// replaces the pick, so a tie goes to the first and the hint is deterministic.
+// Scoring every key in full would put a stale entry against a large catalog on
+// the build's clock, so the code point neighbours of `name`, which usually
+// share its prefix, bound the pick first, and a candidate stops scoring once it
+// cannot come in under the bound.
+function closestName(name: string, candidates: readonly NameCandidate[]): string | null {
+  const points = codePoints(name)
+  let best = Number.POSITIVE_INFINITY
+  const at = insertionPoint(name, candidates)
+  for (const neighbour of [candidates[at - 1], candidates[at]]) {
+    if (neighbour !== undefined) best = Math.min(best, editDistance(points, neighbour.points, best) + 1)
+  }
+  let closest: string | null = null
+  for (const candidate of candidates) {
+    const distance = editDistance(points, candidate.points, best)
+    if (distance < best) {
+      best = distance
+      closest = candidate.name
+    }
+  }
+  return closest
+}
+
+function insertionPoint(name: string, candidates: readonly NameCandidate[]): number {
+  let low = 0
+  let high = candidates.length
+  while (low < high) {
+    const middle = (low + high) >>> 1
+    if (compareCodepoint(candidates[middle]?.name ?? '', name) < 0) low = middle + 1
+    else high = middle
+  }
+  return low
+}
+
+// Levenshtein over code points: exact below `limit`, and some value of at least
+// `limit` otherwise. A cell is at least its offset from the diagonal, so only
+// the band within `limit` of it is scored, and a row whose minimum reaches
+// `limit` ends the search because later rows never fall below it.
+function editDistance(a: Int32Array, b: Int32Array, limit: number): number {
+  if (Math.abs(a.length - b.length) >= limit) return limit
+  const band = Math.min(limit, a.length + b.length + 1)
+  let previous = new Int32Array(b.length + 1)
+  let current = new Int32Array(b.length + 1)
+  for (let column = 0; column <= b.length; column += 1) previous[column] = Math.min(column, band)
+  for (let row = 1; row <= a.length; row += 1) {
+    const first = Math.max(1, row - band)
+    const last = Math.min(b.length, row + band)
+    current[first - 1] = first === 1 ? Math.min(row, band) : band
+    let rowMinimum = current[first - 1] ?? band
+    for (let column = first; column <= last; column += 1) {
+      const value = Math.min(
+        (previous[column] ?? band) + 1,
+        (current[column - 1] ?? band) + 1,
+        (previous[column - 1] ?? band) + (a[row - 1] === b[column - 1] ? 0 : 1),
+      )
+      current[column] = value
+      if (value < rowMinimum) rowMinimum = value
+    }
+    if (last < b.length) current[last + 1] = band
+    if (rowMinimum >= limit) return rowMinimum
+    const finished = current
+    current = previous
+    previous = finished
+  }
+  return previous[b.length] ?? band
 }
 
 function collectMembers(prefix: string, messages: readonly Message[]): readonly GroupMember[] {

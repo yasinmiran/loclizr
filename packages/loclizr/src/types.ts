@@ -51,6 +51,7 @@ export type RuleName =
   | 'group-empty'
   | 'nondeterministic-output'
   | 'group-args-heterogeneous'
+  | 'identifier-orphan'
   | 'output-unwritable'
   | 'output-stale'
   | 'record-stale'

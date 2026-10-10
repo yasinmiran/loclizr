@@ -28,7 +28,7 @@ writes typed ESM message functions into your source tree.
 | Output | What it gives you |
 | --- | --- |
 | Message modules | One module per top-level key segment. A function's first parameter is exactly its ICU argument set, so a renamed placeholder, or a plural argument handed a string, fails typecheck at the call site instead of rendering `undefined`. |
-| Diagnostics | Fifty-seven rules with stable codes, on from the first build; an error exits 1. All but three re-level to `off`, `warn` or `error` in config. |
+| Diagnostics | Fifty-eight rules with stable codes, on from the first build; an error exits 1. All but three re-level to `off`, `warn` or `error` in config. |
 | Context record | `locales/loclizr.context.json`, committed. Per message: canonical source text and its hash, argument names and types, plural or select shape, the file and function that use it, per-locale status, and your description if you wrote one. |
 
 Checking is part of `build`, not a step you wire up. It catches missing and blank

@@ -1,11 +1,11 @@
 ---
 title: Catalog checks
-description: Fifty-seven rules by code, with default severity, fatal scope, trigger and fix.
+description: Fifty-eight rules by code, with default severity, fatal scope, trigger and fix.
 ---
 
 import { Aside } from '@astrojs/starlight/components'
 
-Every `loclizr build` runs all fifty-seven rules: no separate lint command, no flag that turns them
+Every `loclizr build` runs all fifty-eight rules: no separate lint command, no flag that turns them
 off. Each has a permanent code and a name that is its `severity` key. Defaults: 35 `error`, 19
 `warn`, 3 `off`.
 
@@ -207,6 +207,7 @@ gate` with `'error'`.
 | `LZ4004` | `group-empty` | error | never | A group prefix matched no keys. | Check the prefix: it matches on a dot boundary, so `err` captures `err.forbidden`, never `errforbidden`. |
 | `LZ4005` | `nondeterministic-output` | error | always | A second emit over a reversed program produced different bytes. | A compiler bug: report it with the printed path and the catalogs. |
 | `LZ4006` | `group-args-heterogeneous` | warn | never | Group members differ in arguments, so every dynamic call must pass the union. Related rows list each member's. | Split the group by argument shape, or give the odd members bare `{x}` arguments. |
+| `LZ4007` | `identifier-orphan` | warn | never | An `identifiers` entry names no source key, top-level key segment or group, so it renames nothing. The hint names the closest one. | Correct the entry's key, or remove the entry. |
 
 `LZ4002` reserves:
 

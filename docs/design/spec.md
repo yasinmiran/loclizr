@@ -647,6 +647,13 @@ top-level key segment for the namespace filename, and by the group name for a
 group's export identifier, so `{ errors: 'appErrors' }` renames both the
 `errors` namespace module and a group named `errors` at once. Section 7.2's
 `LZ4002` escape hatch for a reserved namespace filename is the second lookup.
+An entry that none of the three lookups can reach, because its key is not a
+source catalog key, the top-level segment of one (`_root` for a key with no
+dot) or a group name, is `LZ4007 identifier-orphan`, naming the closest of
+those names by edit distance, so a typo or a key renamed after the entry was
+written does not leave the build green. `_root` is never the name offered,
+since no typo aims at it. A source key whose value failed to lower still
+counts, because the entry is right and the value is what broke.
 
 `groups` maps a group name to a key prefix. `{ errors: 'errors' }` takes every
 key under `errors.` as a member of the group `errors`.
@@ -2479,7 +2486,7 @@ this rule; the flag is never consulted by any other module.
 **`--max-warnings` defaults to no cap**, matching eslint's `-1`, so warnings
 alone never produce exit 1. `exitCodeFor` receives `Number.POSITIVE_INFINITY`
 when the flag is absent. That default decides whether a fresh i18next import
-exits 0 or 1, since nineteen rules default to `warn`, so it is stated here
+exits 0 or 1, since twenty rules default to `warn`, so it is stated here
 rather than left for M10 and M11 to each pick one.
 
 ### 10.1 Diagnostics
@@ -3058,7 +3065,7 @@ own identifiers.
 
 ## 13. Rule catalog
 
-Fifty-seven rules. Every code is stable forever. `severity` in the config
+Fifty-eight rules. Every code is stable forever. `severity` in the config
 re-levels any of them to `off`, `warn` or `error`, except `LZ1001`, `LZ1007` and
 `LZ5001`, which are not re-levelable (section 3).
 
@@ -3219,6 +3226,7 @@ retrofit. Section 10 has the exact behaviour.
 | LZ4004 | `group-empty` | error | never | M4 | a group prefix matched zero keys; the group is still emitted with `Key = never` (section 7.4) |
 | LZ4005 | `nondeterministic-output` | error | always | M6 | the replayed re-emit differs byte-wise |
 | LZ4006 | `group-args-heterogeneous` | warn | never | M4 | a group's members do not share one argument signature, names and kinds, so every dynamic call site carries the union |
+| LZ4007 | `identifier-orphan` | warn | never | M4 | an `identifiers` entry whose key is not a source catalog key, a top-level segment of one, or a group name (section 3); one per entry in code point order, the hint naming the closest of those names other than `_root` by edit distance, ties to the first in code point order |
 
 ### LZ5xxx, artifacts and context
 
@@ -3493,6 +3501,7 @@ export type RuleName =
   | 'group-empty'
   | 'nondeterministic-output'
   | 'group-args-heterogeneous'
+  | 'identifier-orphan'
   | 'output-unwritable'
   | 'output-stale'
   | 'record-stale'
@@ -4389,7 +4398,7 @@ every catalog, and M5 raises `LZ3003` from there.
 
 It resolves fallback chains, assigns identifiers, namespaces and `module`,
 builds groups with all three of `name`, `id` and `typeBase`, and computes
-`Message.args` per section 5.1. Raises LZ4001 through LZ4004 and LZ4006. It does
+`Message.args` per section 5.1. Raises LZ4001 through LZ4004, LZ4006 and LZ4007. It does
 not run cross-locale checks; that is M5.
 
 ### M5, check

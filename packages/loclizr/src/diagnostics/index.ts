@@ -63,6 +63,7 @@ export const RULES: Readonly<Record<RuleName, Rule>> = {
   'group-empty': { code: 'LZ4004', name: 'group-empty', severity: 'error', fatal: 'never', exitTwo: false, owner: 'M4' },
   'nondeterministic-output': { code: 'LZ4005', name: 'nondeterministic-output', severity: 'error', fatal: 'always', exitTwo: false, owner: 'M6' },
   'group-args-heterogeneous': { code: 'LZ4006', name: 'group-args-heterogeneous', severity: 'warn', fatal: 'never', exitTwo: false, owner: 'M4' },
+  'identifier-orphan': { code: 'LZ4007', name: 'identifier-orphan', severity: 'warn', fatal: 'never', exitTwo: false, owner: 'M4' },
   'output-unwritable': { code: 'LZ5001', name: 'output-unwritable', severity: 'error', fatal: 'always', exitTwo: true, owner: 'M10' },
   'output-stale': { code: 'LZ5002', name: 'output-stale', severity: 'error', fatal: 'never', exitTwo: false, owner: 'M10' },
   'record-stale': { code: 'LZ5003', name: 'record-stale', severity: 'error', fatal: 'never', exitTwo: false, owner: 'M10' },
