@@ -21,6 +21,7 @@ export const sidebar: SidebarGroup[] = [
     items: [
       { label: 'Catalogs and ICU messages', slug: 'guides/catalogs' },
       { label: 'Importing i18next catalogs', slug: 'guides/i18next-import' },
+      { label: 'Migrating from FormatJS', slug: 'guides/formatjs-migration' },
       { label: 'Language switching', slug: 'guides/language-switching' },
       { label: 'Server rendering', slug: 'guides/server-rendering' },
       { label: 'Dynamic keys', slug: 'guides/dynamic-keys' },
@@ -28,6 +29,7 @@ export const sidebar: SidebarGroup[] = [
       { label: 'Testing', slug: 'guides/testing' },
       { label: 'Translation workflow', slug: 'guides/translation-workflow' },
       { label: 'Monorepo', slug: 'guides/monorepo' },
+      { label: 'Publishing a library', slug: 'guides/publishing-a-library' },
     ],
   },
   {

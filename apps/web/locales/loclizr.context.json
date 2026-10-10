@@ -2204,6 +2204,104 @@
       ]
     },
     {
+      "key": "nav.guides_formatjs_migration",
+      "id": "nav_guides_formatjs_migration",
+      "module": "messages/nav.js",
+      "kind": "text",
+      "source": "Migrating from FormatJS",
+      "sourceHash": "f5fe47fe1abfec16",
+      "description": null,
+      "args": [],
+      "variants": [],
+      "markup": [],
+      "translations": [
+        {
+          "locale": "ar",
+          "status": "translated",
+          "from": null,
+          "reason": null
+        },
+        {
+          "locale": "de",
+          "status": "translated",
+          "from": null,
+          "reason": null
+        },
+        {
+          "locale": "en",
+          "status": "translated",
+          "from": null,
+          "reason": null
+        },
+        {
+          "locale": "es",
+          "status": "translated",
+          "from": null,
+          "reason": null
+        },
+        {
+          "locale": "fr",
+          "status": "translated",
+          "from": null,
+          "reason": null
+        },
+        {
+          "locale": "hi",
+          "status": "translated",
+          "from": null,
+          "reason": null
+        },
+        {
+          "locale": "it",
+          "status": "translated",
+          "from": null,
+          "reason": null
+        },
+        {
+          "locale": "ja",
+          "status": "translated",
+          "from": null,
+          "reason": null
+        },
+        {
+          "locale": "ko",
+          "status": "translated",
+          "from": null,
+          "reason": null
+        },
+        {
+          "locale": "pl",
+          "status": "translated",
+          "from": null,
+          "reason": null
+        },
+        {
+          "locale": "pt",
+          "status": "translated",
+          "from": null,
+          "reason": null
+        },
+        {
+          "locale": "uk",
+          "status": "translated",
+          "from": null,
+          "reason": null
+        },
+        {
+          "locale": "zh",
+          "status": "translated",
+          "from": null,
+          "reason": null
+        }
+      ],
+      "usage": [
+        {
+          "file": "src/components/site-language.ts",
+          "scope": "applySiteLocale"
+        }
+      ]
+    },
+    {
       "key": "nav.guides_i18next_import",
       "id": "nav_guides_i18next_import",
       "module": "messages/nav.js",
@@ -2406,6 +2504,104 @@
       "kind": "text",
       "source": "Monorepo",
       "sourceHash": "14a15bbd7530e6f8",
+      "description": null,
+      "args": [],
+      "variants": [],
+      "markup": [],
+      "translations": [
+        {
+          "locale": "ar",
+          "status": "translated",
+          "from": null,
+          "reason": null
+        },
+        {
+          "locale": "de",
+          "status": "translated",
+          "from": null,
+          "reason": null
+        },
+        {
+          "locale": "en",
+          "status": "translated",
+          "from": null,
+          "reason": null
+        },
+        {
+          "locale": "es",
+          "status": "translated",
+          "from": null,
+          "reason": null
+        },
+        {
+          "locale": "fr",
+          "status": "translated",
+          "from": null,
+          "reason": null
+        },
+        {
+          "locale": "hi",
+          "status": "translated",
+          "from": null,
+          "reason": null
+        },
+        {
+          "locale": "it",
+          "status": "translated",
+          "from": null,
+          "reason": null
+        },
+        {
+          "locale": "ja",
+          "status": "translated",
+          "from": null,
+          "reason": null
+        },
+        {
+          "locale": "ko",
+          "status": "translated",
+          "from": null,
+          "reason": null
+        },
+        {
+          "locale": "pl",
+          "status": "translated",
+          "from": null,
+          "reason": null
+        },
+        {
+          "locale": "pt",
+          "status": "translated",
+          "from": null,
+          "reason": null
+        },
+        {
+          "locale": "uk",
+          "status": "translated",
+          "from": null,
+          "reason": null
+        },
+        {
+          "locale": "zh",
+          "status": "translated",
+          "from": null,
+          "reason": null
+        }
+      ],
+      "usage": [
+        {
+          "file": "src/components/site-language.ts",
+          "scope": "applySiteLocale"
+        }
+      ]
+    },
+    {
+      "key": "nav.guides_publishing_a_library",
+      "id": "nav_guides_publishing_a_library",
+      "module": "messages/nav.js",
+      "kind": "text",
+      "source": "Publishing a library",
+      "sourceHash": "b13dc35ca4d04bf5",
       "description": null,
       "args": [],
       "variants": [],
