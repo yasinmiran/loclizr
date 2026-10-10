@@ -130,7 +130,7 @@ describe('renderReport, a run a fatal diagnostic blocked', () => {
 
   it('keeps that counts line under --quiet, which dropped the warning', () => {
     expect(renderReport(blocked, { ...plain, quiet: true })).toBe(
-      '0 messages, 1 locale, 0 errors, 1 warning\n',
+      'nothing generated: 1 fatal (LZ1009)\n0 messages, 1 locale, 0 errors, 1 warning\n',
     )
   })
 
@@ -215,6 +215,113 @@ describe('renderReport, what the run produced', () => {
     )
 
     expect(text).toContain('1 message, 1 locale (source de), 0 errors, 0 warnings')
+  })
+})
+
+describe('renderReport, a run a fatal diagnostic blocked', () => {
+  const reserved: Diagnostic = diag('identifier-reserved', {
+    message: 'subscribe is reserved.',
+    file: 'locales/en.json',
+    key: 'subscribe',
+  })
+  const collision: Diagnostic = diag('identifier-collision', {
+    message: 'a-b and a_b mangle to one identifier.',
+    file: 'locales/en.json',
+    key: 'a_b',
+  })
+  const fellBack = summary({
+    errors: 2,
+    messages: 3,
+    locales: 2,
+    fellBack: [{ locale: 'de', count: 1 }],
+  })
+  const blocked = buildResult({
+    exitCode: 1,
+    ok: false,
+    diagnostics: [missing, reserved],
+    summary: fellBack,
+  })
+
+  it('says nothing was generated and names the fatal code above the counts', () => {
+    const lines = renderReport(blocked, plain).trimEnd().split('\n')
+
+    expect(lines.at(-2)).toBe('nothing generated: 1 fatal (LZ4002)')
+    expect(lines.at(-1)).toBe('3 messages, 2 locales (source en), 2 errors, 0 warnings')
+  })
+
+  it('leaves out the fallback line, because no tree rendered anything', () => {
+    expect(renderReport(blocked, plain)).not.toContain('fell back')
+  })
+
+  it('names every fatal code once, in report order', () => {
+    const text = renderReport(
+      buildResult({ ...blocked, diagnostics: [reserved, collision, { ...reserved, key: 'delete' }] }),
+      plain,
+    )
+
+    expect(text).toContain('nothing generated: 3 fatal (LZ4001, LZ4002)')
+  })
+
+  it('still says so when the fatal rule was turned down to warn, which blocks all the same', () => {
+    const text = renderReport(
+      buildResult({ ...blocked, diagnostics: [missing, { ...reserved, severity: 'warn' }] }),
+      plain,
+    )
+
+    expect(text).toContain('nothing generated: 1 fatal (LZ4002)')
+  })
+
+  it('keeps the fallback line and adds nothing on an unchanged rerun that wrote nothing', () => {
+    const text = renderReport(
+      buildResult({ exitCode: 1, ok: false, diagnostics: [missing], summary: fellBack }),
+      plain,
+    )
+
+    expect(text).not.toContain('nothing generated')
+    expect(text).toContain('fell back to source text: de 1')
+  })
+
+  it('names what was written when the write step itself failed, which came after the tree', () => {
+    const text = renderReport(
+      buildResult({
+        exitCode: 2,
+        ok: false,
+        diagnostics: [
+          missing,
+          diag('output-unwritable', {
+            message: '`locales/loclizr.context.json` is not a loclizr context record.',
+            file: 'locales/loclizr.context.json',
+          }),
+        ],
+        written: ['src/loclizr/messages.js'],
+        summary: fellBack,
+      }),
+      plain,
+    )
+
+    expect(text).not.toContain('nothing generated')
+    expect(text).toContain('wrote src/loclizr (1 file)')
+    expect(text).toContain('fell back to source text: de 1')
+  })
+
+  it('keeps the line under --quiet, so a fatal turned down to warn never leaves exit 1 unexplained', () => {
+    const text = renderReport(
+      buildResult({ ...blocked, diagnostics: [{ ...reserved, severity: 'warn' }] }),
+      { ...plain, quiet: true },
+    )
+
+    expect(text).toBe(
+      'nothing generated: 1 fatal (LZ4002)\n3 messages, 2 locales (source en), 2 errors, 0 warnings\n',
+    )
+  })
+
+  it('keeps the line under --quiet when the fatal error is printed and nothing was hidden', () => {
+    const text = renderReport(buildResult({ ...blocked, diagnostics: [reserved] }), {
+      ...plain,
+      quiet: true,
+    })
+
+    expect(text.trimEnd().split('\n').at(-1)).toBe('nothing generated: 1 fatal (LZ4002)')
   })
 })
 

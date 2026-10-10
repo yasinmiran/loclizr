@@ -2283,7 +2283,10 @@ and `init`'s text go to stdout, so `loclizr check --reporter json | jq
 errors. The summary's artifact lines are dropped too, and the counts line is
 printed only when the filter dropped something, so a run that exits 1 under
 `--max-warnings`, or because a fatal rule turned down to `warn` or `off`
-blocked output, never produces zero bytes on both streams. The JSON reporter
+blocked output, never produces zero bytes on both streams. The blocked line
+(section 10.1) prints under `--quiet` too, because a fatal rule turned down to
+`warn` is filtered out with the other warnings and would otherwise leave exit 1
+with no cause on screen. The JSON reporter
 is untouched by it (section 10.1), and so is the exit code, because M10 never
 sees the flag. **`--max-warnings`** takes an integer; the no-cap value is
 written `--max-warnings=-1`, because `node:util.parseArgs` cannot tell a
@@ -2468,6 +2471,23 @@ untouched: M5 still **stamps** the diagnostic at the rule's default severity,
 `warn`, and M10 still re-levels the whole set. M5 reads the setting to name it,
 never to decide whether or at what level to emit.
 
+The human summary closes the report, and only when a program was analyzed: a
+run that halted before analysis prints its diagnostics alone. Its lines come in
+this order. First, on `build`, the `wrote` line naming the generated tree and
+the record, when write-if-changed wrote anything, and the reminder to commit the
+record unless `LZ5007` already says so. A run that blocked
+output instead prints `nothing generated: N fatal (LZ4001, LZ4002)` there,
+counting every diagnostic whose `fatal` is true and naming each distinct code
+once in report order, keyed on the stamped fatality as the write decision is,
+so a fatal rule turned down to `warn` or `off` still names itself. `LZ5001` is
+left out: the write step raises it after the decision to write, so the tree
+may be on disk and the `wrote` line still names it. It names
+codes, not keys, since a key is catalog text that only `renderHuman` sanitizes.
+This line is what tells a blocked run from an unchanged rerun, which also
+writes nothing. Then the counts line. Then `fell back to source text: de 2,
+de-AT 1` from `summary.fellBack`, left out when nothing fell back and on a
+blocked run, which rendered no tree for anything to fall back in.
+
 JSON reporter prints `{ "schema": 1, "diagnostics": [...], "summary": {...} }`,
 diagnostics sorted by severity, then code, then file, then locale, then key,
 then offset. `summary` carries `{ errors, warnings, messages, locales, fellBack }`
@@ -2475,7 +2495,8 @@ where `fellBack` lists each locale with the number of messages that resolved to
 source text, sorted by code point, and only locales whose count is above zero,
 so the source locale never appears in it. The JSON payload is the same under
 every flag: `--quiet` thins the human reporter only, because the summary counts
-have to agree with the diagnostics printed beside them.
+have to agree with the diagnostics printed beside them. `summary` carries no
+blocked field: `diagnostics[].fatal` already says which entries blocked output.
 
 Every module emits a `Diagnostic` at its rule's **default** severity, stamping
 `RULES[rule].severity === 'off' ? 'warn' : RULES[rule].severity`, because

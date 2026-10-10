@@ -1,5 +1,5 @@
 import { renderHuman, renderJson, sortDiagnostics } from '../diagnostics'
-import type { BuildResult, Config, Program, Summary } from '../types'
+import type { BuildResult, Config, Diagnostic, Program, Summary } from '../types'
 
 export interface ReportOptions {
   readonly reporter: 'human' | 'json'
@@ -29,23 +29,53 @@ export function renderReport(result: BuildResult, options: ReportOptions): strin
   // 1 and owes its counts, and an unwritable output (exit 2) analyzed every
   // message first. --no-fail never touches 2, so this gate is safe from it.
   const counted = result.program !== null || result.exitCode !== 2
-  if (counted && (!options.quiet || accountsForHidden)) {
-    blocks.push(renderSummary(result, result.program, options.quiet))
+  const blocked = blockedLine(result.diagnostics)
+  const showCounts = !options.quiet || accountsForHidden
+  if (counted && (showCounts || blocked !== null)) {
+    blocks.push(renderSummary(result, result.program, { quiet: options.quiet, showCounts, blocked }))
   }
 
   return blocks.length === 0 ? '' : `${blocks.join('\n\n')}\n`
 }
 
-function renderSummary(result: BuildResult, program: Program | null, quiet: boolean): string {
-  const lines = quiet || program === null ? [] : [...artifactLines(result, program.config)]
-  lines.push(counts(result.summary, program?.sourceLocale ?? null))
-  if (result.summary.fellBack.length > 0) {
+interface SummaryOptions {
+  readonly quiet: boolean
+  readonly showCounts: boolean
+  readonly blocked: string | null
+}
+
+function renderSummary(result: BuildResult, program: Program | null, options: SummaryOptions): string {
+  const lines =
+    options.blocked !== null
+      ? [options.blocked]
+      : options.quiet || program === null
+        ? []
+        : [...artifactLines(result, program.config)]
+  if (options.showCounts) lines.push(counts(result.summary, program?.sourceLocale ?? null))
+  // The fallback counts describe a tree, and a blocked run rendered none.
+  if (options.showCounts && options.blocked === null && result.summary.fellBack.length > 0) {
     const fellBack = result.summary.fellBack
       .map((entry) => `${entry.locale} ${entry.count}`)
       .join(', ')
     lines.push(`fell back to source text: ${fellBack}`)
   }
   return lines.join('\n')
+}
+
+// A blocked run and an unchanged rerun both print no `wrote` line, so this is
+// what tells them apart and points at the code that stopped the tree. It reads
+// the stamped fatality, as the write decision does, because a fatal rule turned
+// down to warn or off blocks all the same. LZ5001 is left out: the write step
+// raises it after the decision to write, so the tree may be on disk, and its
+// message names what was not written. Codes only, because a key is catalog text
+// that only the diagnostic renderer sanitizes.
+function blockedLine(diagnostics: readonly Diagnostic[]): string | null {
+  const fatal = sortDiagnostics(diagnostics).filter(
+    (diagnostic) => diagnostic.fatal && diagnostic.rule !== 'output-unwritable',
+  )
+  if (fatal.length === 0) return null
+  const codes = [...new Set(fatal.map((diagnostic) => diagnostic.code))]
+  return `nothing generated: ${fatal.length} fatal (${codes.join(', ')})`
 }
 
 // The record is the artifact meant to land in the pull request, and a run that
