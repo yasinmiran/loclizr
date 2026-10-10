@@ -101,6 +101,20 @@ describe('negotiate on quality values', () => {
     expect(negotiate(['fr;q=1', 'de'], OPTIONS)).toBe('fr')
     expect(negotiate(['de', 'fr;q=1.0'], OPTIONS)).toBe('de')
   })
+
+  test('caps a quality above 1 at 1, so it never outranks an earlier q=1', () => {
+    expect(negotiate(['fr', 'de;q=1.5'], OPTIONS)).toBe('fr')
+    expect(negotiate(['fr', 'de;q=1.001'], OPTIONS)).toBe('fr')
+    expect(negotiate(['fr;q=0.5', 'de;q=2'], OPTIONS)).toBe('de')
+  })
+
+  test('drops a quality that is not a plain decimal', () => {
+    expect(negotiate(['fr', 'de;q=Infinity'], OPTIONS)).toBe('fr')
+    expect(negotiate(['fr', 'de;q=5e0'], OPTIONS)).toBe('fr')
+    expect(negotiate(['fr;q=0.9', 'de;q=0.95xyz'], OPTIONS)).toBe('fr')
+    expect(negotiate(['de;q=0x1'], OPTIONS)).toBe('en')
+    expect(localeFromHeaders({ acceptLanguage: 'fr, de;q=Infinity' }, OPTIONS)).toBe('fr')
+  })
 })
 
 describe('negotiate on tag shape', () => {

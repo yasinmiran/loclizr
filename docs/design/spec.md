@@ -2618,8 +2618,11 @@ scope that wraps the render alone.
 `negotiate` implements RFC 4647 lookup by subtag truncation, hand-rolled, no
 dependency. It parses the `;q=` parameter itself, drops a range with `q=0`,
 skips `*`, and tries the remaining ranges by descending quality and then
-header order; `localeFromHeaders` splits `Accept-Language` on `,` and hands the
-ranges over. `localeFromHeaders` reads the configured cookie first, then
+header order. A weight that is not a plain decimal (`Infinity`, `5e0`,
+`0.95xyz`) counts as `q=0` and drops the range, and one above 1 counts as 1,
+so a malformed weight never outranks a range listed earlier at full quality;
+`localeFromHeaders` splits `Accept-Language` on `,` and hands the ranges over.
+`localeFromHeaders` reads the configured cookie first, then
 `Accept-Language`, then the source locale, and `localeFromRequest` inherits
 that order by construction. A cookie that is present but matches no declared
 locale resolves to the source locale and does **not** fall through to

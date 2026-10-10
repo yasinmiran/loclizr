@@ -98,10 +98,17 @@ function parseRange(entry: string, order: number): AcceptedRange {
   for (const parameter of parameters) {
     const [name = '', value = ''] = parameter.split('=')
     if (name.trim().toLowerCase() !== 'q') continue
-    const parsed = Number.parseFloat(value)
-    quality = Number.isNaN(parsed) ? 0 : parsed
+    quality = parseQuality(value.trim())
   }
   return { tag: head.trim(), quality, order }
+}
+
+// A weight that is not a plain decimal reads as 0 and drops the range, and one
+// above 1 counts as 1, so a malformed or hand-built weight cannot jump ahead of
+// a range the client listed earlier at full quality.
+function parseQuality(value: string): number {
+  if (!/^(?:\d+\.?\d*|\.\d+)$/.test(value)) return 0
+  return Math.min(Number(value), 1)
 }
 
 function announce(response: Response, locale: string): Response {
