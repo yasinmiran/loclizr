@@ -560,7 +560,9 @@ project. An `outDir` that can hold a path the `catalogs` pattern matches (each
 `{locale}` or `{ns}` segment standing for any directory), or the resolved
 `meta` or `record` path, is `LZ1001 config-invalid` naming both fields: the
 self-ignoring `.gitignore` M6 writes into it would stop the catalogs and the
-record being committed. Paths compare without case, because macOS and Windows
+record being committed. Moving `outDir` does not remove what an earlier build
+wrote there, so the hint also says to delete that `.gitignore` and its
+generated files. Paths compare without case, because macOS and Windows
 resolve both spellings to one directory. `{sourceLocale}` resolves to the
 declared `sourceLocale` when it is a valid tag, otherwise to the inferred
 source locale, so the check runs once before discovery and once more after

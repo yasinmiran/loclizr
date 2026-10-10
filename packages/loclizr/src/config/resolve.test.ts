@@ -287,6 +287,16 @@ describe('an outDir that would swallow the catalogs it was built from', () => {
     )
   })
 
+  it('tells a user moving outDir off the catalogs to delete what an earlier build left there', () => {
+    const result = run(
+      { outDir: 'src/i18n', catalogs: 'src/i18n/locales/{locale}.json', meta: false },
+      [catalog('en', 'src/i18n/locales/en.json')],
+    )
+    expect(only(result.diagnostics, 'LZ1001').hint).toBe(
+      "the generated tree writes a self-ignoring .gitignore into outDir, so src/i18n/locales/{locale}.json would stop being committed. Give outDir a directory of its own, such as 'src/loclizr'. A build that already ran with this outDir left that .gitignore and its generated files in src/i18n; delete them, or src/i18n/locales/{locale}.json stays ignored after the move.",
+    )
+  })
+
   it('rejects an outDir that one locale of a split layout would sit inside', () => {
     const result = run(
       { outDir: 'locales/en', catalogs: 'locales/{locale}/{ns}.json', meta: false, record: false },

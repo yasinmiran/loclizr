@@ -285,7 +285,7 @@ function pathConflicts(paths: ArtifactPaths, sourceLocale: string | undefined): 
 function swallowed(outDir: string, field: string, path: string): Diagnostic {
   return diag('config-invalid', {
     message: `\`outDir\` is \`${outDir}\`, which holds the ${field} path \`${path}\`.`,
-    hint: `the generated tree writes a self-ignoring .gitignore into outDir, so ${path} would stop being committed. Give outDir a directory of its own, such as 'src/loclizr'.`,
+    hint: `the generated tree writes a self-ignoring .gitignore into outDir, so ${path} would stop being committed. Give outDir a directory of its own, such as 'src/loclizr'. A build that already ran with this outDir left that .gitignore and its generated files in ${outDir}; delete them, or ${path} stays ignored after the move.`,
   })
 }
 
