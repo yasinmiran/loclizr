@@ -120,3 +120,5 @@ function stamp(headers: Headers, locale: string): void {
   const lists = fields.some((field) => field.toLowerCase() === 'accept-language')
   if (!lists) headers.set('Vary', [...fields, 'Accept-Language'].join(', '))
 }
+
+export type { NegotiateOptions } from '../types'

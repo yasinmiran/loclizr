@@ -18,6 +18,7 @@ a minor release may break an invariant, and this file says so when it does.
 - The scan stays linear on adversarial lines and deep bracket stacks
   (#62 to #65).
 - The record escapes bidi controls and line separators (#66).
+- `loclizr/react` now exports `Locale` and `SetLocaleOptions`, and `loclizr/server` exports `NegotiateOptions`, so declaration emit in a consumer no longer fails with TS2742 on inferred types from those entries (TypeScript 5.4 or later) (#92).
 
 ## 0.1.1 - 2026-10-03
 

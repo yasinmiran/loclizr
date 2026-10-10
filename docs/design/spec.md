@@ -2523,6 +2523,7 @@ localeFromHeaders(
   headers: { readonly cookie?: string | undefined; readonly acceptLanguage?: string | undefined },
   options: NegotiateOptions,
 ): string
+export type { NegotiateOptions }
 ```
 
 **`localeFromHeaders` is the primitive and `localeFromRequest` is a wrapper over
@@ -2683,6 +2684,7 @@ instead of forcing a client boundary to render a fragment.
 useLocale(): Locale
 useSetLocale(): (locale: Locale, options?: SetLocaleOptions) => void
 Parts(props: { of: readonly (string | ReactNode)[] }): ReactElement
+export type { Locale, SetLocaleOptions }
 ```
 
 `useLocale` is `useSyncExternalStore(subscribe, getLocale, getLocale)` with
@@ -4560,6 +4562,15 @@ own. Its one obligation to the rest of the world is that `src/index.ts`
 re-exports the runtime types, because that re-export is what makes the
 `LocaleRegistry` augmentation in generated code take effect.
 
+`loclizr/react` and `loclizr/server` likewise re-export every shared type their
+signatures name: `Locale` and `SetLocaleOptions` from the first,
+`NegotiateOptions` from the second. A consumer built with `declaration: true`
+that exports `() => useSetLocale()` has its inferred type named through the
+entry it imported, and a type that entry does not export can only be named
+through tsdown's content-hashed chunk, which is TS2742 (TS2883 on 7.x). A test
+asserts that each runtime entry, in `src` and in `dist` when it exists, exports
+every type it imports from `types` or from a shared chunk.
+
 ```ts
 // src/index.ts
 export type {
@@ -4855,6 +4866,22 @@ per-locale rule above makes the two behaviours agree wherever the locale has a
 - `vitest run src/catalog` with no matching test file prints "No test files
   found" and exits 1. `passWithNoTests: true` in the bootstrap commit is what
   keeps every module's stated test command honest before its first test lands.
+
+**TypeScript declaration emit in a consumer**, `tsc --declaration` under
+`nodenext` on a module exporting `() => useSetLocale()`, `() => build()` and a
+function returning `NegotiateOptions`
+
+- With the subpath type re-exports in M12 and M10, TypeScript 5.4.5, 5.9.3 and
+  7.0.2 emit clean and name `import("loclizr/react").SetLocaleOptions`,
+  `import("loclizr/compiler").BuildResult` and
+  `import("loclizr/server").NegotiateOptions`. Without the react and server
+  re-exports, the `useSetLocale` and `NegotiateOptions` exports fail on each of
+  those versions with TS2742 (TS2883 on 7.x) naming a `types-*.js` chunk.
+- TypeScript 5.0.4 and 5.3.3 fail with TS2742 on all three even with the
+  re-exports in place: before 5.4, declaration emit names a type only through
+  the file that declares it, and that file is a hashed chunk outside `exports`.
+  Declaration emit through a subpath entry therefore needs TypeScript 5.4 or
+  later; on 5.0 to 5.3 a consumer annotates the exported function instead.
 
 **TypeScript, against this repo's own `tsconfig.base.json`**
 

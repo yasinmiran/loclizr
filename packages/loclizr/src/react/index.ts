@@ -43,3 +43,5 @@ export function useSetLocale(): (locale: Locale, options?: SetLocaleOptions) => 
 export function Parts(props: { readonly of: readonly (string | ReactNode)[] }): ReactElement {
   return createElement(Fragment, null, ...props.of)
 }
+
+export type { Locale, SetLocaleOptions } from '../types'
