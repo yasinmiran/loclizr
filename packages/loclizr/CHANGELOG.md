@@ -5,6 +5,8 @@ All notable changes to `loclizr` are recorded here. The format follows
 numbers follow [Semantic Versioning](https://semver.org/) with the 0.x caveat:
 a minor release may break an invariant, and this file says so when it does.
 
+## Unreleased
+
 ## 0.1.2 - 2026-10-10
 
 0.1.1 was tagged but never published, so an upgrade from 0.1.0 takes this
