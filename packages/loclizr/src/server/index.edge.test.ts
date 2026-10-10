@@ -441,18 +441,18 @@ describe('withLocale on Vary', () => {
   }
 
   test('recognises Accept-Language in any case and with stray spaces', async () => {
-    expect(await varyAfter({ Vary: 'ACCEPT-LANGUAGE' })).toBe('ACCEPT-LANGUAGE')
+    expect(await varyAfter({ Vary: 'ACCEPT-LANGUAGE' })).toBe('ACCEPT-LANGUAGE, Cookie')
     expect(await varyAfter({ Vary: ' accept-language ,Cookie' })).toBe('accept-language ,Cookie')
   })
 
   test('is not fooled by a field name that only starts with Accept-Language', async () => {
     expect(await varyAfter({ Vary: 'Accept-Language-Extra' })).toBe(
-      'Accept-Language-Extra, Accept-Language',
+      'Accept-Language-Extra, Accept-Language, Cookie',
     )
   })
 
   test('writes no empty list element around an empty or comma-padded Vary', async () => {
-    expect(await varyAfter({ Vary: '' })).toBe('Accept-Language')
+    expect(await varyAfter({ Vary: '' })).toBe('Accept-Language, Cookie')
     expect(await varyAfter({ Vary: 'Cookie,' })).toBe('Cookie, Accept-Language')
     expect(await varyAfter({ Vary: ' , Cookie' })).toBe('Cookie, Accept-Language')
   })

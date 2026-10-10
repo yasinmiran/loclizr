@@ -50,8 +50,8 @@ export const handler = withLocale(
 )
 ```
 
-`withLocale` negotiates, runs the handler in the scope, and sets `Content-Language` and
-`Vary: Accept-Language`.
+`withLocale` negotiates, runs the handler in the scope, sets `Content-Language`, and lists both
+locale inputs, `Accept-Language` and `Cookie`, in `Vary` on every response.
 
 The scope covers the handler and the async work it starts. A body produced as the client reads it
 can render source-locale text under a `Content-Language` that names the negotiated locale; see
@@ -69,8 +69,9 @@ Two steps are yours:
 
 2. ### Keep cookie responses out of shared caches
 
-   Most CDNs ignore `Vary` outside `Accept-Encoding`. When the locale came from the cookie, send
-   `Cache-Control: private` or key the CDN cache on that cookie.
+   A shared cache in front of the handler must honour `Vary` or key on the locale cookie. Most CDNs
+   ignore `Vary` outside `Accept-Encoding`, so unless yours keys on the cookie, send
+   `Cache-Control: private`.
 
 </Steps>
 
@@ -84,15 +85,15 @@ Three requests against the example catalogs:
 ```text
 cookie wins
   Content-Language: de-AT
-  Vary: Accept-Language
+  Vary: Accept-Language, Cookie
   body: <html lang="de-AT"><h1>Servus Ada, dein Einkaufswagerl ist fertig</h1></html>
 accept-language when no cookie
   Content-Language: de
-  Vary: Accept-Language
+  Vary: Accept-Language, Cookie
   body: <html lang="de"><h1>Hallo Ada, dein Warenkorb ist fertig</h1></html>
 nothing matches
   Content-Language: en
-  Vary: Accept-Language
+  Vary: Accept-Language, Cookie
   body: <html lang="en"><h1>Hi Ada, your cart is ready</h1></html>
 ```
 

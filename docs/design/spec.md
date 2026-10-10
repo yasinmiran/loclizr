@@ -2696,16 +2696,20 @@ is then a first-class in-memory store and `useLocale()` keeps working.
 
 `withLocale` sets two response headers. `Content-Language`, naming the locale it
 negotiated, which is the documented handle for the `<html lang>` agreement in
-section 11.3. And `Vary: Accept-Language`, because with URL-prefix routing
-excluded the cookie is the only locale channel, so a shared cache in front of
-the handler would otherwise store one viewer's localized HTML under the
-unlocalized URL and serve it to the next viewer in the wrong language. **Do not
-rely on `Vary` alone**: Cloudflare and most CDNs ignore it outside
-`Accept-Encoding`, so the documentation states the real requirement, which is
-that a response whose locale came from the cookie must not enter a shared cache.
-Either `Cache-Control: private`, or a CDN cache key that includes the locale
-cookie. A network error from `Response.error()` has neither mutable headers nor
-a status a rebuilt response can carry, so `withLocale` returns it unchanged.
+section 11.3. And `Vary: Accept-Language, Cookie`, because with URL-prefix
+routing excluded those two request headers are the only locale inputs, so a
+shared cache in front of the handler would otherwise store one viewer's
+localized HTML under the unlocalized URL and serve it to the next viewer in the
+wrong language. Both fields go on every response, whichever of them decided
+this one: `Vary` names the inputs the selection reads, and listing `Cookie` only
+when the cookie decided would let a cache store a page rendered without a cookie
+and serve it to a viewer who has one. A field already listed, in any case, is
+not repeated. **Do not rely on `Vary` alone**: Cloudflare and most CDNs ignore
+it outside `Accept-Encoding`, so the documentation states the real requirement,
+which is that a shared cache must honour `Vary` or key on the locale cookie, and
+otherwise the response carries `Cache-Control: private`. A network error from
+`Response.error()` has neither mutable headers nor a status a rebuilt response
+can carry, so `withLocale` returns it unchanged.
 A handler that returns `undefined` has no response at all: Bun's `fetch`
 returns it after `server.upgrade(request)` takes the socket for a WebSocket and
 answers the handshake itself. `withLocale` resolves to that `undefined`
@@ -4779,7 +4783,8 @@ export declare function $dateTime1(locale: string, value: Date | number, options
 // src/server/index.ts
 import type { NegotiateOptions } from '../types'
 export declare function runWithLocale<T>(locale: string, fn: () => T): T
-// withLocale sets Content-Language and Vary: Accept-Language on the response.
+// withLocale sets Content-Language and lists Accept-Language and Cookie in Vary
+// on the response.
 export declare function withLocale<A extends unknown[]>(
   handler: (request: Request, ...rest: A) => Response | Promise<Response>,
   options: NegotiateOptions,

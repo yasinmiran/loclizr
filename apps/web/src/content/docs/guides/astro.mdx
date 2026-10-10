@@ -165,7 +165,7 @@ This replaces the static setup: one page at `/` picks the language per request. 
      const locale = localeFromRequest(context.request, options)
      const response = await runWithLocale(locale, next)
      response.headers.set('Content-Language', locale)
-     response.headers.append('Vary', 'Accept-Language')
+     response.headers.append('Vary', 'Accept-Language, Cookie')
      return response
    })
    ```
@@ -209,8 +209,8 @@ This replaces the static setup: one page at `/` picks the language per request. 
    HTTP/1.1 200 OK
    content-language: de
    content-type: text/html
-   vary: Accept-Language
-   Date: Sat, 03 Oct 2026 19:48:20 GMT
+   vary: Accept-Language, Cookie
+   Date: Sat, 10 Oct 2026 18:51:04 GMT
    Connection: keep-alive
    Keep-Alive: timeout=5
    Transfer-Encoding: chunked
@@ -222,8 +222,8 @@ This replaces the static setup: one page at `/` picks the language per request. 
    HTTP/1.1 200 OK
    content-language: de
    content-type: text/html
-   vary: Accept-Language
-   Date: Sat, 03 Oct 2026 19:48:20 GMT
+   vary: Accept-Language, Cookie
+   Date: Sat, 10 Oct 2026 18:51:05 GMT
    Connection: keep-alive
    Keep-Alive: timeout=5
    Transfer-Encoding: chunked

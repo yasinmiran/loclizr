@@ -167,7 +167,7 @@ describe('withLocale', () => {
     const response = await handler(request({ cookie: 'locale=de-AT' }))
     expect(await response.text()).toBe('de-AT')
     expect(response.headers.get('Content-Language')).toBe('de-AT')
-    expect(response.headers.get('Vary')).toBe('Accept-Language')
+    expect(response.headers.get('Vary')).toBe('Accept-Language, Cookie')
   })
 
   test('appends to an existing Vary rather than replacing it', async () => {
@@ -189,13 +189,33 @@ describe('withLocale', () => {
     expect(response.headers.get('Vary')).toBe('Accept-Language, Cookie')
   })
 
+  test('lists both locale inputs in Vary whichever one decided', async () => {
+    const handler = withLocale(() => new Response('ok'), OPTIONS)
+    const fromCookie = await handler(request({ cookie: 'locale=de', 'accept-language': 'en' }))
+    const bare = await handler(request({ 'accept-language': 'en' }))
+    expect(fromCookie.headers.get('Content-Language')).toBe('de')
+    expect(bare.headers.get('Content-Language')).toBe('en')
+    expect(fromCookie.headers.get('Vary')).toBe('Accept-Language, Cookie')
+    expect(bare.headers.get('Vary')).toBe('Accept-Language, Cookie')
+  })
+
+  test('adds only the locale input Vary does not already list, in any case', async () => {
+    const varyAfter = async (vary: string): Promise<string | null> => {
+      const handler = withLocale(() => new Response('ok', { headers: { Vary: vary } }), OPTIONS)
+      return (await handler(request({}))).headers.get('Vary')
+    }
+    expect(await varyAfter('accept-language')).toBe('accept-language, Cookie')
+    expect(await varyAfter('COOKIE')).toBe('COOKIE, Accept-Language')
+    expect(await varyAfter('cookie, ACCEPT-LANGUAGE')).toBe('cookie, ACCEPT-LANGUAGE')
+  })
+
   test('rebuilds a response whose headers are immutable', async () => {
     const handler = withLocale(() => Response.redirect('https://example.test/de/cart', 302), OPTIONS)
     const response = await handler(request({ cookie: 'locale=de' }))
     expect(response.status).toBe(302)
     expect(response.headers.get('location')).toBe('https://example.test/de/cart')
     expect(response.headers.get('Content-Language')).toBe('de')
-    expect(response.headers.get('Vary')).toBe('Accept-Language')
+    expect(response.headers.get('Vary')).toBe('Accept-Language, Cookie')
   })
 
   test('passes the rest of the handler arguments through', async () => {

@@ -259,12 +259,12 @@ const handler = withLocale(
 const response = await handler(new Request('http://x/', { headers: { cookie: 'locale=de' } }))
 await response.text()                        // 'Warenkorb'
 response.headers.get('content-language')     // 'de'
-response.headers.get('vary')                 // 'Accept-Language'
+response.headers.get('vary')                 // 'Accept-Language, Cookie'
 ```
 
 Wraps a Fetch handler: negotiates, runs it inside `runWithLocale`, sets `Content-Language` and
-adds `Accept-Language` to `Vary`. A `Response.error()` passes through untouched, and so does the
-`undefined` a Bun handler returns after `server.upgrade(request)`.
+adds `Accept-Language` and `Cookie` to `Vary`. A `Response.error()` passes through untouched, and
+so does the `undefined` a Bun handler returns after `server.upgrade(request)`.
 
 The scope covers the handler and the async work it starts; a body produced as the client reads it
 can fall outside it. See [Bodies produced later](/guides/server-rendering/#bodies-produced-later).

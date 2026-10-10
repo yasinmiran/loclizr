@@ -160,7 +160,7 @@ describe('withLocale', () => {
       const announced = response.headers.get('Content-Language')
       expect(announced).not.toBeNull()
       expect(declaredOrSource(announced ?? ''), `${value} -> ${announced}`).toBe(true)
-      expect(response.headers.get('Vary')).toBe('Accept-Language')
+      expect(response.headers.get('Vary')).toBe('Accept-Language, Cookie')
     }
   })
 

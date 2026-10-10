@@ -40,6 +40,7 @@ a minor release may break an invariant, and this file says so when it does.
 - `::jm` and other date or time skeletons with `j` now render the hour in the locale's own cycle instead of dropping it; `J` and `C` raise `LZ2003`; `::measure-unit/... per-measure-unit/...` composes into a compound unit such as `meter-per-second` instead of losing the per unit (#79, #114).
 - `LZ3002 blank-translation` no longer fires on a blank target value when the source value is blank too, and the i18next import guide covers bare keys beside plurals, empty values and lone `_other` keys (#14).
 - The usage scan skips a matched path whose symlink target is not a regular file, so a link to a FIFO or a device no longer hangs or floods the build (#61).
+- `withLocale` now lists both `Accept-Language` and `Cookie` in `Vary` on every response, so a shared cache that honours `Vary` no longer serves a cookie-localized page to a viewer without that cookie (#67).
 
 ## 0.1.1 - 2026-10-03
 

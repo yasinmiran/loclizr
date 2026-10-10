@@ -14,7 +14,8 @@ export function runWithLocale<T>(locale: string, fn: () => T): T {
   return scope().run(locale, fn)
 }
 
-// withLocale sets Content-Language and Vary: Accept-Language on the response.
+// withLocale sets Content-Language and lists Accept-Language and Cookie in Vary
+// on the response.
 export function withLocale<A extends unknown[]>(
   handler: (request: Request, ...rest: A) => Response | Promise<Response>,
   options: NegotiateOptions,
@@ -139,8 +140,14 @@ function stamp(headers: Headers, locale: string): void {
     .split(',')
     .map((field) => field.trim())
     .filter((field) => field !== '')
-  const lists = fields.some((field) => field.toLowerCase() === 'accept-language')
-  if (!lists) headers.set('Vary', [...fields, 'Accept-Language'].join(', '))
+  const listed = new Set(fields.map((field) => field.toLowerCase()))
+  const missing = LOCALE_INPUTS.filter((field) => !listed.has(field.toLowerCase()))
+  if (missing.length > 0) headers.set('Vary', [...fields, ...missing].join(', '))
 }
+
+// Vary names the inputs the locale is selected from, not the one that decided
+// this response: a cache keyed only on what decided would store a page rendered
+// without a cookie and serve it to a viewer who has one.
+const LOCALE_INPUTS: readonly string[] = ['Accept-Language', 'Cookie']
 
 export type { NegotiateOptions } from '../types'
