@@ -16,6 +16,7 @@ a minor release may break an invariant, and this file says so when it does.
 - `LZ1010 catalog-shape-invalid` on `formatjs compile --ast` output now says to run `formatjs compile` again without `--ast` instead of pointing at hand-written arrays; the code and severity are unchanged (#117).
 - A catalog object leaf holding a string `defaultMessage` and only `formatjs extract` fields (`id`, `description`, `file`, `start`, `end`, `line`, `col`) is now `LZ1010 catalog-shape-invalid` and produces no message, where it used to flatten into `_defaultMessage` and `_description` exports; a raw extract file that built clean before now fails the build until it is run through `formatjs compile` (#118).
 - Changed: in a file read as i18next, a lone `X_other` (or `X_ordinal_other`) now folds into a plural in every locale, not only in single-category locales such as `ja`. A source catalog that exported `items_other` now exports `items`, which renames the generated message, and `LZ3007` warns about the categories it lacks. A lone `X_other` beside a bare `X` or a sibling `X_word` such as `gender_male` stays an ordinary key. (#115).
+- Changed: `EmptyArgs` is now `{ readonly [noArguments]?: never }`, keyed by a symbol `loclizr` does not export, so an editor suggests nothing inside a no-argument message's braces instead of a phantom `$?`. `f()`, `f({})` and `f(undefined, opts)` still compile and `f({ x: 1 })` is still an error; code that wrote `{ $: undefined }` (only possible without `exactOptionalPropertyTypes`) is now a type error. (#106).
 
 ## 0.1.2 - 2026-10-10
 

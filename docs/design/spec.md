@@ -1481,11 +1481,13 @@ against it and a message with an ICU argument literally named `locale` still
 compiles. The locale override is the second parameter.
 
 A message with no arguments is typed `(args?: EmptyArgs, opts?: MessageOptions)`
-where `EmptyArgs` is `{ readonly $?: never }`. Verified on the repo's TypeScript
-7.0.2: `m.nav_home()` works, `m.nav_home({}, { locale: 'de' })` works,
-`m.nav_home(undefined, { locale: 'de' })` works, and `m.nav_home({ x: 1 })` is a
-type error, because a type with only optional properties triggers weak-type
-excess-property checking.
+where `EmptyArgs` is `{ readonly [noArguments]?: never }` and `noArguments` is a
+`unique symbol` that `loclizr` declares and does not export. Verified on the
+repo's TypeScript 7.0.2: `m.nav_home()` works, `m.nav_home({}, { locale: 'de' })`
+works, `m.nav_home(undefined, { locale: 'de' })` works, and `m.nav_home({ x: 1 })`
+is a type error, because a type with only optional properties triggers weak-type
+excess-property checking. The symbol key keeps that member out of editor
+completion: inside `m.nav_home({ })` the language server suggests nothing.
 
 `MessageOptions` is `{ locale?: Locale | undefined }`. The explicit `| undefined`
 is required: this repo's `tsconfig.base.json` sets
@@ -1541,7 +1543,7 @@ forces. Two members using one name at two types intersect to an uncallable
 parameter at a dynamic call site, which is the same hazard. Hint: split the
 group by argument shape, or give the odd members bare `{x}` arguments.
 
-Verified on TypeScript 7.0.2 with `EmptyArgs = { readonly $?: never }`:
+Verified on TypeScript 7.0.2 with `EmptyArgs = { readonly [noArguments]?: never }`:
 `errors[k]({ seconds: 5 })` compiles, `errors.rate_limited({ nope: 1 })` is an
 error, `errors[k]()` is an error, and `errors[k]({})` is an error because
 `seconds` is missing. `args` is **required** in the mapped type for exactly that
@@ -3897,8 +3899,13 @@ export interface MessageOptions {
   readonly locale?: Locale | undefined
 }
 
+// The lone optional member makes `EmptyArgs` a weak type, so `f({ x: 1 })` is
+// rejected while it still intersects cleanly in a group's dynamic call. Keying it
+// by an unexported symbol keeps it out of editor completion and out of reach.
+declare const noArguments: unique symbol
+
 export interface EmptyArgs {
-  readonly $?: never
+  readonly [noArguments]?: never
 }
 
 export interface SetLocaleOptions {
@@ -3985,7 +3992,7 @@ Rules of engagement:
 
 | Module | Paths | Depends on | Test command |
 | --- | --- | --- | --- |
-| M1 contracts | `src/types.ts`, `src/diagnostics/**`, `src/util/**` | none | `pnpm --filter loclizr exec vitest run src/diagnostics src/util` |
+| M1 contracts | `src/types.ts`, `src/types.test.ts`, `src/diagnostics/**`, `src/util/**` | none | `pnpm --filter loclizr exec vitest run src/types.test.ts src/diagnostics src/util` |
 | M2 catalog | `src/catalog/**` | M1 | `pnpm --filter loclizr exec vitest run src/catalog` |
 | M3 icu | `src/icu/**` | M1 | `pnpm --filter loclizr exec vitest run src/icu` |
 | M4 analyze | `src/analyze/**` | M1, M3 | `pnpm --filter loclizr exec vitest run src/analyze` |
@@ -5102,10 +5109,18 @@ function returning `NegotiateOptions`
   `examples/vite-react/tsconfig.json`, so `MessageOptions.locale` needs the
   explicit `| undefined`. Without it, an app passing a possibly-undefined locale
   is a type error at its own call site.
-- `EmptyArgs` must be `{ readonly $?: never }`. `Record<string, never>` makes the
-  lookup tier's dynamic call uncallable, because the intersection requires
-  `seconds: never & number`. The weak-type form both rejects excess properties
-  on a fresh literal and intersects cleanly.
+- `EmptyArgs` must be `{ readonly [noArguments]?: never }`, keyed by an unexported
+  `unique symbol`. `Record<string, never>` makes the lookup tier's dynamic call
+  uncallable, because the intersection requires `seconds: never & number`. The
+  weak-type form both rejects excess properties on a fresh literal and
+  intersects cleanly. A string key such as `$?` does both too, but completion
+  inside `f({ })` offers it and accepting it yields `f({ $: undefined })`; a
+  `@deprecated` tag only strikes it through. Completion skips a symbol key.
+  The cost is identity: two different `loclizr` versions in one program declare
+  two symbols, so a value typed with one version's `EmptyArgs`, or a function
+  typed with it, is not assignable to the other's. `f()`, `f({})` and a group's
+  dynamic call across that boundary still compile; two copies of one version
+  resolve to one declaration.
 - The lookup tier's mapped type needs `args` **required**. With `args?` optional,
   `errors[k]()` compiles for a dynamic key and crashes at runtime.
 - The full set of generated declarations in section 7.6 compiles as printed, and

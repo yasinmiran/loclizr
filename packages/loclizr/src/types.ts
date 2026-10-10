@@ -489,8 +489,13 @@ export interface MessageOptions {
   readonly locale?: Locale | undefined
 }
 
+// The lone optional member makes `EmptyArgs` a weak type, so `f({ x: 1 })` is
+// rejected while it still intersects cleanly in a group's dynamic call. Keying it
+// by an unexported symbol keeps it out of editor completion and out of reach.
+declare const noArguments: unique symbol
+
 export interface EmptyArgs {
-  readonly $?: never
+  readonly [noArguments]?: never
 }
 
 export interface SetLocaleOptions {

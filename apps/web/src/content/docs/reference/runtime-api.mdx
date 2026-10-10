@@ -106,7 +106,7 @@ Called after every `setLocale`; returns the remover. Listeners take no arguments
 | `Locale` | `LocaleRegistry extends { locale: infer L extends string } ? L : string`: your union once a generated tree is in the program, `string` before. |
 | `LocaleRegistry` | Empty interface; `messages.d.ts` adds `locale: AppLocale`. |
 | `MessageOptions` | `{ readonly locale?: Locale \| undefined }`, a message's second parameter. |
-| `EmptyArgs` | `{ readonly $?: never }`, for a message without arguments: `f()` and `f({})` compile, `f({ x: 1 })` does not. |
+| `EmptyArgs` | `{ readonly [noArguments]?: never }`, keyed by a symbol `loclizr` does not export, for a message without arguments: `f()` and `f({})` compile, `f({ x: 1 })` does not, and completion inside `f({ })` offers nothing. |
 | `SetLocaleOptions` | `{ readonly persist?: boolean \| undefined }` |
 | `LocaleListener` | `() => void` |
 | `LocaleResolver` | `(options?: MessageOptions \| undefined) => string`, the type of `$l` |
