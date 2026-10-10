@@ -81,7 +81,8 @@ separate entry so the invariant holds for everyone else.
 
 React with Vite is the one tested example: locale negotiation, hydration agreement, language
 switcher. Messages are plain ESM that run anywhere JavaScript does; the server entry covers Web Fetch handlers and
-anything that can hand over two header strings. Elsewhere you wire the locale in yourself.
+anything that can hand over two header strings. Under Jest, its default CommonJS transform
+needs [a config change](/guides/testing/#jest) first. Elsewhere you wire the locale in yourself.
 
 In React a message call subscribes to nothing: key the root on the locale, or pass
 `{ locale: useLocale() }` per call, one pattern per app. See
