@@ -517,7 +517,8 @@ matchLocale(opts?.locale ?? getRawLocale(), locales, sourceLocale)
 one store.
 
 - `getRawLocale()`: the request scope, else the tag `setLocale` stored, else (with a `document`)
-  the cookie then `<html lang>`, read once.
+  the cookie then `<html lang>`, read once. When all of those miss on a server where
+  `loclizr/server` is loaded, it warns once outside production that the call escaped its scope.
 - Match: exact tag, then subtags dropped from the right, then the source locale. `de-CH` renders
   `de`, `sp` renders `en`.
 

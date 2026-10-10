@@ -140,9 +140,9 @@ test('renders inside a request scope', () => {
 `runWithLocale` opens the scope `withLocale` would: the production path. `setLocale` throws inside
 it; pass `{ locale }` per call for another language.
 
-Where `loclizr/server` is loaded, a message call outside a scope renders the source locale without
-a warning. `getLocale()` outside a scope does warn once outside production, which is the sign
-a render escaped its scope.
+Where `loclizr/server` is loaded, a message or `getLocale()` call outside a scope renders the source
+locale and warns once outside production, which is the sign a render escaped its scope. A call that
+passes `{ locale }` never warns.
 
 ## Assert through the message function
 

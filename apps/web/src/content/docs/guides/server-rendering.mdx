@@ -192,13 +192,17 @@ process, so concurrent requests render in each other's language.
 ## Outside a request
 
 ```text
-loclizr: getLocale() ran outside a request scope, so it returned the source locale. Wrap the whole request in runWithLocale(): loaders, actions and the render.
+loclizr: a message or getLocale() ran outside a request scope, so it used the source locale. Wrap the whole request in runWithLocale(): loaders, actions and the render.
 ```
 
 | Call | Inside a scope | Outside any scope |
 | --- | --- | --- |
-| A message | the request's locale | source-locale text, quietly |
-| `getLocale()` | the request's locale | the source locale; outside production, warns once per process wherever `loclizr/server` is loaded |
+| A message | the request's locale | source-locale text |
+| A message with `{ locale }` | that locale | that locale, with no warning |
+| `getLocale()` | the request's locale | the source locale |
+
+Outside production, the first message or `getLocale()` call outside a scope prints the warning above,
+once per process, wherever `loclizr/server` is loaded.
 
 Inside a scope `setLocale` throws; pass `{ locale }` per call.
 
@@ -210,8 +214,8 @@ whole request, loaders and actions included, not the render alone.
 
 The scope covers the handler and the async work it starts. A body produced as the client reads it
 can run outside the scope: a `ReadableStream` `pull()`, an async generator body, `ReadableStream.from`. A plain
-message call there returns source-locale text with no warning, while `Content-Language` names the
-negotiated locale.
+message call there returns source-locale text, which the warning above reports, while
+`Content-Language` names the negotiated locale.
 
 ```ts title="src/stream.ts"
 import { withLocale } from 'loclizr/server'

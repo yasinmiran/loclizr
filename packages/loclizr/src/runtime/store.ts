@@ -9,16 +9,6 @@ const ONE_YEAR = 31536000
 export function getLocale(): Locale {
   const state = storeState()
   const raw = getRawLocale()
-  // The define read comes last so a build that never substituted it is only
-  // reached on the path that was about to warn.
-  try {
-    if (raw === '' && detached() && process.env.NODE_ENV !== 'production') {
-      warnOnce(
-        'detached',
-        'getLocale() ran outside a request scope, so it returned the source locale. Wrap the whole request in runWithLocale(): loaders, actions and the render.',
-      )
-    }
-  } catch {}
   const { setup } = state
   if (setup === null) {
     try {
@@ -86,6 +76,18 @@ export function getRawLocale(): string {
   // Latched on the first read, so a cookie written afterwards cannot move a
   // snapshot useSyncExternalStore has already handed out with no notification.
   if (state.detected === null) state.detected = detect()
+  // Every locale read, a message call's included, passes through here, so this
+  // is the one place an escaped request scope shows. The define read comes last
+  // so a build that never substituted it is only reached on the path that was
+  // about to warn.
+  try {
+    if (state.detected === '' && detached() && process.env.NODE_ENV !== 'production') {
+      warnOnce(
+        'detached',
+        'a message or getLocale() ran outside a request scope, so it used the source locale. Wrap the whole request in runWithLocale(): loaders, actions and the render.',
+      )
+    }
+  } catch {}
   return state.detected
 }
 

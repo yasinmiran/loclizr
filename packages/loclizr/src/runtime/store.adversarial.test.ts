@@ -25,15 +25,17 @@ afterEach(() => {
 })
 
 describe('getRawLocale', () => {
-  test('says nothing, whatever the store is missing', () => {
+  test('says nothing about a missing registration, only about an escaped scope', () => {
     const warn = vi.spyOn(console, 'warn').mockImplementation(() => {})
-    expect(getRawLocale()).toBe('')
-    runWithLocale('de', () => 0)
-    expect(getRawLocale()).toBe('')
     expect(runWithLocale('sp', () => getRawLocale())).toBe('sp')
+    expect(warn).not.toHaveBeenCalled()
+    expect(getRawLocale()).toBe('')
+    expect(getRawLocale()).toBe('')
+    expect(warn).toHaveBeenCalledTimes(1)
+    expect(String(warn.mock.calls[0]?.[0])).toContain('outside a request scope')
     setLocale('zz-ZZ')
     expect(getRawLocale()).toBe('zz-ZZ')
-    expect(warn).not.toHaveBeenCalled()
+    expect(warn).toHaveBeenCalledTimes(1)
   })
 
   test('applies no source-locale default once a list is registered', () => {

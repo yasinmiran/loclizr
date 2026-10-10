@@ -123,6 +123,20 @@ describe('$configure1', () => {
     })
   })
 
+  test('warns once when a call escapes the request scope, as getLocale() does', () => {
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {})
+    const resolve = $configure1(SETUP)
+    expect(runWithLocale('de', () => resolve())).toBe('de')
+    expect(resolve({ locale: 'de' })).toBe('de')
+    expect(warn).not.toHaveBeenCalled()
+    expect(resolve()).toBe('en')
+    expect(warn).toHaveBeenCalledTimes(1)
+    expect(String(warn.mock.calls[0]?.[0])).toContain('outside a request scope')
+    expect(resolve()).toBe('en')
+    expect(getLocale()).toBe('en')
+    expect(warn).toHaveBeenCalledTimes(1)
+  })
+
   test('resolves two generated directories with different lists from one store', () => {
     vi.spyOn(console, 'warn').mockImplementation(() => {})
     const first = $configure1(SETUP)

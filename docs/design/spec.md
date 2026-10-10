@@ -1207,7 +1207,10 @@ It does two things:
    that division is what makes two generated directories work. When all three
    steps miss it returns the empty string, and `matchLocale('', locales,
    sourceLocale)` returns `sourceLocale`, so a resolver still yields a declared
-   locale.
+   locale. That miss on a server where `loclizr/server` has installed the scope
+   handle is the escaped-scope warning of section 11.2, so a message call
+   outside a request scope warns exactly as `getLocale()` does. A call given
+   `options.locale` never reads `getRawLocale()` and never warns.
 2. Registers `locales`, `sourceLocale` and `cookie` as the process default for
    the public `getLocale()`, **first call wins**. A second registration with a
    different set is ignored and warns once outside production.
@@ -2606,8 +2609,10 @@ naming the missing generated-module import.
 **`getRawLocale()` is steps 1 through 3 of that list and stops there.** It runs
 the active `AsyncLocalStorage` scope, then the stored tag if `setLocale` has
 run, then lazy client detection where a DOM exists, and returns the **raw
-requested tag** with no matching against any locale list, no source-locale
-default and no warning. When all three miss it returns the empty string. It is
+requested tag** with no matching against any locale list and no source-locale
+default. When all three miss it returns the empty string, and it owns the one
+warning a miss can raise: section 11.2's escaped-scope warning, since every
+locale read, a message call's included, passes through it. It is
 the store's contract with generated code: `$configure1`'s resolver calls it and
 matches the result against its own `locales`, which is what lets two generated
 directories with different locale lists each resolve correctly from one store
@@ -2717,8 +2722,10 @@ unchanged, and the second overload types it, so the upgrade still runs inside
 the negotiated scope, while a handler typed to return only `Response` still gets
 `Promise<Response>` from the first overload.
 
-`getLocale()` on the server outside any scope returns the source locale and
-warns once per process outside production. It does **not** throw. Static
+A locale read on the server outside any scope, from `getLocale()` or from a
+message call given no `options.locale`, returns the source locale and warns once
+per process outside production, one warning shared by both, raised in
+`getRawLocale()` once the scope handle is installed. It does **not** throw. Static
 prerender, background jobs, scripts and error boundaries all run with no
 request; turning those into a 500 where source-locale text would have degraded
 gracefully is the wrong trade, and behaviour that depends on whether a request
