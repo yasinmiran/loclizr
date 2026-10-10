@@ -9,6 +9,7 @@ import {
   CONFIG_FILENAME,
   CONFIG_FILENAMES,
   DEFAULT_CATALOGS,
+  DEFAULT_META,
   DEFAULT_SOURCE_LOCALE,
   GENERATED_MARKER,
   PACKAGE_SCRIPTS,
@@ -51,9 +52,14 @@ export async function runInit(options: InitOptions): Promise<InitResult> {
 
   const configFile = resolve(root, options.configPath ?? CONFIG_FILENAME)
   const shadowed = options.configPath === undefined ? await firstConfigPresent(root) : null
+  const declared = catalogs === discovered ? (layout?.locales ?? null) : null
   const config: FileOutcome =
     shadowed === null
-      ? await writeIfAbsent(root, configFile, await configFor(root, catalogs, sourceLocale, seed))
+      ? await writeIfAbsent(
+          root,
+          configFile,
+          await configFor(root, catalogs, declared, sourceLocale, seed),
+        )
       : { kind: 'exists', path: shadowed }
 
   const catalog = await seedOutcome(root, config, seed, discovered)
@@ -89,6 +95,7 @@ async function seedOutcome(
 async function configFor(
   root: string,
   catalogs: string,
+  discoveredLocales: readonly string[] | null,
   sourceLocale: string,
   seed: string | null,
 ): Promise<string> {
@@ -96,7 +103,27 @@ async function configFor(
   // whatever those files hold, so the hard gate goes in commented out.
   const greenfield = seed !== null && (await sourceCatalogState(seed)) !== 'populated'
   const augmentLocale = !(await hasGeneratedTree(root))
-  return configTemplate({ catalogs, greenfield, augmentLocale, sourceLocale })
+  // With `{ns}` and `locales` unset, every name in the locale position is a
+  // locale, so a stray `public/locales/shared/` becomes one. Discovery only
+  // takes language-tag names there, so its list is the one to pin. A flat
+  // layout keeps the default, which picks up a new `fr.json` with no edit.
+  const locales = catalogs.includes('{ns}') ? discoveredLocales : null
+  return configTemplate({
+    locales,
+    catalogs,
+    meta: metaBeside(catalogs),
+    greenfield,
+    augmentLocale,
+    sourceLocale,
+  })
+}
+
+// The sidecar describes the catalogs, so it belongs in their directory rather
+// than in the default `locales/` beside a `public/locales/` tree.
+function metaBeside(catalogs: string): string | null {
+  const base = catalogs.slice(0, catalogs.indexOf('/{'))
+  const meta = `${base}/{sourceLocale}.meta.json`
+  return meta === DEFAULT_META ? null : meta
 }
 
 // The config's `sourceLocale` has to agree with the catalogs already on disk.

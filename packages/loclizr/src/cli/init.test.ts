@@ -158,6 +158,60 @@ describe('runInit, a layout other than the default', () => {
     expect(output).toContain('found 2 locales at public/locales/{locale}/{ns}.json: de, en')
   })
 
+  it('declares the locales it found, so a stray directory beside them is not one', async () => {
+    await splitTree()
+    await write('public/locales/shared/common.json', '{"nav":{"home":"Home"}}')
+
+    await runInit({ cwd: root })
+    const config = await read('loclizr.config.ts')
+
+    expect(config).toContain("  locales: ['de', 'en'],")
+    expect(config).not.toContain("'shared'")
+  })
+
+  it('declares the locales of a namespace first tree too', async () => {
+    await write('locales/common/en.json', '{"nav":{"home":"Home"}}')
+    await write('locales/common/de.json', '{"nav":{"home":"Startseite"}}')
+
+    await runInit({ cwd: root })
+    const config = await read('loclizr.config.ts')
+
+    expect(config).toContain("  locales: ['de', 'en'],")
+    expect(config).not.toContain('  meta:')
+  })
+
+  it('puts the meta sidecar beside a flat layout outside locales/, and declares no locales', async () => {
+    await write('src/i18n/en.json', '{"nav":{"home":"Home"}}')
+
+    await runInit({ cwd: root })
+    const config = await read('loclizr.config.ts')
+
+    expect(config).toContain("  meta: 'src/i18n/{sourceLocale}.meta.json',")
+    expect(config).toContain('Turn this on once src/i18n/en.meta.json describes')
+    expect(config).not.toContain('  locales:')
+  })
+
+  it('declares no locales over a split tree catalogs cannot name, since it falls back to the default', async () => {
+    await write('app/(marketing)/locales/en/common.json', '{"nav":{"home":"Home"}}')
+
+    await runInit({ cwd: root })
+    const config = await read('loclizr.config.ts')
+
+    expect(config).toContain("  catalogs: 'locales/{locale}.json',")
+    expect(config).not.toContain('  locales:')
+    expect(config).not.toContain('  meta:')
+  })
+
+  it('puts the meta sidecar beside the catalogs and names it in the gate note', async () => {
+    await splitTree()
+
+    await runInit({ cwd: root })
+    const config = await read('loclizr.config.ts')
+
+    expect(config).toContain("  meta: 'public/locales/{sourceLocale}.meta.json',")
+    expect(config).toContain('Turn this on once public/locales/en.meta.json describes')
+  })
+
   it('treats it as a retrofit, whatever those catalogs hold', async () => {
     await splitTree()
 
@@ -208,8 +262,11 @@ describe('runInit, retrofit', () => {
     const config = await read('loclizr.config.ts')
 
     expect(config).toContain("// severity: { 'ambiguous-source': 'error' },")
-    expect(config).toContain('locales/en.meta.json')
+    expect(config).toContain('Turn this on once locales/en.meta.json describes')
     expect(config).not.toContain("\n  severity: { 'ambiguous-source': 'error' },")
+    // A flat layout keeps the default: a later `fr.json` is a locale with no config edit.
+    expect(config).not.toContain('  locales:')
+    expect(config).not.toContain('  meta:')
   })
 
   it('treats a catalog it cannot parse as a retrofit, not as empty', async () => {

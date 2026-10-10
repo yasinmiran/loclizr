@@ -2336,7 +2336,16 @@ spell (a glob metacharacter, or a backslash on POSIX) is listed after every
 other layout with a note to move it; when it is all there is, the config names
 the default layout with `sourceLocale` taken from that layout, the
 `ambiguous-source` line commented out, and no seed catalog. The written config
-always carries `sourceLocale`, `catalogs` and `outDir: 'src/loclizr'`.
+always carries `sourceLocale`, `catalogs` and `outDir: 'src/loclizr'`. When it
+names a discovered layout carrying `{ns}`, it also carries `locales`, the
+discovered list: with `locales` unset every name in the locale position is a
+locale (section 3), and discovery only takes a name there that has the shape of
+a language tag, so `public/locales/shared/` stays out of the list
+and the build reports it as `LZ1006`. A flat layout gets no `locales` line, so a
+later `fr.json` is a locale with no config edit. When the named layout's base
+directory is not `locales`, the config also carries
+`meta: '<base>/{sourceLocale}.meta.json'`, so the sidecar sits beside the
+catalogs, and the commented-out `ambiguous-source` note names that resolved path.
 
 The seed catalog is written only when `init` wrote the config in the same run
 and the layout it found is the default one, or it found none. When a config is
@@ -4651,8 +4660,9 @@ rejects it on `check` as invalid usage (exit 2), and passes
 `failOnError: false` into `build`. M11 does not compute exit codes; it forwards
 the flag and returns what M10 decided. `--quiet` is likewise M11's alone: it
 filters what the human reporter prints (section 10) and reaches neither M10
-nor the JSON reporter. The four config discovery filenames and the generated
-header marker `init` looks for are defined here again rather than imported,
+nor the JSON reporter. The four config discovery filenames, the default `meta`
+path and the generated header marker `init` looks for are defined here again
+rather than imported,
 so M11's dependency edge stays at M1 plus M10. A mistyped `--cwd` is invalid
 usage, so the compiler never reports the catalog layout of a directory that
 does not exist.
