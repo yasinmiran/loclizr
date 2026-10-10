@@ -1,0 +1,406 @@
+---
+title: Migrating from FormatJS
+description: Compile react-intl messages to plain ICU catalogs, carry each description into the meta sidecar, then move call sites one at a time.
+---
+
+import { Aside, Steps } from '@astrojs/starlight/components'
+
+```ts title="loclizr.config.ts"
+import { defineConfig } from 'loclizr'
+
+export default defineConfig({
+  locales: ['de', 'en'],
+  sourceLocale: 'en',
+  formats: {
+    number: { usd: { style: 'currency', currency: 'USD' } },
+  },
+})
+```
+
+FormatJS and loclizr read the same ICU MessageFormat, so the messages carry over as written. What
+changes is where they live. react-intl keeps each `defaultMessage` in the code and extracts it;
+loclizr has no extractor, so after the move `locales/en.json` is the source and the code calls a
+generated function. FormatJS keeps the fuller runtime: it formats messages unknown at build time,
+and `eslint-plugin-formatjs` checks the code side. loclizr checks the catalogs inside the build and
+types every call from them.
+
+Every block here ran with `@formatjs/cli` 6.16, react-intl 12.1, React 19.3 and TypeScript 7.0,
+against a cart with five messages.
+
+| react-intl | loclizr |
+| --- | --- |
+| `defaultMessage` in code, extracted | `locales/en.json`, edited by hand once the code moves |
+| `description` | `description` in `locales/en.meta.json`, a string |
+| Explicit `id`, `cart.greeting` | The catalog key: `m.cart_greeting()` in module `cart` |
+| Generated hash `id` | A key like `rM52go`, exported as `rM52go` ([below](#hash-ids)) |
+| `IntlProvider` `locale` | `setLocale` and `useLocale`, persisted in the `locale` cookie |
+| `IntlProvider` `messages` | Compiled into the generated tree at build time |
+| `IntlProvider` `formats.number` | `formats.number` in the config |
+| `formats.date` and `formats.time` | One `formats.dateTime` map, read by `date` and `time` arguments alike |
+| `IntlProvider` `timeZone` | `formats.timeZone` |
+| `values={{ link: (chunks) => ... }}` | The same handler as an argument; the call returns an array that `Parts` renders |
+| `defaultRichTextElements` | None: every tag is a required handler at its call site |
+| A React element as a plain value | Not accepted: a plain argument is `string \| number` ([below](#rich-text)) |
+| `onError` for a missing translation, at runtime | `LZ3001 missing-translation`, an error at build time; the message falls back to source text |
+| `FormattedNumber`, `FormattedDate`, `intl.formatNumber` | No counterpart: put the value in a message, or call `Intl` |
+
+## Migrate an app
+
+<Steps>
+
+1. ### Give every message an explicit id
+
+   ```tsx
+   <FormattedMessage id="cart.checkout" defaultMessage="Check out" description="Checkout button." />
+   ```
+
+   The id becomes the catalog key and the key becomes the function name, so `cart.checkout` is
+   `m.cart_checkout()`. A message without one gets a hash, which makes a poor function name
+   ([Hash ids](#hash-ids)). Rename the key in each translated extract file too, or the build
+   reports the old key as `LZ3003` and the new one as `LZ3001`.
+
+2. ### Extract, then compile to plain strings
+
+   ```bash
+   npx formatjs extract 'src/**/*.tsx' --out-file lang/en.json
+   npx formatjs compile lang/en.json --out-file locales/en.json
+   npx formatjs compile lang/de.json --out-file locales/de.json
+   ```
+
+   `lang/de.json` is the translated extract file. `formatjs compile --format` reads a TMS export
+   (`transifex`, `smartling`, `lokalise`, `crowdin`) into the same shape. Feed loclizr the compiled
+   output, never the extract file and never `--ast` output ([What the build accepts](#what-the-build-accepts)):
+
+   ```json title="locales/en.json"
+   {
+     "cart.checkout": "Check out",
+     "cart.greeting": "Hi {name}, your cart is ready",
+     "cart.items": "{count, plural, =0 {Your cart is empty} one {# item in your cart} other {# items in your cart}}",
+     "cart.total": "Total: {amount, number, usd}",
+     "terms.accept": "Read our <link>terms</link> before you continue."
+   }
+   ```
+
+   Dotted keys are the same path as nested ones, so `cart.greeting` lands in module `cart`.
+
+3. ### Carry the descriptions into the meta sidecar
+
+   ```js title="scripts/meta.mjs"
+   import { readFileSync, writeFileSync } from 'node:fs'
+
+   const extracted = JSON.parse(readFileSync('lang/en.json', 'utf8'))
+   const meta = {}
+   for (const [id, { description }] of Object.entries(extracted)) {
+     if (description === undefined) continue
+     meta[id] = { description: typeof description === 'string' ? description : JSON.stringify(description) }
+   }
+   writeFileSync('locales/en.meta.json', `${JSON.stringify(meta, null, 2)}\n`)
+   ```
+
+   ```json title="locales/en.meta.json"
+   {
+     "cart.checkout": {
+       "description": "Checkout button."
+     },
+     "cart.greeting": {
+       "description": "Heading on the cart page."
+     },
+     "cart.items": {
+       "description": "{\"context\":\"Badge under the cart icon\",\"maxLength\":30}"
+     },
+     "cart.total": {
+       "description": "Order total under the item list."
+     },
+     "terms.accept": {
+       "description": "Under the checkout button. The link opens the terms page."
+     }
+   }
+   ```
+
+   react-intl accepts an object as a description; the sidecar takes a string, and an object there
+   is `LZ1010 catalog-shape-invalid`. The snippet stringifies it; rewrite it as a sentence when you
+   can. Each description lands in the [context record](/reference/context-record/), and keys that
+   share source text but carry descriptions pass `LZ3012 ambiguous-source`
+   ([Catalogs](/guides/catalogs/#descriptions-and-placeholder-notes)).
+
+4. ### Move `formats` into the config
+
+   Each named style on `IntlProvider` goes into `loclizr.config.ts` under the same name: the
+   config at the top of this page carries `usd` for `{amount, number, usd}`. Without it the build
+   exits 1 with an error per locale:
+
+   ```text
+   error  LZ2002  icu-style-unknown  locales/en.json:5:25  en  cart.total
+
+     "usd" is not a known number style.
+
+     fix  Define formats.number.usd in loclizr.config.ts, or use an ICU skeleton.
+   ```
+
+   Date and time styles share `formats.dateTime`, so a `date` style and a `time` style need
+   distinct names. Option sets are checked against `Intl` when the config loads
+   ([Configuration](/reference/configuration/#formats)).
+
+5. ### Build
+
+   ```txt frame="terminal" title="npx loclizr build"
+   warn  LZ5004  scan-found-nothing
+
+     The scan read 1 file and found no import of the generated messages.
+
+     fix  check scan.include in loclizr.config.ts. A usage site is found through an import such as import * as m from './loclizr/messages'
+
+   wrote src/loclizr (11 files) and locales/loclizr.context.json
+   commit locales/loclizr.context.json; `loclizr check` compares it
+   5 messages, 2 locales (source en), 0 errors, 1 warning
+   ```
+
+   `LZ5004` warns until the first call site imports the tree.
+
+   ```ts title="src/loclizr/messages/cart.d.ts"
+   // @generated by loclizr abi=1. Do not edit; run `loclizr build`.
+   import type { EmptyArgs, MessageOptions } from 'loclizr'
+   /** en: "Check out" */
+   export declare function cart_checkout(args?: EmptyArgs, opts?: MessageOptions): string
+   /** en: "Hi {name}, your cart is ready" */
+   export declare function cart_greeting(args: { name: string | number }, opts?: MessageOptions): string
+   /** en: "{count, plural, =0 {Your cart is empty} one {# item in your cart} other {# items in your cart}}" */
+   export declare function cart_items(args: { count: number }, opts?: MessageOptions): string
+   /** en: "Total: {amount, number, usd}" */
+   export declare function cart_total(args: { amount: number }, opts?: MessageOptions): string
+   ```
+
+6. ### Swap call sites
+
+   ```tsx title="src/Cart.tsx (react-intl)"
+   import { FormattedMessage, defineMessages, useIntl } from 'react-intl'
+
+   const messages = defineMessages<{ greeting: { name: string }; items: { count: number } }>({
+     greeting: {
+       id: 'cart.greeting',
+       defaultMessage: 'Hi {name}, your cart is ready',
+       description: 'Heading on the cart page.',
+     },
+     items: {
+       id: 'cart.items',
+       defaultMessage: '{count, plural, =0 {Your cart is empty} one {# item in your cart} other {# items in your cart}}',
+       description: { context: 'Badge under the cart icon', maxLength: 30 },
+     },
+   })
+
+   export function Cart({ name, count, total }: { name: string; count: number; total: number }) {
+     const intl = useIntl()
+     return (
+       <main>
+         <h1>{intl.formatMessage(messages.greeting, { name })}</h1>
+         <p>{intl.formatMessage(messages.items, { count })}</p>
+         <p>
+           <FormattedMessage
+             id="cart.total"
+             defaultMessage="Total: {amount, number, usd}"
+             description="Order total under the item list."
+             values={{ amount: total }}
+           />
+         </p>
+         <p>
+           <FormattedMessage
+             id="terms.accept"
+             defaultMessage="Read our <link>terms</link> before you continue."
+             description="Under the checkout button. The link opens the terms page."
+             values={{ link: (chunks) => <a href="/terms">{chunks}</a> }}
+           />
+         </p>
+         <button type="button">
+           <FormattedMessage id="cart.checkout" defaultMessage="Check out" description="Checkout button." />
+         </button>
+       </main>
+     )
+   }
+   ```
+
+   ```tsx title="src/Cart.tsx (loclizr)"
+   import { Parts } from 'loclizr/react'
+   import * as m from './loclizr/messages'
+
+   export function Cart({ name, count, total }: { name: string; count: number; total: number }) {
+     return (
+       <main>
+         <h1>{m.cart_greeting({ name })}</h1>
+         <p>{m.cart_items({ count })}</p>
+         <p>{m.cart_total({ amount: total })}</p>
+         <p>
+           <Parts of={m.terms_accept({ link: (chunks) => <a href="/terms">{chunks}</a> })} />
+         </p>
+         <button type="button">{m.cart_checkout()}</button>
+       </main>
+     )
+   }
+   ```
+
+   Both render the same markup in `en` and `de`. The argument types come from the catalog, not
+   from a type parameter, and a message is a plain function, so it needs no hook or component
+   around it. `formatjs extract` finds nothing in a file once it moves, so a new string goes
+   into `locales/en.json` and its description into `locales/en.meta.json` by hand.
+
+7. ### Drive both libraries from one locale
+
+   ```tsx title="src/Providers.tsx"
+   import type { ReactNode } from 'react'
+   import { IntlProvider } from 'react-intl'
+   import { useLocale } from 'loclizr/react'
+   import de from '../locales/de.json'
+   import en from '../locales/en.json'
+
+   const catalogs = { de, en }
+
+   export function Providers({ children }: { children: ReactNode }) {
+     const locale = useLocale()
+     return (
+       <IntlProvider
+         locale={locale}
+         defaultLocale="en"
+         messages={catalogs[locale]}
+         formats={{ number: { usd: { style: 'currency', currency: 'USD' } } }}
+       >
+         {children}
+       </IntlProvider>
+     )
+   }
+   ```
+
+   Until the last call site moves, `IntlProvider` reads the compiled `locales/{locale}.json` that
+   loclizr builds from, and `setLocale` switches both. The JSON imports need `resolveJsonModule`.
+   Then delete the provider and key the root on `useLocale` ([React](/guides/react/)).
+
+</Steps>
+
+<Aside>
+An argument reaches the string exactly as passed, with no HTML escaping. React's text binding
+escapes it; an HTML sink such as `dangerouslySetInnerHTML` does not.
+</Aside>
+
+## Hash ids
+
+A `FormattedMessage` with no `id` gets one from `formatjs extract`, a hash of its
+`defaultMessage` and `description`:
+
+```tsx
+<FormattedMessage defaultMessage="Check out" description="Checkout button." />
+```
+
+```ts title="src/loclizr/messages/_root.d.ts"
+// @generated by loclizr abi=1. Do not edit; run `loclizr build`.
+import type { EmptyArgs, MessageOptions } from 'loclizr'
+/** en: "Check out" */
+export declare function rM52go(args?: EmptyArgs, opts?: MessageOptions): string
+```
+
+A key with no dot goes to `_root`, and characters outside an identifier, such as `+` and `/`,
+become `_` ([Generated code](/reference/generated-code/#identifiers)). An `identifiers` entry
+renames the export:
+
+```ts
+identifiers: { rM52go: 'checkout' },
+```
+
+It holds only until the copy changes. Edit `defaultMessage` to `Go to checkout` and the next
+extract hashes it to `kLF5Q+`:
+
+```ts title="src/loclizr/messages/_root.d.ts"
+// @generated by loclizr abi=1. Do not edit; run `loclizr build`.
+import type { EmptyArgs, MessageOptions } from 'loclizr'
+/** en: "Go to checkout" */
+export declare function kLF5Q_(args?: EmptyArgs, opts?: MessageOptions): string
+```
+
+| What still names `rM52go` | Result |
+| --- | --- |
+| `identifiers` | Matches no key and is ignored, with no diagnostic |
+| `locales/de.json` | `LZ3003 extra-translation`, and `LZ3001` for the new key |
+| `locales/en.meta.json`, until the snippet reruns | `LZ1015 meta-orphan` |
+| `m.checkout()` call sites | A type error: the export is gone |
+
+Editing only the description renames it too. Give the message an explicit id before extracting
+and every name stays put; keep `identifiers` for the odd key you cannot rename yet.
+
+## Rich text
+
+A tag in a message is the same in both libraries: `<link>terms</link>` takes a `link` handler
+that receives the chunks.
+
+```ts title="src/loclizr/messages/terms.d.ts"
+// @generated by loclizr abi=1. Do not edit; run `loclizr build`.
+import type { MessageOptions } from 'loclizr'
+/** en: "Read our <link>terms</link> before you continue." */
+export declare function terms_accept<T>(
+  args: { link: (chunks: readonly (string | T)[]) => T },
+  opts?: MessageOptions,
+): readonly (string | T)[]
+```
+
+The call returns an array, and `Parts` from `loclizr/react` renders it. react-intl's
+`defaultRichTextElements` has no counterpart, so a `<b>` that every message shares is passed at
+every call site.
+
+react-intl also takes a React element as a plain value, as in `values={{ name: <b>Ada</b> }}`. A
+loclizr argument is `string | number`, so the same call does not compile:
+
+```text
+src/Bad.tsx(3,43): error TS2322: Type 'Element' is not assignable to type 'string | number'.
+```
+
+Move the element into the message as a tag, `"cart.welcome": "Welcome back, <b>{name}</b>"`, and
+pass the handler:
+
+```tsx
+<Parts of={m.cart_welcome({ name: 'Ada', b: (chunks) => <b>{chunks}</b> })} />
+```
+
+## What the build accepts
+
+| File in `locales/` | Result |
+| --- | --- |
+| `formatjs compile` output | One message per id. |
+| `formatjs compile --ast` output | `LZ1010 catalog-shape-invalid` per message; nothing compiles. |
+| The `formatjs extract` file | Each `defaultMessage` and each `description` becomes its own message, so five messages build as ten. No rule names the mistake. |
+
+An AST value is an array:
+
+```text
+error  LZ1010  catalog-shape-invalid  locales/en.json:2:20  en  cart.checkout
+
+  "cart.checkout" is an array, not a message string.
+
+  fix  give each item its own key. An array value needs format(), which is deferred past v0.1.
+```
+
+The hint is written for hand-made arrays; for AST output, compile again without `--ast`.
+
+With only the source locale and a string in every `description`, the extract file builds with
+nothing but the `LZ5004` from step 5:
+
+```txt frame="terminal" title="npx loclizr build"
+warn  LZ5004  scan-found-nothing
+
+  The scan read 1 file and found no import of the generated messages.
+
+  fix  check scan.include in loclizr.config.ts. A usage site is found through an import such as import * as m from './loclizr/messages'
+
+wrote src/loclizr (11 files) and locales/loclizr.context.json
+commit locales/loclizr.context.json; `loclizr check` compares it
+10 messages, 1 locale (source en), 0 errors, 1 warning
+```
+
+```ts title="src/loclizr/messages/cart.d.ts"
+// @generated by loclizr abi=1. Do not edit; run `loclizr build`.
+import type { EmptyArgs, MessageOptions } from 'loclizr'
+/** en: "Check out" */
+export declare function cart_checkout_defaultMessage(args?: EmptyArgs, opts?: MessageOptions): string
+/** en: "Checkout button." */
+export declare function cart_checkout_description(args?: EmptyArgs, opts?: MessageOptions): string
+```
+
+A translated extract file that carries no descriptions adds an `LZ3001 missing-translation` per
+`.description` key, and its fix asks for each description in `locales/de.json`. A
+`_defaultMessage` suffix on every export is the sign either way: point `catalogs` at the compiled
+files.
