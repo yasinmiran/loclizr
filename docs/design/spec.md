@@ -589,8 +589,14 @@ style in `formats.number` or `formats.dateTime` that `Intl.DateTimeFormat` or
 `Intl.NumberFormat` refuses to construct, probed at the fixed locale `en` so
 the verdict is machine independent, with the `Intl` message as the hint; a
 named style holding a non-finite number, which `Intl` would silently coerce
-rather than refuse (`hour12: NaN` builds); and a
-`sourceLocale` that `locales` does not declare. Declared locale tags are kept
+rather than refuse (`hour12: NaN` builds); a
+`sourceLocale` that `locales` does not declare; and a top-level field the
+config does not have, `outdir` for `outDir`, because a JavaScript config gets
+no type check and a misspelled path field would otherwise fall back to its
+default and send output, or the record CI compares, somewhere the user never
+chose. Its hint names the nearest field within two edits, compared without
+case, or lists the fields when none is that close. Every unknown field is its
+own diagnostic, in the config's own key order. Declared locale tags are kept
 verbatim, never canonicalized through `Intl.getCanonicalLocales`, because
 canonicalizing would change `Config.locales`, the emitted arms and the
 `AppLocale` union; `de-at` declared against `de-AT.json` on disk is therefore
@@ -3011,7 +3017,7 @@ claim one. Ranges are thematic and a range may span two owners.
 
 | Code | Rule | Default | Fatal | Owner | Trigger |
 | --- | --- | --- | --- | --- | --- |
-| LZ1001 | `config-invalid` | error | always, exit 2 | M9 | the config file threw, a field failed validation, or `severity` names `config-invalid`, `outdir-unsafe` or `output-unwritable` |
+| LZ1001 | `config-invalid` | error | always, exit 2 | M9 | the config file threw, a field failed validation or is not a config field, or `severity` names `config-invalid`, `outdir-unsafe` or `output-unwritable` |
 | LZ1002 | `locale-tag-invalid` | error | always | M9 | a locale **declared** in `locales`, or the declared `sourceLocale`, is rejected by `Intl.getCanonicalLocales`; one tag in both places is reported once |
 | LZ1003 | `no-catalogs-found` | error | always | M9 | the `catalogs` pattern matched nothing |
 | LZ1004 | `source-catalog-missing` | error | always | M9 | no catalog file for the source locale, or the source locale could not be inferred |

@@ -11,6 +11,7 @@ a minor release may break an invariant, and this file says so when it does.
 
 - Docs: the testing guide shows a one-line setup file that sets `<html lang>` to the source locale, so jsdom tests no longer print the `<html> carries no lang attribute` warning; runtime behaviour is unchanged (#54).
 - On a server where `loclizr/server` is loaded, a message call with no `{ locale }` outside a request scope now warns once outside production, where it used to render the source locale silently. It shares one warning with `getLocale()`, and that warning's text has changed to "a message or getLocale() ran outside a request scope, so it used the source locale. ..." (#53).
+- **Behaviour change:** an unknown top-level field in `loclizr.config.*`, such as `outdir` for `outDir`, is now `LZ1001 config-invalid` (exit 2) with a hint naming the nearest field, instead of being silently ignored; a config that built with a stray or misspelled key now fails until the key is fixed or removed. (#77).
 
 ## 0.1.2 - 2026-10-10
 

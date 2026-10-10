@@ -92,6 +92,34 @@ describe('catalogFormat', () => {
   })
 })
 
+describe('a field the config does not have', () => {
+  it('rejects a misspelled field and names the one it meant', () => {
+    const result = loose({ sourceLocale: 'en', outdir: 'x' }, 'en')
+    expect(result.config).toBeNull()
+    const diagnostic = only(result.diagnostics, 'LZ1001')
+    expect(diagnostic.message).toBe('`outdir` is not a config field.')
+    expect(diagnostic.hint).toBe('did you mean `outDir`?')
+  })
+
+  it('reports every unknown field, each with its nearest spelling', () => {
+    const result = loose({ outDirr: 'x', cookies: 'y' }, 'en')
+    expect(result.config).toBeNull()
+    expect(result.diagnostics.map((diagnostic) => diagnostic.hint)).toEqual([
+      'did you mean `outDir`?',
+      'did you mean `cookie`?',
+    ])
+  })
+
+  it('lists the fields when nothing is close', () => {
+    const result = loose({ plugins: [] }, 'en')
+    expect(result.config).toBeNull()
+    const diagnostic = only(result.diagnostics, 'LZ1001')
+    expect(diagnostic.message).toBe('`plugins` is not a config field.')
+    expect(diagnostic.hint).toContain('`locales`')
+    expect(diagnostic.hint).toContain('`severity`')
+  })
+})
+
 describe('fields the rest of the compiler reads', () => {
   it('carries groups, identifiers, markup and a fallback map through', () => {
     const resolved = config(

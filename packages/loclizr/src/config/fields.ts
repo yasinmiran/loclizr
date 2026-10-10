@@ -46,6 +46,29 @@ const NOT_RELEVELABLE: readonly RuleName[] = ['config-invalid', 'outdir-unsafe',
 
 const SEVERITIES: readonly string[] = ['off', 'warn', 'error']
 
+const FIELDS: readonly string[] = [
+  'locales',
+  'sourceLocale',
+  'catalogs',
+  'catalogFormat',
+  'i18nextMarkup',
+  'meta',
+  'outDir',
+  'record',
+  'cookie',
+  'augmentLocale',
+  'groups',
+  'identifiers',
+  'fallback',
+  'formats',
+  'scan',
+  'severity',
+]
+
+// Two edits catch a dropped, doubled or swapped letter; a wider net offers
+// unrelated short fields, `meta` for `mode`.
+const MAX_SUGGESTION_DISTANCE = 2
+
 const SEVERITY_EXAMPLE = "severity: { 'ambiguous-source': 'error' }"
 const NUMBER_EXAMPLE = "formats: { number: { compact: { notation: 'compact' } } }"
 const DATE_TIME_EXAMPLE = "formats: { dateTime: { weekday: { weekday: 'long' } } }"
@@ -76,6 +99,7 @@ export function readFields(user: LoclizrConfig): FieldsResult {
   // A config file is arbitrary JavaScript, so every field is re-checked here
   // whatever its declared type says.
   const raw = user as unknown as Readonly<Record<string, unknown>>
+  rejectUnknownFields(raw, issues)
   const scan = readNested(raw, 'scan', INCLUDE_EXAMPLE, issues)
   const formats = readNested(raw, 'formats', ZONE_EXAMPLE, issues)
   return {
@@ -102,6 +126,49 @@ export function readFields(user: LoclizrConfig): FieldsResult {
     },
     issues,
   }
+}
+
+// A JavaScript config gets no type check, so a misspelled `outDir` or `record`
+// would otherwise fall back to the default and send output, or the record the
+// CI gate compares, somewhere the user never chose.
+function rejectUnknownFields(raw: Readonly<Record<string, unknown>>, issues: FieldIssue[]): void {
+  for (const field of Object.keys(raw)) {
+    if (FIELDS.includes(field)) continue
+    const meant = nearestField(field)
+    issues.push({
+      message: `\`${field}\` is not a config field.`,
+      hint:
+        meant === null
+          ? `the fields are ${FIELDS.map((one) => `\`${one}\``).join(', ')}.`
+          : `did you mean \`${meant}\`?`,
+    })
+  }
+}
+
+function nearestField(field: string): string | null {
+  let nearest: string | null = null
+  let best = MAX_SUGGESTION_DISTANCE + 1
+  for (const candidate of FIELDS) {
+    const distance = editDistance(field.toLowerCase(), candidate.toLowerCase())
+    if (distance < best) {
+      nearest = candidate
+      best = distance
+    }
+  }
+  return nearest
+}
+
+function editDistance(a: string, b: string): number {
+  let previous = Array.from({ length: b.length + 1 }, (_, index) => index)
+  for (let i = 1; i <= a.length; i++) {
+    const current = [i]
+    for (let j = 1; j <= b.length; j++) {
+      const substitution = (previous[j - 1] ?? 0) + (a[i - 1] === b[j - 1] ? 0 : 1)
+      current.push(Math.min((previous[j] ?? 0) + 1, (current[j - 1] ?? 0) + 1, substitution))
+    }
+    previous = current
+  }
+  return previous[b.length] ?? 0
 }
 
 function readNested(
