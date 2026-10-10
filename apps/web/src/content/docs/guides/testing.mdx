@@ -1,6 +1,6 @@
 ---
 title: Testing
-description: Set the locale per test, assert through the message functions, build the tree before vitest runs.
+description: Set the locale per test, assert through the message functions, build the tree before Vitest or Jest runs.
 ---
 
 import { Aside, Steps } from '@astrojs/starlight/components'
@@ -27,9 +27,9 @@ test('one call can override the locale', () => {
 })
 ```
 
-A message is a plain function: no provider to wrap, no module to mock, no fixture catalog. Every
-block here ran under vitest 5 with jsdom 30 against a two-message catalog (`cart.greeting`,
-`cart.items`, in `en` and `de`).
+A message is a plain function: no provider to wrap, no module to mock, no fixture catalog. The
+Vitest blocks here ran under vitest 5 with jsdom 30 against a two-message catalog (`cart.greeting`,
+`cart.items`, in `en` and `de`). Jest needs one config line first: see [Jest](#jest).
 
 ## Set up
 
@@ -120,3 +120,151 @@ expect(html).toContain(m.cart_greeting({ name: 'Ada' }, { locale: 'de' }))
 
 A literal is a second copy of the catalog, so a copy edit breaks a test that was never about copy.
 Keep a literal only where the text itself is the subject.
+
+## Jest
+
+loclizr ships ESM only: no entry of the package has a `require` build, and the generated
+`src/loclizr/` tree is ESM too. Jest compiles your files to CommonJS and skips
+`node_modules`, so a CommonJS project fails before the first test runs:
+
+```text
+FAIL test/cart.test.tsx
+  ● Test suite failed to run
+
+    Must use import to load ES Module: .../node_modules/loclizr/dist/index.js
+
+    The file contains ESM syntax (import/export) that could not be executed as CommonJS. Either:
+      - Configure a transform (e.g. babel-jest) that compiles this file to CommonJS (see https://jestjs.io/docs/code-transformation)
+      - If the file is in "node_modules", allow it to be transformed by adjusting "transformIgnorePatterns" (see https://jestjs.io/docs/configuration#transformignorepatterns-arraystring)
+      - Use Node v24.9+ where Jest supports require(esm) natively (see https://jestjs.io/docs/ecmascript-modules#require-of-esm)
+
+      1 | /** @jest-environment jsdom */
+      2 | import { render, screen } from '@testing-library/react'
+    > 3 | import { setLocale } from 'loclizr'
+        | ^
+      4 | import { Cart } from '../src/Cart'
+      5 | import * as m from '../src/loclizr/messages'
+      6 |
+```
+
+### Let babel-jest compile loclizr
+
+```js title="jest.config.js"
+module.exports = {
+  transformIgnorePatterns: ['/node_modules/(?!(\\.pnpm/)?loclizr[@/])'],
+}
+```
+
+```js title="babel.config.js"
+module.exports = {
+  presets: [
+    ['@babel/preset-env', { targets: { node: 'current' } }],
+    '@babel/preset-typescript',
+    ['@babel/preset-react', { runtime: 'automatic' }],
+  ],
+}
+```
+
+babel-jest now compiles loclizr along with your own files. The generated tree sits under `src/`,
+outside `node_modules`, so it was never skipped. The `(\\.pnpm/)?` part is for pnpm, which keeps the
+package at a path such as `node_modules/.pnpm/loclizr@0.1.2_react@19.3.0/node_modules/loclizr`; the shorter
+`'/node_modules/(?!loclizr/)'` still skips it there.
+
+```tsx title="test/cart.test.tsx"
+/** @jest-environment jsdom */
+import { render, screen } from '@testing-library/react'
+import { setLocale } from 'loclizr'
+import { Cart } from '../src/Cart'
+import * as m from '../src/loclizr/messages'
+
+beforeEach(() => {
+  setLocale('de', { persist: false })
+})
+
+test('renders German', () => {
+  render(<Cart count={3} />)
+  expect(screen.getByText(m.cart_items({ count: 3 }, { locale: 'de' }), { exact: false })).toBeTruthy()
+})
+
+test('one call can override the locale', () => {
+  expect(m.cart_items({ count: 3 }, { locale: 'en' })).toBe('3 items in your cart')
+})
+```
+
+The same cart test, with Jest's docblock and globals in place of the Vitest comment and import. The
+latch and server tests port the same way; the server test needs no docblock, since Jest's default
+environment is Node. `pretest` stays `loclizr build`, with `"test": "jest"`:
+
+```text
+> pretest
+> loclizr build
+
+2 messages, 2 locales (source en), 0 errors, 0 warnings
+
+> test
+> jest
+
+PASS test/ssr.test.tsx
+PASS test/cart.test.tsx
+PASS test/latch.test.ts
+
+Test Suites: 3 passed, 3 total
+Tests:       4 passed, 4 total
+Snapshots:   0 total
+Time:        0.505 s, estimated 1 s
+Ran all test suites.
+```
+
+### With ts-jest
+
+```js title="jest.config.js"
+module.exports = {
+  preset: 'ts-jest/presets/js-with-ts',
+  transformIgnorePatterns: ['/node_modules/(?!(\\.pnpm/)?loclizr[@/])'],
+}
+```
+
+```json title="tsconfig.json"
+"compilerOptions": {
+  "allowJs": true
+}
+```
+
+The plain `ts-jest` preset compiles only `.ts` and `.tsx`, so with the same pattern the suite still
+fails on loclizr's `.js` files. `js-with-ts` hands `.js` files to ts-jest as well, and `allowJs` lets
+TypeScript compile them; without it, ts-jest warns and the generated `messages.js` stays ESM.
+ts-jest 29.4.14 declares a TypeScript peer below 7, so this path runs on TypeScript 6.
+
+### Or run Jest as native ESM
+
+```json title="package.json"
+"type": "module",
+"scripts": {
+  "pretest": "loclizr build",
+  "test": "NODE_OPTIONS=--experimental-vm-modules jest"
+}
+```
+
+```js title="jest.config.js"
+export default {
+  extensionsToTreatAsEsm: ['.ts', '.tsx'],
+}
+```
+
+The Babel config keeps the same presets behind `export default`. Nothing here names loclizr.
+`"type": "module"` is the line that matters: without it, Jest treats the generated
+`src/loclizr/messages.js` as CommonJS and the suite fails at its first `export`.
+
+| Jest setup | Run with | Result |
+| --- | --- | --- |
+| no config | `jest` | fails on Node 22, 24 and 25 |
+| `transformIgnorePatterns: ['/node_modules/(?!loclizr/)']` | `jest` | passes with npm, fails with pnpm |
+| `transformIgnorePatterns: ['/node_modules/(?!(\\.pnpm/)?loclizr[@/])']` | `jest` | passes with npm and pnpm on Node 22, 24 and 25 |
+| `preset: 'ts-jest'` and that pattern | `jest` | fails with npm and pnpm on Node 22, 24 and 25 |
+| `preset: 'ts-jest/presets/js-with-ts'`, that pattern and `allowJs` | `jest` | passes with npm and pnpm on Node 22, 24 and 25 |
+| native ESM as above | `NODE_OPTIONS=--experimental-vm-modules jest` | passes on Node 22, 24 and 25 |
+| no config | `NODE_OPTIONS=--experimental-vm-modules jest` | passes on Node 24 and 25, fails on Node 22 |
+
+Measured with Jest 30.5.2, jest-environment-jsdom 30.5.2 and Babel 8 on Node 22.22.2, 24.18.0 and
+25.8.2, against the cart, latch and server tests above. The ts-jest rows used ts-jest 29.4.14 on
+TypeScript 6.0.3.
