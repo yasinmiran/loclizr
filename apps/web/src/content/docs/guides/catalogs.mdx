@@ -123,9 +123,14 @@ A translation dropping a branch warns (`LZ3008`); adding one the source lacks is
 | `{ratio, number, percent}` | `{ style: 'percent' }` |
 | `{amount, number, ::currency/USD}` | the skeleton, resolved at build time |
 | `{views, number, ::compact-short}` | `{ notation: 'compact', compactDisplay: 'short' }` |
+| `{bytes, number, ::scale/1000}` | `{}`, with the value multiplied by 1000 first: Intl has no scale option |
+| `{speed, number, ::unit/kilometer-per-hour}` | `{ style: 'unit', unit: 'kilometer-per-hour' }`; 90 renders `90 km/h` |
 | `{at, date}` or `{at, date, medium}` | `{ dateStyle: 'medium' }` |
 | `{when, time, short}` | `{ timeStyle: 'short' }` |
 | `{when, date, ::yMMMd}` | `{ year: 'numeric', month: 'short', day: 'numeric' }` |
+
+Under `percent`, Intl already multiplies by 100, so `::percent scale/100` renders 0.25 as `25%`,
+the same as `::percent`.
 
 A bare `{amount, number, currency}` fails: ICU carries no currency code.
 

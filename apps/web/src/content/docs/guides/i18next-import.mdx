@@ -9,28 +9,38 @@ import { Aside, Steps } from '@astrojs/starlight/components'
 import { defineConfig } from 'loclizr'
 
 export default defineConfig({
+  locales: ['de', 'en'],
   catalogs: 'public/locales/{locale}/{ns}.json',
   sourceLocale: 'en',
+  record: 'public/locales/loclizr.context.json',
 })
 ```
 
-Point `catalogs` at your files and run `loclizr build`. Nothing is written back, so i18next keeps
+Point `catalogs` at your files and run `loclizr build`. No catalog is rewritten, so i18next keeps
 serving the app. The default pattern is `locales/{locale}.json`
 ([Configuration](/reference/configuration/)); `{ns}` reads a split layout and prefixes each key, so
 `common.json` keys start with `common.`.
+
+| Line | Why |
+| --- | --- |
+| `locales` | With it unset, every directory in the `{locale}` position is a locale, so a `public/locales/shared/` folder compiles as a locale called `shared`: `LZ1006` warns, and each key it lacks is an `LZ3001` error. |
+| `record` | The context record defaults to `locales/loclizr.context.json`, which would create a `locales/` directory beside `public/locales/`. |
 
 Every message still gets a function, so no page goes blank while you fix the catalog:
 
 | In the catalog | Rule, default | Result |
 | --- | --- | --- |
 | JSON v4, one file per locale or per `{ns}` | none | Converts as is. |
-| `{{name}}`, `{{- name}}` | none | Converts as is. |
+| `{{name}}`, `{{- name}}` | none | Both become `{name}` and return the raw value. i18next HTML-escapes `{{name}}` by default (`escapeValue`); loclizr never does. |
 | `_one`, `_other`, `_zero`, `_ordinal_*` suffixes | none | Fold into one `plural` or `selectordinal`. |
 | `$t()` nesting | `LZ1012 i18next-nesting-unsupported`, error | Renders as literal text. |
 | `{{amount, currency}}` inline formatter | `LZ1013 i18next-format-unsupported`, error | Renders the raw value. |
 | `{{user.name}}`, or any name ICU cannot read | `LZ1013`, error | Literal text; the hint names the flat name. |
 | JSON v3 `X` beside `X_plural` | `LZ1014 plural-suffix-orphan`, warn | Both stay ordinary keys. |
-| Context suffixes, `friend_male` | `LZ1017 i18next-context-detected`, warn | Each suffix is its own message. |
+| Bare `X` beside `X_one`, `X_other` | `LZ1011 duplicate-key`, error | The folded plural wins. i18next served the bare key only for a call with no count: delete or rename it. |
+| Context suffixes `friend_male` and `friend_female` | `LZ1017 i18next-context-detected`, warn | Each suffix is its own message. Detected only for `_male` and `_female`, and only when the bare `friend` exists; any other `X_word` key is an ordinary key. |
+| An empty or whitespace-only target value | `LZ3002 blank-translation`, error | Falls back to the source text; nothing matches `returnEmptyString`. `severity: { 'blank-translation': 'off' }` silences the error, and the fallback stays. |
+| An empty source value | none | Renders an empty string. Keys sharing the source text `""` group under `LZ3012`, like any shared text. A target that is also `""` still raises `LZ3002`, so a key meant to be empty in every locale needs `'blank-translation': 'off'`. |
 | `<b>`, `<a>` left by `Trans` | `LZ1016 i18next-markup-literal`, warn | Literal text until `i18nextMarkup: 'tags'`. |
 | ICU syntax in a file read as i18next | `LZ1020 icu-in-i18next-file`, warn | Literal text. |
 | An array value | `LZ1010 catalog-shape-invalid`, error | No equivalent. |
@@ -41,6 +51,12 @@ Every message still gets a function, so no page goes blank while you fix the cat
 ## Migrate an app
 
 No codemod: call sites are swapped by hand, with both libraries installed until the last one moves.
+
+<Aside>
+An argument reaches the string exactly as passed, with no HTML escaping. Render a message through
+`textContent` or the framework's text binding, or escape the argument before an HTML sink such as
+`innerHTML`, `dangerouslySetInnerHTML` or `v-html`.
+</Aside>
 
 <Steps>
 
@@ -107,7 +123,7 @@ i18next `de-AT.json` sit side by side under the default.
 
 | i18next | ICU | Notes |
 | --- | --- | --- |
-| `{{name}}` | `{name}` | Inner whitespace trimmed; typed `string \| number`. |
+| `{{name}}` | `{name}` | Inner whitespace trimmed; typed `string \| number`. i18next HTML-escapes the value by default (`escapeValue`); loclizr returns it raw. |
 | `{{- name}}` | `{name}` | Prefix dropped silently: loclizr never HTML-escapes an argument. |
 | `{{count}}` | `{count}` | Never `#` or `Intl.NumberFormat`, so `1000 items` stays unformatted. A plural selector narrows to `number`. |
 | `items_one`, `items_other` | `items`, one ICU plural | Selector always `count`; branches ordered `=0, zero, one, two, few, many, other`. |
@@ -163,10 +179,10 @@ them any more. The compiler prints the rewrite rather than guess it:
 ```text
 warn  LZ1017  i18next-context-detected  locales/en.json:11:14  en  friend
 
-  "friend" carries 2 context suffixes. i18next selected these with t('friend', { context }), and after import nothing selects them.
+  "friend" carries 2 context suffixes. i18next picks between them with t('friend', { context }); after import each is its own message and no selector picks between them.
 
-    friend_male      locales/en.json:12:19     selected by nothing after import
-    friend_female    locales/en.json:13:21     selected by nothing after import
+    friend_male      locales/en.json:12:19     its own message; "friend" no longer selects it
+    friend_female    locales/en.json:13:21     its own message; "friend" no longer selects it
 
   fix  convert this file to ICU first, then replace them with one message:
     "friend": "{context, select, male {...} female {...} other {...}}"
@@ -251,8 +267,10 @@ export declare function terms<T>(
 ```
 
 Some tags never lower: a numbered `<1>`, attributes, an unclosed or mismatched tag, a name cut by
-a placeholder. Under `'tags'` such a value stays text with its own `LZ1016`, so one stray tag never
-changes a signature. `terms` and `"accept": "I accept the <1>terms of service</1>"`, per mode:
+a placeholder, a self-closing `<br/>`. Under `'tags'` such a value stays text with its own
+`LZ1016`, so one stray tag never changes a signature. A catalog holding `terms`,
+`"accept": "I accept the <1>terms of service</1>"` and `"greeting": "Hi {{name}}"`, which makes
+the file read as i18next, warns per mode:
 
 ```text title="i18nextMarkup: 'literal'"
 warn  LZ1016  i18next-markup-literal  locales/en.json:2:13  en  terms
@@ -267,7 +285,7 @@ warn  LZ1016  i18next-markup-literal  locales/en.json:3:14  en  accept
 
   The tag </1> cannot lower to a markup argument, so every tag in this value was escaped to literal text, which is what i18next's t() rendered.
 
-  fix  a tag lowers when its name starts with an ASCII letter, it carries no attributes and it is closed, <link>...</link> or <br/>: name a numbered tag and move attributes to the call site.
+  fix  a tag lowers when its name starts with an ASCII letter, it carries no attributes and it is closed by a matching closing tag, as in <link>...</link> (a self-closing <br/> stays text): name a numbered tag and move attributes to the call site.
 ```
 
 `m.accept()` renders `I accept the <1>terms of service</1>` in both modes; `'literal'` stays
@@ -284,9 +302,21 @@ fires. `loclizr init` on an existing catalog leaves its severity at `warn` and w
 line commented out:
 
 ```ts title="loclizr.config.ts (written by init on an existing catalog)"
-  // Turn this on once locales/en.meta.json describes your keys. It
+import { defineConfig } from 'loclizr'
+
+export default defineConfig({
+  locales: ['de', 'en'],
+  sourceLocale: 'en',
+  catalogs: 'public/locales/{locale}/{ns}.json',
+  meta: 'public/locales/{sourceLocale}.meta.json',
+  record: 'public/locales/loclizr.context.json',
+  outDir: 'src/loclizr',
+  // Turn this on once public/locales/en.meta.json describes your keys. It
   // reports keys that share source text where at least one of them has no
   // description, so on a catalog imported without descriptions it fires on
   // every shared string at once.
   // severity: { 'ambiguous-source': 'error' },
+})
 ```
+
+For a tree outside `locales/`, `init` also puts `meta` and `record` beside the catalogs.
