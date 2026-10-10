@@ -48,6 +48,25 @@ describe('flatten', () => {
     expect(diagnostics[0]?.key).toBe('tips')
   })
 
+  it('points formatjs compile --ast output at compiling without --ast', () => {
+    const { entries, diagnostics } = run({
+      greeting: [
+        { type: 0, value: 'Hello, ' },
+        { type: 1, value: 'name' },
+      ],
+    })
+    expect(entries).toEqual([])
+    expect(diagnostics.map((one) => one.code)).toEqual(['LZ1010'])
+    expect(diagnostics[0]?.hint).toContain('without --ast')
+    expect(diagnostics[0]?.hint).not.toContain('format()')
+  })
+
+  it('keeps the format() hint for an array that is not all AST nodes', () => {
+    for (const value of [[], [{ type: 0, value: 'a' }, 'b'], [{ type: 'literal' }], [[{ type: 0 }]]]) {
+      expect(run({ tips: value }).diagnostics[0]?.hint).toContain('format()')
+    }
+  })
+
   it('reports a leaf that is neither a string, an object nor null', () => {
     expect(run({ count: 3 }).diagnostics.map((one) => one.code)).toEqual(['LZ1010'])
     expect(run({ on: true }).diagnostics.map((one) => one.code)).toEqual(['LZ1010'])

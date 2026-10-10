@@ -364,17 +364,15 @@ pass the handler:
 | `formatjs compile --ast` output | `LZ1010 catalog-shape-invalid` per message; nothing compiles. |
 | The `formatjs extract` file | Each `defaultMessage` and each `description` becomes its own message, so five messages build as ten. No rule names the mistake. |
 
-An AST value is an array:
+An AST value is an array of nodes, and the hint names the fix:
 
 ```text
 error  LZ1010  catalog-shape-invalid  locales/en.json:2:20  en  cart.checkout
 
   "cart.checkout" is an array, not a message string.
 
-  fix  give each item its own key. An array value needs format(), which is deferred past v0.1.
+  fix  run formatjs compile again without --ast. A catalog holds message strings, not the formatjs AST.
 ```
-
-The hint is written for hand-made arrays; for AST output, compile again without `--ast`.
 
 With only the source locale and a string in every `description`, the extract file builds with
 nothing but the `LZ5004` from step 5:

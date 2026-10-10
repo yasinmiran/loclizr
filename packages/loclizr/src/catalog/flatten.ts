@@ -75,9 +75,7 @@ function descend(walk: Walk, node: Record<string, unknown>, prefix: string | nul
     walk.diagnostics.push(
       diag('catalog-shape-invalid', {
         message: `"${keyOf(walk, path)}" is ${describe(value)}, not a message string.`,
-        hint: Array.isArray(value)
-          ? 'give each item its own key. An array value needs format(), which is deferred past v0.1.'
-          : 'quote the value, or write null for an untranslated unit.',
+        hint: hintFor(value),
         file: walk.input.file,
         locale: walk.input.locale,
         key: keyOf(walk, path),
@@ -99,6 +97,26 @@ function add(walk: Walk, path: string, value: string): void {
   // JSON itself keeps the last of two colliding keys; readCatalogs reports the
   // collision from the scanner's duplicate list.
   walk.entries[position] = entry
+}
+
+function hintFor(value: unknown): string {
+  if (isFormatjsAst(value)) {
+    return 'run formatjs compile again without --ast. A catalog holds message strings, not the formatjs AST.'
+  }
+  if (Array.isArray(value)) {
+    return 'give each item its own key. An array value needs format(), which is deferred past v0.1.'
+  }
+  return 'quote the value, or write null for an untranslated unit.'
+}
+
+// formatjs compile --ast writes each message as an array of nodes, each an
+// object whose numeric type is the node kind.
+function isFormatjsAst(value: unknown): boolean {
+  return (
+    Array.isArray(value) &&
+    value.length > 0 &&
+    value.every((item: unknown) => isObject(item) && typeof item['type'] === 'number')
+  )
 }
 
 function keyOf(walk: Walk, path: string): string {

@@ -218,9 +218,11 @@ it raises no diagnostic of its own and feeds the normal fallback chain and
 key ends in a message string. An array leaf is
 `LZ1010 catalog-shape-invalid`, with a hint naming the deferred `format()`
 escape hatch. Flattening an array to `tips.0`, `tips.1` is tempting and wrong,
-because the app wants the array, not three messages. A number or boolean leaf is
-the same code with its own hint: quote the value, or write `null` for an
-untranslated unit.
+because the app wants the array, not three messages. A non-empty array whose
+every item is an object with a numeric `type` is the AST `formatjs compile --ast`
+writes, so the same code carries a hint to compile again without `--ast`
+instead. A number or boolean leaf is the same code with its own hint: quote the
+value, or write `null` for an untranslated unit.
 
 **Read failures.** A catalog file that exists and cannot be read is
 `LZ1008 catalog-unreadable`; one that does not exist raises nothing here,
