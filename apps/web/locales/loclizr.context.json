@@ -6128,6 +6128,104 @@
       ]
     },
     {
+      "key": "ui.overview",
+      "id": "ui_overview",
+      "module": "messages/ui.js",
+      "kind": "text",
+      "source": "Overview",
+      "sourceHash": "d4b1ea5708dd5329",
+      "description": null,
+      "args": [],
+      "variants": [],
+      "markup": [],
+      "translations": [
+        {
+          "locale": "ar",
+          "status": "translated",
+          "from": null,
+          "reason": null
+        },
+        {
+          "locale": "de",
+          "status": "translated",
+          "from": null,
+          "reason": null
+        },
+        {
+          "locale": "en",
+          "status": "translated",
+          "from": null,
+          "reason": null
+        },
+        {
+          "locale": "es",
+          "status": "translated",
+          "from": null,
+          "reason": null
+        },
+        {
+          "locale": "fr",
+          "status": "translated",
+          "from": null,
+          "reason": null
+        },
+        {
+          "locale": "hi",
+          "status": "translated",
+          "from": null,
+          "reason": null
+        },
+        {
+          "locale": "it",
+          "status": "translated",
+          "from": null,
+          "reason": null
+        },
+        {
+          "locale": "ja",
+          "status": "translated",
+          "from": null,
+          "reason": null
+        },
+        {
+          "locale": "ko",
+          "status": "translated",
+          "from": null,
+          "reason": null
+        },
+        {
+          "locale": "pl",
+          "status": "translated",
+          "from": null,
+          "reason": null
+        },
+        {
+          "locale": "pt",
+          "status": "translated",
+          "from": null,
+          "reason": null
+        },
+        {
+          "locale": "uk",
+          "status": "translated",
+          "from": null,
+          "reason": null
+        },
+        {
+          "locale": "zh",
+          "status": "translated",
+          "from": null,
+          "reason": null
+        }
+      ],
+      "usage": [
+        {
+          "file": "src/components/site-language.ts",
+          "scope": "applySiteLocale"
+        }
+      ]
+    },
+    {
       "key": "ui.search",
       "id": "ui_search",
       "module": "messages/ui.js",

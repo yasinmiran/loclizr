@@ -95,6 +95,11 @@ export function applySiteLocale(locale: AppLocale): void {
   for (const toc of document.querySelectorAll('#starlight__on-this-page, #starlight__on-this-page--mobile > .toggle')) {
     setText(toc, ui.onThisPage({}, options), locale)
   }
+  // Starlight reserves #_top for the page title, so this matches the Overview
+  // entry and never a heading's own link.
+  for (const entry of document.querySelectorAll(':is(starlight-toc, mobile-starlight-toc) a[href="#_top"] > span')) {
+    setText(entry, ui.overview({}, options), locale)
+  }
   for (const select of document.querySelectorAll<HTMLSelectElement>('[data-site-language]')) select.title = ui.docsInEnglish({}, options)
   for (const label of document.querySelectorAll('site-search button[data-open-modal] > span')) setText(label, ui.search({}, options), locale)
   for (const element of document.querySelectorAll<HTMLElement>('[data-home]')) {

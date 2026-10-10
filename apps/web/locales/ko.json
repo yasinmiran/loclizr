@@ -52,6 +52,7 @@
   },
   "ui": {
     "onThisPage": "이 페이지의 내용",
+    "overview": "개요",
     "search": "검색",
     "menu": "메뉴",
     "language": "언어",
