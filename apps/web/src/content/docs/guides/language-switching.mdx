@@ -100,9 +100,10 @@ is the only persistence, since a server reads it back.
 | `file://` page (Electron `loadFile`) or cookies blocked | this page load only; persist the choice yourself and call `setLocale` on startup. Outside production loclizr warns once: `loclizr: the locale cookie was not stored (file:// or blocked), so the choice ends on reload. Persist it and call setLocale() on startup.` |
 | No `document`, React Native included | memory only, subscribers still notified |
 
-Cookie attributes are fixed in v0.1: `path=/`, `max-age` one year, `SameSite=Lax`, no `Domain`, no
+Cookie attributes default to `path=/`, `max-age` one year, `SameSite=Lax`, no `Domain`, no
 `Secure`. No `Domain` means host-scoped: `shop.example.com` and `help.example.com` do not share a
-choice.
+choice until the config sets `cookie: { name: 'locale', domain: 'example.com' }`
+([Configuration](/reference/configuration/#cookie)).
 
 `setLocale` never sets `dir`; for an RTL locale set it yourself from `useLocale()` or a `subscribe`
 listener.

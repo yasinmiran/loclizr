@@ -4,7 +4,6 @@ import { localeScope, scopedLocale, storeState, warnOnce } from './state'
 import type { StoreState } from './state'
 
 const PLAUSIBLE_TAG = /^[A-Za-z]{2,8}(?:-[A-Za-z0-9]{1,8})*$/
-const ONE_YEAR = 31536000
 
 export function getLocale(): Locale {
   const state = storeState()
@@ -41,7 +40,10 @@ export function setLocale(locale: Locale, options?: SetLocaleOptions): void {
       // stored one does.
       const stored = locale.replace(/\p{Cs}/gu, '\uFFFD')
       const name = cookieName()
-      document.cookie = `${name}=${encodeURIComponent(stored)}; path=/; max-age=${ONE_YEAR}; SameSite=Lax`
+      // The defaults every earlier release wrote, so a tree built without
+      // attributes keeps the cookie the hydration channel was built on.
+      const attributes = state.setup?.cookieAttributes ?? 'path=/; max-age=31536000; SameSite=Lax'
+      document.cookie = `${name}=${encodeURIComponent(stored)}; ${attributes}`
       // A file:// page keeps no cookie while navigator.cookieEnabled says true.
       try {
         if (
@@ -95,6 +97,7 @@ export function registerDefaults(setup: {
   readonly locales: readonly string[]
   readonly sourceLocale: string
   readonly cookie: string
+  readonly cookieAttributes?: string | undefined
 }): void {
   const state = storeState()
   const registered = state.setup
@@ -106,6 +109,7 @@ export function registerDefaults(setup: {
   const same =
     registered.sourceLocale === setup.sourceLocale &&
     registered.cookie === setup.cookie &&
+    registered.cookieAttributes === setup.cookieAttributes &&
     registered.locales.length === setup.locales.length &&
     registered.locales.every((tag, index) => tag === setup.locales[index])
   if (same) return
