@@ -569,7 +569,7 @@ Defaults, applied field by field:
 | `meta` | `'locales/{sourceLocale}.meta.json'` |
 | `outDir` | `'src/loclizr'` |
 | `record` | `'locales/loclizr.context.json'` |
-| `cookie` | `'locale'` |
+| `cookie` | `'locale'`, written `path=/`, one-year `max-age`, `SameSite=Lax`, no `Domain`, no `Secure` |
 | `augmentLocale` | `true` |
 | `groups` | `{}` |
 | `identifiers` | `{}` |
@@ -603,7 +603,13 @@ carrying `{sourceLocale}`, or a glob metacharacter (`*?[]()!{}`) outside the
 three tokens, since the pattern would then match nothing and `LZ1003` alone
 would never say why; a `cookie` that is not an RFC 6265 cookie-name token, a
 name with a space, `;`, `=` or comma, because M12 writes it verbatim into
-`document.cookie` and it never reads back; a `formats.timeZone` or a named
+`document.cookie` and it never reads back; in the object form of `cookie`, a
+missing `name`, a key outside `name`, `domain`, `path`, `secure`, `sameSite`
+and `maxAge`, a `domain` carrying a scheme, port, path, space, comma or `;`, a
+`path` that does not start with `/` or carries a space, comma or `;`, a
+`sameSite` other than `'lax'`, `'strict'` or `'none'`, `sameSite: 'none'`
+without `secure: true` (browsers drop that cookie silently), and a `maxAge` that
+is not a whole number of seconds, 0 or more; a `formats.timeZone` or a named
 style in `formats.number` or `formats.dateTime` that `Intl.DateTimeFormat` or
 `Intl.NumberFormat` refuses to construct, probed at the fixed locale `en` so
 the verdict is machine independent, with the `Intl` message as the hint; a
@@ -629,6 +635,19 @@ exceptions. `LZ1001 config-invalid`, `LZ1007 outdir-unsafe` and
 down would let a build write outside the project root and still exit 0, and
 turning `config-invalid` down is self-referential. A `severity` entry naming one
 of those three is itself `LZ1001 config-invalid`, raised by `resolveConfig`.
+
+`cookie` takes a name, `cookie: 'locale'`, or an object carrying the name and
+the attributes `setLocale` writes:
+`cookie: { name, domain?, path?, secure?, sameSite?, maxAge? }`. Each attribute
+left out keeps its default, so `{ name: 'locale' }` builds exactly what
+`'locale'` builds. The name is still all `_locale.js` exports as `cookie`, so
+`m.cookie` and every server options object stay a string; the attributes reach
+the store through `$configure1` (section 6.2) and nothing else reads them,
+because only the browser writes the cookie. `Config.cookie` is the name and
+`Config.cookieAttributes` holds the attributes the config wrote, absent when it
+wrote none. `secure: true` on a plain `http://` page other than `localhost`
+stores nothing, which is the case `setLocale`'s read-back warning in section
+11.3 already reports.
 
 `augmentLocale` controls one block in the generated barrel's declarations, the
 `declare module 'loclizr' { interface LocaleRegistry ... }` augmentation. It is
@@ -1228,8 +1247,18 @@ object to key on.
 ### 6.2 `$configure1`
 
 ```ts
-$configure1({ locales, sourceLocale, cookie }): (options?: MessageOptions) => string
+$configure1({ locales, sourceLocale, cookie, cookieAttributes? }): (options?: MessageOptions) => string
 ```
+
+`cookieAttributes` is passed only when the config wrote an attribute (section
+3), so a tree built without one is byte-identical to one built before the key
+existed. M6 prints it as the finished attribute string `setLocale` appends
+after the value, in the order `path`, `max-age`, `domain`, `SameSite`,
+`Secure`, with each attribute the config left out at its default:
+`'path=/; max-age=31536000; domain=example.com; SameSite=Lax; Secure'`. The
+store writes it verbatim, so the browser ships no attribute formatter, and M9
+has already rejected every value that could break out of its attribute. It is
+an added optional key, not an ABI break, so the helper keeps its name.
 
 It does two things:
 
@@ -1252,9 +1281,10 @@ It does two things:
    handle is the escaped-scope warning of section 11.2, so a message call
    outside a request scope warns exactly as `getLocale()` does. A call given
    `options.locale` never reads `getRawLocale()` and never warns.
-2. Registers `locales`, `sourceLocale` and `cookie` as the process default for
-   the public `getLocale()`, **first call wins**. A second registration with a
-   different set is ignored and warns once outside production.
+2. Registers `locales`, `sourceLocale`, `cookie` and `cookieAttributes` as the
+   process default for the public `getLocale()` and the cookie `setLocale`
+   writes, **first call wins**. A second registration with a different set,
+   attribute string included, is ignored and warns once outside production.
 
 The returned resolver is assigned to an exported const that every namespace
 module imports, so no bundler can drop the call: not a `/*#__PURE__*/`
@@ -2841,7 +2871,9 @@ Never `navigator.languages`. Never `localStorage`. The server saw neither, so
 either one guarantees a hydration mismatch.
 
 `setLocale` persists to that same cookie by default (`path=/`, one year,
-`SameSite=Lax`) and updates `document.documentElement.lang`. The cookie is the
+`SameSite=Lax`, no `Domain`, no `Secure`, each replaced by the attribute the
+`cookie` config sets, section 3, through the string section 6.2 describes) and
+updates `document.documentElement.lang`. The cookie is the
 only persistence channel, because it is the only one the server can read.
 A `file://` page (Electron `loadFile`) or a page with cookies blocked takes the
 write and keeps nothing while `navigator.cookieEnabled` still reports `true`, so
@@ -3789,6 +3821,20 @@ export interface ScanConfig {
   readonly exclude: readonly string[]
 }
 
+// Attributes setLocale writes on the locale cookie. Each one left out keeps
+// its default: path=/, a one-year max-age, SameSite=Lax, no Domain, no Secure.
+export interface CookieAttributes {
+  readonly domain?: string | undefined
+  readonly path?: string | undefined
+  readonly secure?: boolean | undefined
+  readonly sameSite?: 'lax' | 'strict' | 'none' | undefined
+  readonly maxAge?: number | undefined
+}
+
+export interface CookieConfig extends CookieAttributes {
+  readonly name: string
+}
+
 export interface FormatsConfig {
   readonly timeZone: string | null
   readonly number: Readonly<Record<string, IntlOptions>>
@@ -3810,6 +3856,8 @@ export interface Config {
   readonly outDir: string
   readonly record: string | false
   readonly cookie: string
+  // Only the attributes the config wrote; absent when it wrote none.
+  readonly cookieAttributes?: CookieAttributes | undefined
   readonly augmentLocale: boolean
   readonly groups: Readonly<Record<string, string>>
   readonly identifiers: Readonly<Record<string, string>>
@@ -3828,7 +3876,7 @@ export interface LoclizrConfig {
   readonly meta?: string | false | undefined
   readonly outDir?: string | undefined
   readonly record?: string | false | undefined
-  readonly cookie?: string | undefined
+  readonly cookie?: string | CookieConfig | undefined
   readonly augmentLocale?: boolean | undefined
   readonly groups?: Readonly<Record<string, string>> | undefined
   readonly identifiers?: Readonly<Record<string, string>> | undefined
@@ -3975,6 +4023,9 @@ export interface LocaleSetup {
   readonly locales: readonly string[]
   readonly sourceLocale: string
   readonly cookie: string
+  // The attributes setLocale writes after the value, printed by the compiler
+  // from the cookie config; absent when the config set none.
+  readonly cookieAttributes?: string | undefined
 }
 
 export interface NegotiateOptions {
@@ -4862,6 +4913,7 @@ export declare function registerDefaults(setup: {
   readonly locales: readonly string[]
   readonly sourceLocale: string
   readonly cookie: string
+  readonly cookieAttributes?: string | undefined
 }): void
 export declare function matchLocale(
   requested: string,

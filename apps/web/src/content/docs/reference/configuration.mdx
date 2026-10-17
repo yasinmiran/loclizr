@@ -63,7 +63,7 @@ Optional: the defaults below apply without one. Groups and format styles need a 
 
 | Field | Type | Default | Meaning |
 | --- | --- | --- | --- |
-| `cookie` | `string` | `'locale'` | Cookie `setLocale` writes and the server reads; pass `m.cookie` in the server options. |
+| `cookie` | `string \| { name, domain?, path?, secure?, sameSite?, maxAge? }` | `'locale'` | Cookie `setLocale` writes and the server reads; pass `m.cookie` in the server options. |
 | `fallback` | `'bcp47' \| Record<string, string[]>` | `'bcp47'` | Where a locale finds a message it lacks. |
 | `formats.timeZone` | `string` | unset | IANA zone for every date and time format. |
 | `formats.number` | `Record<string, IntlOptions>` | `{}` | Named `Intl.NumberFormat` styles. |
@@ -180,7 +180,46 @@ The path takes `{sourceLocale}`. `false` writes no record and skips `LZ5003 reco
 
 An RFC 6265 name: letters, digits and ``!#$%&'*+-.^_`|~``; anything else is `LZ1001`, since
 `document.cookie` could never read it back. The client checks it first for the initial locale.
-Attributes are fixed: `path=/`, one year `max-age`, `SameSite=Lax`, no `Domain`, no `Secure`.
+
+By default `setLocale` writes it with `path=/`, one year `max-age`, `SameSite=Lax`, no `Domain`
+and no `Secure`. To change those, pass an object; every attribute you leave out keeps its default:
+
+```ts title="loclizr.config.ts"
+export default defineConfig({
+  cookie: { name: 'locale', domain: 'example.com', secure: true },
+})
+```
+
+| Attribute | Type | Default |
+| --- | --- | --- |
+| `name` | `string` | required |
+| `domain` | `string`, a bare host | unset, so the cookie stays on the host that wrote it |
+| `path` | `string` starting with `/` | `'/'` |
+| `secure` | `boolean` | `false` |
+| `sameSite` | `'lax' \| 'strict' \| 'none'` | `'lax'` |
+| `maxAge` | whole seconds, 0 or more | one year |
+
+`m.cookie` stays the name, so server options do not change. The build prints the attributes as one
+more key of `$configure1` in `_locale.js`, so only the browser sees them:
+
+```js title="src/loclizr/messages/_locale.js"
+export const $l = $configure1({ locales, sourceLocale, cookie, cookieAttributes: 'path=/; max-age=31536000; domain=example.com; SameSite=Lax; Secure' })
+```
+
+`LZ1001` rejects an attribute the browser would drop or misread: a `domain` with a scheme, port,
+path or `;`, a `path` not starting with `/`, a negative or fractional `maxAge`, an unknown key, and
+`sameSite: 'none'` without `secure: true`:
+
+```txt title="cookie: { name: 'locale', domain: 'example.com', sameSite: 'none' }"
+error  LZ1001  config-invalid  loclizr.config.mjs
+
+  `cookie.sameSite` is `'none'` without `secure: true`, and browsers drop that cookie.
+
+  fix  SameSite=None needs Secure: cookie: { name: 'locale', sameSite: 'none', secure: true }. Leave sameSite out to keep 'lax'.
+```
+
+`secure: true` on a plain `http://` page other than `localhost` stores nothing; outside production
+`setLocale` warns once that the cookie was not stored.
 
 ## `augmentLocale`
 
@@ -330,5 +369,6 @@ rule `base` set.
 
 ## What reaches the runtime
 
-Only `locales`, `sourceLocale` and `cookie`, through `$configure1` in the generated `_locale.js`.
+Only `locales`, `sourceLocale`, the `cookie` name and any cookie attributes, through `$configure1` in
+the generated `_locale.js`.
 `loclizr/server` takes the same values in `NegotiateOptions` and never reads the generated tree.

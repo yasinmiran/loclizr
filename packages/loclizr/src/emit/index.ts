@@ -2,6 +2,7 @@ import { diag } from '../diagnostics'
 import type {
   Body,
   Config,
+  CookieAttributes,
   Diagnostic,
   EmitResult,
   EmittedFile,
@@ -30,6 +31,11 @@ import {
 } from './shared'
 
 const ARM_INDENT = 6
+
+// The store's defaults, which an attribute the config leaves out keeps.
+const ONE_YEAR = 31536000
+
+const SAME_SITE = { lax: 'Lax', strict: 'Strict', none: 'None' } as const
 
 export function emit(program: Program): EmitResult {
   const files = render(program)
@@ -187,6 +193,12 @@ function namespaceTypes(namespace: Namespace): string {
 
 function localeModule(program: Program): string {
   const locales = byCodepoint(program.locales).map(quoted).join(', ')
+  // Left out when the config wrote no attribute, so the store's defaults apply
+  // and such a tree stays byte-identical to one built before the field existed.
+  // Printed here rather than in the store, so the browser ships no formatter.
+  const attributes = program.config.cookieAttributes
+  const setup = ['locales', 'sourceLocale', 'cookie']
+  if (attributes !== undefined) setup.push(`cookieAttributes: ${quoted(cookieAttributes(attributes))}`)
   return textOf([
     HEADER,
     NOCHECK,
@@ -195,8 +207,16 @@ function localeModule(program: Program): string {
     `export const locales = /*#__PURE__*/ Object.freeze([${locales}])`,
     `export const sourceLocale = ${quoted(program.sourceLocale)}`,
     `export const cookie = ${quoted(program.config.cookie)}`,
-    'export const $l = $configure1({ locales, sourceLocale, cookie })',
+    `export const $l = $configure1({ ${setup.join(', ')} })`,
   ])
+}
+
+function cookieAttributes(attributes: CookieAttributes): string {
+  const parts = [`path=${attributes.path ?? '/'}`, `max-age=${attributes.maxAge ?? ONE_YEAR}`]
+  if (attributes.domain !== undefined) parts.push(`domain=${attributes.domain}`)
+  parts.push(`SameSite=${SAME_SITE[attributes.sameSite ?? 'lax']}`)
+  if (attributes.secure === true) parts.push('Secure')
+  return parts.join('; ')
 }
 
 function localeTypes(locales: readonly string[], sourceLocale: string, cookie: string): string {

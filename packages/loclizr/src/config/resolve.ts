@@ -221,6 +221,7 @@ export function resolveConfig(input: {
       outDir,
       record,
       cookie: fields.cookie,
+      ...(fields.cookieAttributes === undefined ? {} : { cookieAttributes: fields.cookieAttributes }),
       augmentLocale: fields.augmentLocale,
       groups: fields.groups,
       identifiers: fields.identifiers,

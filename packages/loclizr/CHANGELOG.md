@@ -7,6 +7,10 @@ a minor release may break an invariant, and this file says so when it does.
 
 ## Unreleased
 
+### Added
+
+- `cookie` in `loclizr.config.*` also takes `{ name, domain?, path?, secure?, sameSite?, maxAge? }`, so the locale cookie can be shared across subdomains or marked `Secure`. Each attribute left out keeps today's default (`path=/`, one year, `SameSite=Lax`), `m.cookie` stays the name, and a config without attributes generates the same tree as before. `LZ1001` rejects `sameSite: 'none'` without `secure: true`, a `domain` with a scheme, port, path or `;`, a `path` not starting with `/`, a negative or fractional `maxAge` and an unknown attribute (#8).
+
 ## 0.2.0 - 2026-10-13
 
 ### Behaviour changes

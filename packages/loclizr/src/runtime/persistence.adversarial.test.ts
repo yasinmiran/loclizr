@@ -79,6 +79,29 @@ describe('the cookie setLocale writes', () => {
     expect(attributesOf(header)).toEqual(['path=/', `max-age=${ONE_YEAR}`, 'SameSite=Lax'])
   })
 
+  test('carries the attributes the compiler printed in place of the defaults', () => {
+    captureCookieWrites()
+    $configure1({ ...SETUP, cookieAttributes: 'path=/app; max-age=60; domain=example.com; SameSite=None; Secure' })
+    setLocale('de')
+    expect(attributesOf(written[0] ?? '')).toEqual([
+      'path=/app',
+      'max-age=60',
+      'domain=example.com',
+      'SameSite=None',
+      'Secure',
+    ])
+  })
+
+  test('warns when a second generated directory asks for other attributes', () => {
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {})
+    $configure1(SETUP)
+    $configure1({ ...SETUP, cookieAttributes: 'path=/; max-age=31536000; SameSite=Lax; Secure' })
+    expect(warn).toHaveBeenCalledTimes(1)
+    captureCookieWrites()
+    setLocale('de')
+    expect(attributesOf(written[0] ?? '')).toEqual(['path=/', `max-age=${ONE_YEAR}`, 'SameSite=Lax'])
+  })
+
   test('takes the configured name rather than the default one', () => {
     captureCookieWrites()
     $configure1({ locales: ['en', 'fr'], sourceLocale: 'en', cookie: 'lang' })
