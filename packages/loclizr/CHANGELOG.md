@@ -7,6 +7,10 @@ a minor release may break an invariant, and this file says so when it does.
 
 ## Unreleased
 
+### Added
+
+- `negotiate` and `localeFromHeaders` are now exported from `loclizr` as well as `loclizr/server`, one implementation for both, so a static site can pick its first locale from `navigator.languages` in the browser. The first-visit recipe in the language switching guide is now one call that reads the configured cookie name, where the old hand-written one only recognised `locale=`. The main entry and its chunk grow by about 410 bytes gzipped; an app that imports neither function drops them (#7).
+
 ## 0.2.0 - 2026-10-13
 
 ### Behaviour changes

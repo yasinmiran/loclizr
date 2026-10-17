@@ -55,45 +55,37 @@ edited to `sp`, renders the source locale, never `undefined`.
 
 <Aside type="note">
 Detection never reads `navigator.languages` or `localStorage`: a server sees neither, so hydration
-would switch language.
+would switch language. A static site can still follow the browser on a first visit, by its own call.
 </Aside>
 
 ### First visit on a static site
 
 ```tsx title="src/main.tsx"
+import { localeFromHeaders } from 'loclizr'
 import * as m from './loclizr/messages'
 
-function pickFirstLocale(): void {
-  const chosen = document.cookie.split(';').some((pair) => pair.trim().startsWith('locale='))
-  if (chosen) return
-  for (const tag of navigator.languages) {
-    const wanted = tag.toLowerCase()
-    const language = wanted.split('-')[0]
-    const match =
-      m.locales.find((known) => known.toLowerCase() === wanted) ??
-      m.locales.find((known) => known.toLowerCase() === language)
-    if (match !== undefined) {
-      m.setLocale(match)
-      return
-    }
-  }
-}
-
-pickFirstLocale()
+m.setLocale(
+  localeFromHeaders(
+    { cookie: document.cookie, acceptLanguage: navigator.languages.join(',') },
+    { locales: m.locales, sourceLocale: m.sourceLocale, cookie: m.cookie },
+  ) as m.AppLocale,
+)
 ```
 
-With no server, a first visit renders the source locale. v0.1 leaves that gap to you; this helper
-closes it:
+With no server, a first visit renders the source locale. This call, before the first render, makes it
+follow the browser instead:
 
-- Call it before the first render.
-- It picks the first browser language in `m.locales`: exact tag (`de-AT`), then language subtag
-  (`de-CH` to `de`).
-- It does nothing once a cookie is set. `locale=` is the default name; match your `cookie` setting.
-- `setLocale(match)` persists, so a later browser language change is not re-detected.
+- A cookie under your `cookie` setting wins, read the same way the store and `loclizr/server` read it,
+  so a visitor's pick holds on every later visit.
+- Otherwise the first browser language in `m.locales`: exact tag (`de-AT`), then subtag truncation
+  (`de-CH` to `de`). Otherwise the source locale.
+- It returns a `string`; the cast is safe because the result is always one of `m.locales`.
+- `setLocale` persists, so a later browser language change is not re-detected.
   `{ persist: false }` re-detects each visit until the visitor picks.
 
 <Aside type="caution">
-Not `negotiate`: `loclizr/server` imports `node:async_hooks` and does not bundle for the browser.
+Static sites only. A server-rendered page has already negotiated with `withLocale` or
+`localeFromHeaders`; negotiating again in the browser can disagree with the HTML it sent.
 </Aside>
 
 ## Persistence
