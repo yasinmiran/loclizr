@@ -2715,6 +2715,15 @@ localeFromHeaders(
 export type { NegotiateOptions }
 ```
 
+**`negotiate` and `localeFromHeaders` are pure, so `loclizr` exports them too**,
+from `src/runtime/negotiate.ts`, and `loclizr/server` re-exports that one
+implementation. A static site with no server picks its first locale in the
+browser, and `loclizr/server` imports `node:async_hooks`, so without the main
+entry export it would hand-roll the match and the cookie test. Section 11.3
+gives the one call. `matchLocale` stays internal: its empty-string fallback is
+a sentinel `negotiate` relies on, and `negotiate([tag], options)` covers a
+single tag.
+
 **`localeFromHeaders` is the primitive and `localeFromRequest` is a wrapper over
 it**, reading `request.headers.get('cookie')` and
 `request.headers.get('accept-language')` and passing them straight through. The
@@ -2839,6 +2848,25 @@ no notification; `setLocale` is the way to change the locale afterwards.
 
 Never `navigator.languages`. Never `localStorage`. The server saw neither, so
 either one guarantees a hydration mismatch.
+
+A static site with no server has nothing to hydrate against, so an app may make
+the first visit follow the browser itself, with one call before the first
+render:
+
+```ts
+setLocale(
+  localeFromHeaders(
+    { cookie: document.cookie, acceptLanguage: navigator.languages.join(',') },
+    { locales: m.locales, sourceLocale: m.sourceLocale, cookie: m.cookie },
+  ),
+)
+```
+
+That is the app's explicit choice, not detection. It reads the configured
+cookie with the same reader as the store and the server, so a chosen locale
+still wins on every later visit. A server-rendered page does not make this
+call: the server has already chosen, and a second negotiation on the client
+could disagree with it.
 
 `setLocale` persists to that same cookie by default (`path=/`, one year,
 `SameSite=Lax`) and updates `document.documentElement.lang`. The cookie is the
@@ -4839,7 +4867,24 @@ export type {
 } from './types'
 export { defineConfig } from './runtime/define-config'
 export { getLocale, setLocale, subscribe } from './runtime/store'
+export { localeFromHeaders, negotiate } from './runtime/negotiate'
 export { $configure1, $dateTime1, $number1, $plural1 } from './runtime/abi'
+```
+
+```ts
+// src/runtime/negotiate.ts
+import type { NegotiateOptions } from '../types'
+export declare function negotiate(accepted: readonly string[], options: NegotiateOptions): string
+// The primitive. loclizr/server's localeFromRequest is a thin wrapper that
+// reads the two headers off a Fetch Request and calls this, so the two cannot
+// drift.
+export declare function localeFromHeaders(
+  headers: {
+    readonly cookie?: string | undefined
+    readonly acceptLanguage?: string | undefined
+  },
+  options: NegotiateOptions,
+): string
 ```
 
 ```ts
@@ -4895,17 +4940,8 @@ export declare function withLocale<A extends unknown[]>(
   handler: (request: Request, ...rest: A) => Response | undefined | Promise<Response | undefined>,
   options: NegotiateOptions,
 ): (request: Request, ...rest: A) => Promise<Response | undefined>
-export declare function negotiate(accepted: readonly string[], options: NegotiateOptions): string
 export declare function localeFromRequest(request: Request, options: NegotiateOptions): string
-// The primitive. localeFromRequest is a thin wrapper that reads the two headers
-// off a Fetch Request and calls this, so the two cannot drift.
-export declare function localeFromHeaders(
-  headers: {
-    readonly cookie?: string | undefined
-    readonly acceptLanguage?: string | undefined
-  },
-  options: NegotiateOptions,
-): string
+export { localeFromHeaders, negotiate } from '../runtime/negotiate'
 ```
 
 ```ts
@@ -4935,11 +4971,14 @@ nobody else:
   `src/runtime/store.ts`, so the store is hoisted into a shared chunk and the
   entry is reduced to re-exports. The budget is 900 bytes and it is **not
   met**: the shipped runtime, a store, an RFC 4647 matcher, a cookie reader,
-  five warning strings and four ABI helpers, measures about 2420 bytes in the
-  shape tsdown ships, and about 1500 minified. The test keeps the 900-byte
+  `negotiate` and `localeFromHeaders`, five warning strings and four ABI
+  helpers, measures about 2830 bytes in the shape tsdown ships (about 2420
+  before the two negotiation functions joined the entry), and about 1500
+  minified without them. An app that imports neither drops them, since the
+  package is `"sideEffects": false`. The test keeps the 900-byte
   assertion verbatim as an expected failure, so the suite turns red the day
   the budget is met and the number can be tightened, and a second, ordinary
-  assertion holds a 2460-byte ceiling so a regression still fails; its message
+  assertion holds a 2870-byte ceiling so a regression still fails; its message
   prints budget, measured and ceiling together. A green suite here therefore
   says the runtime has not grown, not that the budget is met.
 - React tests carry `// @vitest-environment jsdom` as a file docblock, so the
