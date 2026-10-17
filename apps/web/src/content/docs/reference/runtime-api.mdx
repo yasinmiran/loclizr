@@ -7,7 +7,7 @@ import { Aside } from '@astrojs/starlight/components'
 
 | Entry | Holds |
 | --- | --- |
-| `loclizr` | the locale store shared by generated code and your app |
+| `loclizr` | the locale store shared by generated code and your app, and locale negotiation |
 | `loclizr/react` | three bindings over the store |
 | `loclizr/server` | request scoping and `Accept-Language` negotiation |
 | `loclizr/compiler` | the build behind the CLI |
@@ -21,6 +21,11 @@ export declare function defineConfig(config: LoclizrConfig): LoclizrConfig
 export declare function getLocale(): Locale
 export declare function setLocale(locale: Locale, options?: SetLocaleOptions): void
 export declare function subscribe(listener: LocaleListener): () => void
+export declare function negotiate(accepted: readonly string[], options: NegotiateOptions): string
+export declare function localeFromHeaders(headers: {
+  readonly cookie?: string | undefined;
+  readonly acceptLanguage?: string | undefined;
+}, options: NegotiateOptions): string
 ```
 
 ### `defineConfig`
@@ -99,6 +104,14 @@ unsubscribe()
 Called after every `setLocale`; returns the remover. Listeners take no arguments, so read
 `getLocale()` inside.
 
+### `negotiate` and `localeFromHeaders`
+
+The same functions `loclizr/server` exports, documented under
+[`negotiate`](#negotiate) and [`localeFromHeaders`](#localefromheaders). They import nothing
+from Node, so a browser bundle can call them: a static site picks its first locale from
+`navigator.languages` and the locale cookie with one call, shown in
+[First visit on a static site](/guides/language-switching/#first-visit-on-a-static-site).
+
 ### Types
 
 | Type | Definition |
@@ -111,7 +124,7 @@ Called after every `setLocale`; returns the remover. Listeners take no arguments
 | `LocaleListener` | `() => void` |
 | `LocaleResolver` | `(options?: MessageOptions \| undefined) => string`, the type of `$l` |
 | `LocaleSetup` | `{ locales, sourceLocale, cookie }`, all required, passed to `$configure1` |
-| `NegotiateOptions` | `{ locales, sourceLocale, cookie? }`, taken by `loclizr/server` |
+| `NegotiateOptions` | `{ locales, sourceLocale, cookie? }`, taken by `negotiate`, `localeFromHeaders` and `loclizr/server` |
 | `IntlOptions` | `Readonly<Record<string, string \| number \| boolean>>` |
 | `LoclizrConfig` | the config shape, see [Configuration](/reference/configuration/) |
 
@@ -226,7 +239,8 @@ export type { NegotiateOptions }
 ```
 
 Negotiating functions take what they need in `NegotiateOptions` (usually `m.locales`,
-`m.sourceLocale` and `m.cookie`), so `loclizr/server` never imports the tree.
+`m.sourceLocale` and `m.cookie`), so `loclizr/server` never imports the tree. `negotiate` and
+`localeFromHeaders` are re-exported from `loclizr`: one implementation for both entries.
 
 ### `runWithLocale`
 

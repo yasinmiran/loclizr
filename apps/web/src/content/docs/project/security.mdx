@@ -93,7 +93,7 @@ The second check catches an `outDir` linking outside the project, or a link belo
 
 ## Hostile headers and cookies
 
-`localeFromHeaders` and `negotiate` (`src/server/index.ts`) pass the cookie and every
+`localeFromHeaders` and `negotiate` (`src/runtime/negotiate.ts`) pass the cookie and every
 `Accept-Language` range through `matchLocale` (`src/runtime/store.ts`), which returns a declared
 tag or the source locale. Only that reaches `Content-Language` and the request scope. The client
 uses the same matcher and reads `<html lang>` only when tag-shaped.
