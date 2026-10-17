@@ -107,8 +107,9 @@ OSC 8 links in CI logs. The JSON reporter escapes DEL and C1 as `\uXXXX`, lossle
 ## Not covered
 
 - **CSP.** No guidance; generated code is plain modules with no inline script.
-- **The locale cookie.** `path=/`, `SameSite=Lax`, one year `max-age`, no `Secure`, no `Domain`;
-  only its name is configurable. It cannot be `HttpOnly`: `setLocale` writes it from the browser.
+- **The locale cookie.** `path=/`, `SameSite=Lax`, one year `max-age`, no `Secure`, no `Domain` by
+  default; the `cookie` config sets each of them ([Configuration](/reference/configuration/#cookie)).
+  It cannot be `HttpOnly`: `setLocale` writes it from the browser.
 
 ## Reporting
 

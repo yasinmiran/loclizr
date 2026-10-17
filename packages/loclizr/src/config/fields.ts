@@ -1,4 +1,11 @@
-import type { FormatsConfig, IntlOptions, LoclizrConfig, RuleName, Severity } from '../types'
+import type {
+  CookieAttributes,
+  FormatsConfig,
+  IntlOptions,
+  LoclizrConfig,
+  RuleName,
+  Severity,
+} from '../types'
 import { RULES } from '../diagnostics'
 import { countToken, globMetacharacterIn } from './pattern'
 
@@ -12,6 +19,7 @@ export interface UserFields {
   readonly outDir: string
   readonly record: string | false
   readonly cookie: string
+  readonly cookieAttributes: CookieAttributes | undefined
   readonly augmentLocale: boolean
   readonly groups: Readonly<Record<string, string>>
   readonly identifiers: Readonly<Record<string, string>>
@@ -81,6 +89,23 @@ const ZONE_EXAMPLE = "formats: { timeZone: 'UTC' }"
 // `document.cookie` and never reads back, so the locale stops persisting.
 const COOKIE_NAME = /^[A-Za-z0-9!#$%&'*+\-.^_`|~]+$/
 
+const COOKIE_FIELDS: readonly string[] = ['name', 'domain', 'path', 'secure', 'sameSite', 'maxAge']
+
+const SAME_SITE: readonly string[] = ['lax', 'strict', 'none']
+
+const COOKIE_EXAMPLE = "cookie: { name: 'locale', domain: 'example.com', secure: true }"
+const SAME_SITE_EXAMPLE = "cookie: { name: 'locale', sameSite: 'none', secure: true }"
+const MAX_AGE_EXAMPLE = "cookie: { name: 'locale', maxAge: 2592000 }"
+
+// Each attribute is written verbatim after the value, so a `;` would start an
+// attribute of its own, and a scheme, port or path is not a host the browser
+// will scope a cookie to.
+const COOKIE_DOMAIN = /^[^\s;:/,]+$/
+
+// A path that does not start with `/` is replaced by the browser's default
+// path, the directory of the page that called setLocale.
+const COOKIE_PATH = /^\/[^\s;,]*$/
+
 // Whether an option set builds a formatter is locale independent, so a fixed
 // probe locale keeps the verdict the same on every machine.
 const PROBE_LOCALE = 'en'
@@ -102,6 +127,7 @@ export function readFields(user: LoclizrConfig): FieldsResult {
   rejectUnknownFields(raw, issues)
   const scan = readNested(raw, 'scan', INCLUDE_EXAMPLE, issues)
   const formats = readNested(raw, 'formats', ZONE_EXAMPLE, issues)
+  const cookie = readCookie(raw, issues)
   return {
     fields: {
       locales: readLocales(raw, issues),
@@ -112,7 +138,8 @@ export function readFields(user: LoclizrConfig): FieldsResult {
       meta: readStringOrFalse(raw, 'meta', DEFAULT_META, issues),
       outDir: readString(raw, 'outDir', `outDir: '${DEFAULT_OUT_DIR}'`, issues) ?? DEFAULT_OUT_DIR,
       record: readStringOrFalse(raw, 'record', DEFAULT_RECORD, issues),
-      cookie: readCookie(raw, issues),
+      cookie: cookie.name,
+      cookieAttributes: cookie.attributes,
       augmentLocale: readBoolean(raw, 'augmentLocale', issues) ?? true,
       groups: readStringRecord(raw, 'groups', "groups: { errors: 'errors' }", issues),
       identifiers: readStringRecord(raw, 'identifiers', IDENTIFIERS_EXAMPLE, issues),
@@ -225,12 +252,79 @@ function readCatalogs(raw: Readonly<Record<string, unknown>>, issues: FieldIssue
   return value
 }
 
-function readCookie(raw: Readonly<Record<string, unknown>>, issues: FieldIssue[]): string {
-  const value = readString(raw, 'cookie', `cookie: '${DEFAULT_COOKIE}'`, issues)
+function readCookie(
+  raw: Readonly<Record<string, unknown>>,
+  issues: FieldIssue[],
+): { readonly name: string; readonly attributes: CookieAttributes | undefined } {
+  const value = raw['cookie']
+  if (!isPlainObject(value)) {
+    const name = readCookieName(raw, 'cookie', 'cookie', `cookie: '${DEFAULT_COOKIE}'`, issues)
+    return { name, attributes: undefined }
+  }
+  for (const field of Object.keys(value)) {
+    if (COOKIE_FIELDS.includes(field)) continue
+    issues.push({
+      message: `\`cookie.${field}\` is not a cookie attribute.`,
+      hint: `the attributes are ${COOKIE_FIELDS.map((one) => `\`${one}\``).join(', ')}.`,
+    })
+  }
+  if (value['name'] === undefined) {
+    issues.push(expected('cookie.name', 'a cookie name', COOKIE_EXAMPLE))
+  }
+  const name = readCookieName(value, 'name', 'cookie.name', COOKIE_EXAMPLE, issues)
+  const attributes: { -readonly [K in keyof CookieAttributes]: CookieAttributes[K] } = {}
+  const domain = readString(value, 'domain', COOKIE_EXAMPLE, issues, 'cookie.domain')
+  if (domain !== undefined && COOKIE_DOMAIN.test(domain)) {
+    attributes.domain = domain
+  } else if (domain !== undefined) {
+    issues.push({
+      message: `\`cookie.domain\` is \`${domain}\`, which is not a host name.`,
+      hint: "a domain is a bare host with no scheme, port, path or `;`: domain: 'example.com'.",
+    })
+  }
+  const path = readString(value, 'path', COOKIE_EXAMPLE, issues, 'cookie.path')
+  if (path !== undefined && COOKIE_PATH.test(path)) {
+    attributes.path = path
+  } else if (path !== undefined) {
+    issues.push({
+      message: `\`cookie.path\` is \`${path}\`, which is not a cookie path.`,
+      hint: "a path starts with `/` and carries no space, `;` or comma: path: '/'.",
+    })
+  }
+  const secure = readBoolean(value, 'secure', issues, 'cookie.secure')
+  if (secure !== undefined) attributes.secure = secure
+  const sameSite = value['sameSite']
+  if (sameSite !== undefined && (typeof sameSite !== 'string' || !SAME_SITE.includes(sameSite))) {
+    issues.push(expected('cookie.sameSite', "'lax', 'strict' or 'none'", SAME_SITE_EXAMPLE))
+  } else if (sameSite === 'none' && secure !== true) {
+    issues.push({
+      message: "`cookie.sameSite` is `'none'` without `secure: true`, and browsers drop that cookie.",
+      hint: `SameSite=None needs Secure: ${SAME_SITE_EXAMPLE}. Leave sameSite out to keep 'lax'.`,
+    })
+  } else if (sameSite !== undefined) {
+    attributes.sameSite = sameSite as 'lax' | 'strict' | 'none'
+  }
+  const maxAge = value['maxAge']
+  if (typeof maxAge === 'number' && Number.isSafeInteger(maxAge) && maxAge >= 0) {
+    attributes.maxAge = maxAge
+  } else if (maxAge !== undefined) {
+    issues.push(expected('cookie.maxAge', 'a whole number of seconds, 0 or more', MAX_AGE_EXAMPLE))
+  }
+  return { name, attributes: Object.keys(attributes).length === 0 ? undefined : attributes }
+}
+
+function readCookieName(
+  raw: Readonly<Record<string, unknown>>,
+  field: string,
+  label: string,
+  example: string,
+  issues: FieldIssue[],
+): string {
+  const value = readString(raw, field, example, issues, label)
   if (value === undefined) return DEFAULT_COOKIE
   if (!COOKIE_NAME.test(value)) {
     issues.push({
-      message: `\`cookie\` is \`${value}\`, which is not a cookie name.`,
+      message: `\`${label}\` is \`${value}\`, which is not a cookie name.`,
       hint: "a cookie name carries no space, `;`, `=` or comma, so a name outside that set never reads back: cookie: 'locale'.",
     })
     return DEFAULT_COOKIE
@@ -426,11 +520,12 @@ function readString(
   field: string,
   example: string,
   issues: FieldIssue[],
+  label: string = field,
 ): string | undefined {
   const value = raw[field]
   if (value === undefined) return undefined
   if (!isNonEmptyString(value)) {
-    issues.push(expected(field, 'a non-empty string', example))
+    issues.push(expected(label, 'a non-empty string', example))
     return undefined
   }
   return value
@@ -456,11 +551,12 @@ function readBoolean(
   raw: Readonly<Record<string, unknown>>,
   field: string,
   issues: FieldIssue[],
+  label: string = field,
 ): boolean | undefined {
   const value = raw[field]
   if (value === undefined) return undefined
   if (typeof value !== 'boolean') {
-    issues.push(expected(field, 'a boolean', `${field}: false`))
+    issues.push(expected(label, 'a boolean', `${field}: false`))
     return undefined
   }
   return value

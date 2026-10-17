@@ -77,7 +77,7 @@ off()
 ```
 
 Stores the tag and notifies subscribers. With a `document` it also sets `<html lang>` and the
-cookie (`path=/`, one year, `SameSite=Lax`).
+cookie (`path=/`, one year, `SameSite=Lax` unless the `cookie` config sets other attributes).
 
 | Case | Behaviour |
 | --- | --- |

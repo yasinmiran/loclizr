@@ -862,6 +862,34 @@ describe('the tree', () => {
     )
   })
 
+  test('hands configured cookie attributes to the store and keeps the name export a string', () => {
+    const files = emit(
+      program({
+        messages: [],
+        config: config({
+          locales: ['en'],
+          cookie: 'lang',
+          cookieAttributes: { secure: true, domain: 'example.com', sameSite: 'none', maxAge: 3600, path: '/app' },
+        }),
+      }),
+    ).files
+    const locale = contentsOf(files, 'messages/_locale.js')
+    expect(locale).toContain("export const cookie = 'lang'")
+    expect(locale).toContain(
+      "export const $l = $configure1({ locales, sourceLocale, cookie, cookieAttributes: 'path=/app; max-age=3600; domain=example.com; SameSite=None; Secure' })",
+    )
+    expect(contentsOf(files, 'messages/_locale.d.ts')).toContain("export declare const cookie: 'lang'")
+  })
+
+  test('keeps each default cookie attribute the config leaves out', () => {
+    const files = emit(
+      program({ messages: [], config: config({ locales: ['en'], cookieAttributes: { sameSite: 'strict' } }) }),
+    ).files
+    expect(contentsOf(files, 'messages/_locale.js')).toContain(
+      "cookieAttributes: 'path=/; max-age=31536000; SameSite=Strict' })",
+    )
+  })
+
   test('exports the configured cookie name for server negotiation', () => {
     const files = emit(
       program({

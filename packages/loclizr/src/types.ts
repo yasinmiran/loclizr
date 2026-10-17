@@ -327,6 +327,20 @@ export interface ScanConfig {
   readonly exclude: readonly string[]
 }
 
+// Attributes setLocale writes on the locale cookie. Each one left out keeps
+// its default: path=/, a one-year max-age, SameSite=Lax, no Domain, no Secure.
+export interface CookieAttributes {
+  readonly domain?: string | undefined
+  readonly path?: string | undefined
+  readonly secure?: boolean | undefined
+  readonly sameSite?: 'lax' | 'strict' | 'none' | undefined
+  readonly maxAge?: number | undefined
+}
+
+export interface CookieConfig extends CookieAttributes {
+  readonly name: string
+}
+
 export interface FormatsConfig {
   readonly timeZone: string | null
   readonly number: Readonly<Record<string, IntlOptions>>
@@ -348,6 +362,8 @@ export interface Config {
   readonly outDir: string
   readonly record: string | false
   readonly cookie: string
+  // Only the attributes the config wrote; absent when it wrote none.
+  readonly cookieAttributes?: CookieAttributes | undefined
   readonly augmentLocale: boolean
   readonly groups: Readonly<Record<string, string>>
   readonly identifiers: Readonly<Record<string, string>>
@@ -366,7 +382,7 @@ export interface LoclizrConfig {
   readonly meta?: string | false | undefined
   readonly outDir?: string | undefined
   readonly record?: string | false | undefined
-  readonly cookie?: string | undefined
+  readonly cookie?: string | CookieConfig | undefined
   readonly augmentLocale?: boolean | undefined
   readonly groups?: Readonly<Record<string, string>> | undefined
   readonly identifiers?: Readonly<Record<string, string>> | undefined
@@ -513,6 +529,9 @@ export interface LocaleSetup {
   readonly locales: readonly string[]
   readonly sourceLocale: string
   readonly cookie: string
+  // The attributes setLocale writes after the value, printed by the compiler
+  // from the cookie config; absent when the config set none.
+  readonly cookieAttributes?: string | undefined
 }
 
 export interface NegotiateOptions {
