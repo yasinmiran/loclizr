@@ -1,0 +1,53 @@
+{
+  "demo.total": {
+    "sameAsSource": true
+  },
+  "nav.guides_astro": {
+    "sameAsSource": true
+  },
+  "nav.guides_monorepo": {
+    "sameAsSource": true
+  },
+  "nav.guides_react": {
+    "sameAsSource": true
+  },
+  "nav.guides_solid": {
+    "sameAsSource": true
+  },
+  "nav.guides_svelte": {
+    "sameAsSource": true
+  },
+  "nav.guides_vue": {
+    "sameAsSource": true
+  },
+  "nav.project_faq": {
+    "sameAsSource": true
+  },
+  "nav.project_roadmap": {
+    "sameAsSource": true
+  },
+  "nav.reference_cli": {
+    "sameAsSource": true
+  },
+  "nav.reference_configuration": {
+    "sameAsSource": true
+  },
+  "nav.reference_runtime_api": {
+    "sameAsSource": true
+  },
+  "nav.start_introduction": {
+    "sameAsSource": true
+  },
+  "nav.start_playground": {
+    "sameAsSource": true
+  },
+  "section.frameworks": {
+    "sameAsSource": true
+  },
+  "section.guides": {
+    "sameAsSource": true
+  },
+  "ui.menu": {
+    "sameAsSource": true
+  }
+}
