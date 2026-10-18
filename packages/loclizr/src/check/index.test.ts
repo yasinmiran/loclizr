@@ -686,7 +686,7 @@ describe('select options', () => {
               nodes: [
                 selectNode(
                   'state',
-                  targetOptions.map((name) => option(name, text(name))),
+                  targetOptions.map((name) => option(name, text(name.toUpperCase()))),
                 ),
               ],
               args: [selectArg('state', targetOptions)],
@@ -1068,6 +1068,128 @@ describe('unpaired bidi controls', () => {
   })
 })
 
+describe('LZ3015 translation-same-as-source', () => {
+  const copied = (key: string, locale: string, nodes: readonly Node[], line = 1, source = key) =>
+    message({
+      key,
+      source,
+      bodies: [body('en', { nodes }), body(locale, { nodes })],
+      spans: [at('en', line, 3), at(locale, line, 9)],
+    })
+
+  it('raises one warning per locale listing every copied key in code point order', () => {
+    const diagnostics = runChecks(
+      program({
+        config: config({ locales: ['de', 'en', 'fr'] }),
+        messages: [
+          copied('nav.home', 'de', [text('Home')], 4, 'Home'),
+          copied('cart.title', 'de', [text('Your cart')], 2, 'Your cart'),
+          copied('nav.about', 'fr', [text('About')], 7),
+          message({
+            key: 'nav.shop',
+            bodies: [body('en', { nodes: [text('Shop')] }), body('de', { nodes: [text('Laden')] })],
+          }),
+        ],
+      }),
+    )
+
+    const found = withCode(diagnostics, 'LZ3015')
+    expect(found.map((one) => one.locale)).toEqual(['de', 'fr'])
+    const [de] = found
+    expect(de).toMatchObject({
+      rule: 'translation-same-as-source',
+      severity: 'warn',
+      fatal: false,
+      file: 'locales/de.json',
+      locale: 'de',
+      key: null,
+      span: span(2, 9),
+    })
+    expect(de?.message).toBe('2 de values are identical to the en source, so they render en text in de.')
+    expect(de?.related).toEqual([
+      { file: 'locales/de.json', locale: 'de', key: 'cart.title', span: span(2, 9), message: '"Your cart"' },
+      { file: 'locales/de.json', locale: 'de', key: 'nav.home', span: span(4, 9), message: '"Home"' },
+    ])
+    expect(de?.hint).toBe(
+      [
+        'translate each listed value, or mark one that is meant to match, such as a brand name, in locales/en.meta.json:',
+        '       "cart.title": { "sameAsSource": true }',
+      ].join('\n'),
+    )
+    expect(found[1]?.message).toBe('1 fr value is identical to the en source, so it renders en text in fr.')
+  })
+
+  it('compares inside plural, select and markup bodies', () => {
+    const nodes = [
+      plural({ name: 'count', branches: [branch('one', pound(), text(' item')), branch('other', pound(), text(' items'))] }),
+    ]
+    const diagnostics = runChecks(program({ messages: [copied('cart.items', 'de', nodes)] }))
+
+    expect(only(diagnostics, 'LZ3015').related?.map((one) => one.key)).toEqual(['cart.items'])
+  })
+
+  it('skips a key marked sameAsSource in the meta sidecar', () => {
+    const marked = message({
+      key: 'brand.name',
+      sameAsSource: true,
+      bodies: [body('en', { nodes: [text('loclizr')] }), body('de', { nodes: [text('loclizr')] })],
+    })
+
+    expect(withCode(runChecks(program({ messages: [marked] })), 'LZ3015')).toEqual([])
+  })
+
+  it('skips a value with no letter outside argument and tag syntax', () => {
+    const diagnostics = runChecks(
+      program({
+        messages: [
+          copied('a', 'de', [argNode('count')]),
+          copied('b', 'de', [argNode('a'), text(' / '), argNode('b')]),
+          copied('c', 'de', [markupNode('b', argNode('name'))]),
+          copied('d', 'de', [text('…!')]),
+          copied('e', 'de', [plural({ name: 'n', branches: [branch('other', pound(), text(' %'))] })]),
+        ],
+      }),
+    )
+
+    expect(withCode(diagnostics, 'LZ3015')).toEqual([])
+  })
+
+  it('counts a letter in any script', () => {
+    const diagnostics = runChecks(program({ messages: [copied('cart.title', 'de', [text('カート')])] }))
+
+    expect(withCode(diagnostics, 'LZ3015')).toHaveLength(1)
+  })
+
+  it('skips a target locale whose language subtag is the source language', () => {
+    const diagnostics = runChecks(
+      program({
+        config: config({ locales: ['en', 'en-GB'] }),
+        messages: [copied('nav.home', 'en-GB', [text('Home')])],
+      }),
+    )
+
+    expect(withCode(diagnostics, 'LZ3015')).toEqual([])
+  })
+
+  it('skips a target value that does not render', () => {
+    const fallen = message({
+      key: 'nav.home',
+      bodies: [body('en', { nodes: [text('Home')] }), body('de', { nodes: [text('Home')] })],
+      origins: [translated('en'), fellBack('de', 'en', 'invalid')],
+    })
+
+    expect(withCode(runChecks(program({ messages: [fallen] })), 'LZ3015')).toEqual([])
+  })
+
+  it('tells a project with meta off to set it first', () => {
+    const diagnostics = runChecks(
+      program({ config: config({ meta: false }), messages: [copied('nav.home', 'de', [text('Home')])] }),
+    )
+
+    expect(only(diagnostics, 'LZ3015').hint).toContain('set meta in loclizr.config.ts, then mark one that is meant to match:')
+  })
+})
+
 describe('every diagnostic this module produces', () => {
   const mixed = runChecks(
     program({
@@ -1117,6 +1239,11 @@ describe('every diagnostic this module produces', () => {
           ],
         }),
         message({ key: 'nav.open', source: 'Open', bodies: [body('en')] }),
+        message({
+          key: 'nav.home',
+          source: 'Home',
+          bodies: [body('en', { nodes: [text('Home')] }), body('de', { nodes: [text('Home')] })],
+        }),
       ],
     }),
   )
@@ -1135,6 +1262,7 @@ describe('every diagnostic this module produces', () => {
       'LZ3012',
       'LZ3013',
       'LZ3014',
+      'LZ3015',
     ])
   })
 

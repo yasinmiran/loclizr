@@ -57,6 +57,7 @@ function outcome(result: BuildResult): unknown {
 
 const EN = { nav: { home: 'Home', cart: 'Cart' } }
 const DE_WITH_EXTRA = { nav: { home: 'Startseite', cart: 'Warenkorb', old: 'Alt' } }
+const DE = { nav: { home: 'Startseite', cart: 'Warenkorb' } }
 
 describe('options left absent and options explicitly undefined', () => {
   it('build the same result', async () => {
@@ -160,7 +161,7 @@ describe('check after build over keys no editor would type', () => {
 
 describe('check with emit false', () => {
   it('reports no stale output or record for a project never built', async () => {
-    const result = await check({ cwd: await project(EN, EN), emit: false })
+    const result = await check({ cwd: await project(EN, DE), emit: false })
 
     expect(codes(result)).not.toContain('LZ5002')
     expect(codes(result)).not.toContain('LZ5003')
@@ -168,7 +169,7 @@ describe('check with emit false', () => {
   })
 
   it('reports the missing record once emit is left on', async () => {
-    const result = await check({ cwd: await project(EN, EN) })
+    const result = await check({ cwd: await project(EN, DE) })
 
     expect(codes(result)).toEqual(['LZ5003'])
   })

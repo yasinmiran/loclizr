@@ -69,6 +69,7 @@ export interface MessageInput {
   readonly spans?: readonly LocaleSpan[]
   readonly source?: string
   readonly description?: string | null
+  readonly sameAsSource?: boolean
   readonly kind?: 'text' | 'markup'
 }
 
@@ -87,6 +88,7 @@ export function message(input: MessageInput): Message {
     markupTags: input.markupTags ?? [],
     description: input.description ?? null,
     placeholders: [],
+    sameAsSource: input.sameAsSource ?? false,
     bodies: input.bodies,
     origins: input.origins ?? input.bodies.map((each) => translated(each.locale)),
     spans: input.spans ?? input.bodies.map((each) => at(each.locale, 1, 1)),

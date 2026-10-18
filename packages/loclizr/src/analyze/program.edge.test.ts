@@ -109,7 +109,7 @@ describe('meta notes', () => {
     const program = run({
       config: config(),
       catalogs: [source()],
-      meta: meta([{ key: 'nav.gone', description: 'Stale', placeholders: [], span: span(1, 4) }]),
+      meta: meta([{ key: 'nav.gone', description: 'Stale', placeholders: [], sameAsSource: false, span: span(1, 4) }]),
     })
     expect(messageFor(program, 'nav.home').description).toBeNull()
   })
@@ -118,7 +118,7 @@ describe('meta notes', () => {
     const program = run({
       config: config(),
       catalogs: [source()],
-      meta: meta([{ key: 'nav.home', description: null, placeholders: [], span: span(1, 4) }]),
+      meta: meta([{ key: 'nav.home', description: null, placeholders: [], sameAsSource: false, span: span(1, 4) }]),
     })
     expect(messageFor(program, 'nav.home').description).toBeNull()
   })
@@ -127,7 +127,7 @@ describe('meta notes', () => {
     const program = run({
       config: config(),
       catalogs: [catalog({ locale: 'en', entries: { ['__proto__']: 'Proto' } })],
-      meta: meta([{ key: '__proto__', description: 'Odd key', placeholders: [], span: span(1, 4) }]),
+      meta: meta([{ key: '__proto__', description: 'Odd key', placeholders: [], sameAsSource: false, span: span(1, 4) }]),
     })
     expect(messageFor(program, '__proto__').description).toBe('Odd key')
   })

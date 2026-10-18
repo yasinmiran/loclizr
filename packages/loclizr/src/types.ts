@@ -46,6 +46,7 @@ export type RuleName =
   | 'ambiguous-source'
   | 'plural-category-unreachable'
   | 'bidi-control-unpaired'
+  | 'translation-same-as-source'
   | 'identifier-collision'
   | 'identifier-reserved'
   | 'confusable-key'
@@ -229,6 +230,9 @@ export interface Message {
   readonly markupTags: readonly string[]
   readonly description: string | null
   readonly placeholders: readonly PlaceholderNote[]
+  // The meta sidecar's `sameAsSource: true`: a target value equal to the source
+  // is meant, such as a brand name, so LZ3015 skips this message.
+  readonly sameAsSource: boolean
   // Each locale's OWN lowered body, and nothing else. A locale whose key is
   // missing, whose value is blank, or whose value failed to lower has no entry
   // here. Never padded, never back-filled with another locale's nodes.
@@ -308,6 +312,7 @@ export interface MetaEntry {
   readonly key: string
   readonly description: string | null
   readonly placeholders: readonly PlaceholderNote[]
+  readonly sameAsSource: boolean
   readonly span: Span
 }
 

@@ -58,6 +58,7 @@ export const RULES: Readonly<Record<RuleName, Rule>> = {
   'ambiguous-source': { code: 'LZ3012', name: 'ambiguous-source', severity: 'warn', fatal: 'never', exitTwo: false, owner: 'M5' },
   'plural-category-unreachable': { code: 'LZ3013', name: 'plural-category-unreachable', severity: 'warn', fatal: 'never', exitTwo: false, owner: 'M5' },
   'bidi-control-unpaired': { code: 'LZ3014', name: 'bidi-control-unpaired', severity: 'warn', fatal: 'never', exitTwo: false, owner: 'M5' },
+  'translation-same-as-source': { code: 'LZ3015', name: 'translation-same-as-source', severity: 'warn', fatal: 'never', exitTwo: false, owner: 'M5' },
   'identifier-collision': { code: 'LZ4001', name: 'identifier-collision', severity: 'error', fatal: 'always', exitTwo: false, owner: 'M4' },
   'identifier-reserved': { code: 'LZ4002', name: 'identifier-reserved', severity: 'error', fatal: 'always', exitTwo: false, owner: 'M4' },
   'confusable-key': { code: 'LZ4003', name: 'confusable-key', severity: 'error', fatal: 'never', exitTwo: false, owner: 'M4' },

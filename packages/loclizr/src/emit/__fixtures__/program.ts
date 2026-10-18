@@ -115,6 +115,7 @@ export function message(parts: {
     markupTags: source === undefined ? [] : source.markupTags,
     description: parts.description ?? null,
     placeholders: [],
+    sameAsSource: false,
     bodies: parts.bodies,
     origins: parts.origins,
     spans: parts.bodies.map(

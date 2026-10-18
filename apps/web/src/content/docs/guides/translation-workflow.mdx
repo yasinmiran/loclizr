@@ -192,10 +192,27 @@ What the TMS exports for an untranslated key decides the rule. Set it once:
 | --- | --- |
 | absent, or `null` | `LZ3001 missing-translation`, the right diagnostic |
 | `""` | `LZ3002 blank-translation` at `error`, plus `LZ3001` for every locale inheriting through it |
-| the source text copied in | nothing; the record marks the locale `translated` |
+| the source text copied in | `LZ3015 translation-same-as-source` at `warn`, one diagnostic per locale; the record still marks the locale `translated` |
 
-Configure the last row away. No rule compares a translation to the source for equality, and the
-record cannot tell a deliberate `Home` from a copied one.
+Configure the last row away if the TMS allows it. `LZ3015` lists every copied key for a locale and
+skips values with no letter outside arguments and tags (`{count}`), and locales that share the
+source's language (`en-GB` under `en`):
+
+```text
+warn  LZ3015  translation-same-as-source  locales/de.json:2:13  de
+
+  3 de values are identical to the en source, so they render en text in de.
+
+    brand       locales/de.json:2:13     "Acme"
+    nav.cart    locales/de.json:5:14     "Cart"
+    nav.home    locales/de.json:4:14     "Home"
+
+  fix  translate each listed value, or mark one that is meant to match, such as a brand name, in locales/en.meta.json:
+         "brand": { "sameAsSource": true }
+```
+
+A brand or proper noun that is meant to match takes `"sameAsSource": true` on its entry in
+`locales/en.meta.json`, and the rule skips that key in every locale.
 
 ## Descriptions
 

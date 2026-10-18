@@ -412,6 +412,7 @@ function buildMessage(input: {
     markupTags: sourceBody.result.markupTags,
     description: note?.description ?? null,
     placeholders: note?.placeholders ?? [],
+    sameAsSource: note?.sameAsSource ?? false,
     bodies,
     origins: resolveOrigins({
       key,

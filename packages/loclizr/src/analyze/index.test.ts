@@ -640,9 +640,10 @@ describe('meta', () => {
           key: 'cart.items',
           description: 'Badge under the cart icon',
           placeholders: [{ name: 'count', note: 'Line items, not quantity' }],
+          sameAsSource: false,
           span: span(1, 10),
         },
-        { key: 'gone.away', description: 'Orphan', placeholders: [], span: span(2, 10) },
+        { key: 'gone.away', description: 'Orphan', placeholders: [], sameAsSource: false, span: span(2, 10) },
       ],
     }
     const program = run({
@@ -655,6 +656,20 @@ describe('meta', () => {
     expect(items.placeholders).toEqual([{ name: 'count', note: 'Line items, not quantity' }])
     expect(messageFor(program, 'nav.home').description).toBeNull()
     expect(messageFor(program, 'nav.home').placeholders).toEqual([])
+  })
+
+  it('carries sameAsSource from the meta entry, false without one', () => {
+    const meta: CatalogMeta = {
+      file: 'locales/en.meta.json',
+      entries: [{ key: 'brand', description: null, placeholders: [], sameAsSource: true, span: span(1, 4) }],
+    }
+    const program = run({
+      config: config({ locales: ['en'] }),
+      catalogs: [catalog({ locale: 'en', entries: { brand: 'loclizr', 'nav.home': 'Home' } })],
+      meta,
+    })
+    expect(messageFor(program, 'brand').sameAsSource).toBe(true)
+    expect(messageFor(program, 'nav.home').sameAsSource).toBe(false)
   })
 })
 

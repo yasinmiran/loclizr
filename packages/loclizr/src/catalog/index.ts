@@ -264,6 +264,7 @@ async function readMeta(
       key,
       description: descriptionOf(value, key, file, parsed.spans, span, diagnostics),
       placeholders: placeholdersOf(value, key, file, parsed.spans, span, diagnostics),
+      sameAsSource: sameAsSourceOf(value, key, file, parsed.spans, span, diagnostics),
       span,
     })
   }
@@ -291,6 +292,29 @@ function descriptionOf(
     }),
   )
   return null
+}
+
+function sameAsSourceOf(
+  value: Record<string, unknown>,
+  key: string,
+  file: string,
+  spans: ReadonlyMap<string, Span>,
+  fallback: Span,
+  diagnostics: Diagnostic[],
+): boolean {
+  const flag = value['sameAsSource']
+  if (typeof flag === 'boolean') return flag
+  if (flag === undefined || flag === null) return false
+  diagnostics.push(
+    diag('catalog-shape-invalid', {
+      message: `The sameAsSource of "${key}" is not a boolean.`,
+      hint: 'write "sameAsSource": true where a translation is meant to match its source, such as a brand name.',
+      file,
+      key,
+      span: spans.get(`${key}.sameAsSource`) ?? fallback,
+    }),
+  )
+  return false
 }
 
 function placeholdersOf(

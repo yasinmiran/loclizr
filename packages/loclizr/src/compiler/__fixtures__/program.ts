@@ -57,6 +57,7 @@ export function message(input: MessageInput): Message {
     markupTags: [],
     description: null,
     placeholders: [],
+    sameAsSource: false,
     bodies: [],
     origins: input.origins ?? [{ locale: 'en', origin: { status: 'translated' } }],
     spans: [],

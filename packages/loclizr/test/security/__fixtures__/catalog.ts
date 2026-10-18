@@ -56,6 +56,7 @@ export function singleMessageProgram(key: string, value: string): Program {
     markupTags: result.markupTags,
     description: null,
     placeholders: [],
+    sameAsSource: false,
     bodies: [
       { locale: 'en', format: 'icu', nodes: result.nodes, args: result.args, markupTags: result.markupTags },
     ],

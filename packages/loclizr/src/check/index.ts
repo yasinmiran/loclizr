@@ -71,6 +71,7 @@ export function runChecks(program: Program): readonly Diagnostic[] {
   }
   checkExtras(program, out)
   checkAmbiguousSource(program, out)
+  checkSameAsSource(program, out)
   return out
 }
 
@@ -485,6 +486,82 @@ function checkAmbiguousSource(program: Program, out: Diagnostic[]): void {
       }),
     )
   }
+}
+
+// One diagnostic per locale, because a target seeded by copying the source
+// file would otherwise print one block per message.
+function checkSameAsSource(program: Program, out: Diagnostic[]): void {
+  const sourceLanguage = languageOf(program.sourceLocale)
+  const copied = new Map<string, Message[]>()
+  for (const message of [...program.messages].sort((a, b) => compareCodepoint(a.key, b.key))) {
+    if (message.sameAsSource) continue
+    const source = bodyOf(message, program.sourceLocale)
+    if (source === undefined || !hasLetter(source.nodes)) continue
+    const nodes = JSON.stringify(source.nodes)
+    for (const body of message.bodies) {
+      if (body.locale === program.sourceLocale) continue
+      // en-GB under en is meant to match its source for most strings.
+      if (languageOf(body.locale) === sourceLanguage) continue
+      const origin = message.origins.find((entry) => entry.locale === body.locale)?.origin
+      if (origin?.status !== 'translated') continue
+      if (JSON.stringify(body.nodes) !== nodes) continue
+      const found = copied.get(body.locale)
+      if (found === undefined) copied.set(body.locale, [message])
+      else found.push(message)
+    }
+  }
+  for (const locale of [...copied.keys()].sort(compareCodepoint)) {
+    const messages = copied.get(locale) ?? []
+    const [first] = messages
+    if (first === undefined) continue
+    const related: readonly Related[] = messages.map((message) => ({
+      file: catalogFile(program, message, locale),
+      locale,
+      key: message.key,
+      span: spanOf(message, locale) ?? null,
+      message: `"${oneLine(message.source)}"`,
+    }))
+    const one = messages.length === 1
+    out.push(
+      diag('translation-same-as-source', {
+        message: `${messages.length} ${locale} ${one ? 'value is' : 'values are'} identical to the ${
+          program.sourceLocale
+        } source, so ${one ? 'it renders' : 'they render'} ${program.sourceLocale} text in ${locale}.`,
+        hint: sameAsSourceHint(program, first),
+        file: catalogFile(program, first, locale),
+        locale,
+        span: spanOf(first, locale),
+        related,
+      }),
+    )
+  }
+}
+
+function sameAsSourceHint(program: Program, first: Message): string {
+  const meta =
+    program.config.meta === false
+      ? null
+      : program.config.meta.replaceAll('{sourceLocale}', program.sourceLocale)
+  return [
+    meta === null
+      ? 'translate each listed value, or set meta in loclizr.config.ts, then mark one that is meant to match:'
+      : `translate each listed value, or mark one that is meant to match, such as a brand name, in ${meta}:`,
+    `       ${JSON.stringify(first.key)}: { "sameAsSource": true }`,
+  ].join('\n')
+}
+
+// Only literal text counts: a value of arguments, tags and punctuation reads
+// the same in every language.
+function hasLetter(nodes: readonly Node[]): boolean {
+  let found = false
+  walk(nodes, (node) => {
+    if (node.kind === 'text' && /\p{L}/u.test(node.value)) found = true
+  })
+  return found
+}
+
+function languageOf(locale: string): string {
+  return (locale.split('-')[0] ?? locale).toLowerCase()
 }
 
 function describeHint(program: Program, undescribed: readonly Message[]): string {

@@ -459,6 +459,8 @@ separate file cannot leak.
 
 The value is an object. `description` is a sentence for the translator.
 `placeholders` maps an argument name to a note about what that argument holds.
+`sameAsSource: true` says a target value equal to the source is meant, a brand
+or a proper noun, so `LZ3015` skips the key; it is not written to the record.
 An entry whose key is not in the source catalog is `LZ1015 meta-orphan` and is
 dropped. A `placeholders` key that names no argument of its message, compared by
 NFC name, is `LZ1022 meta-placeholder-orphan` and its note is dropped: a renamed
@@ -471,7 +473,8 @@ print.
 A sidecar that does not exist is not an error: `meta` is `null` and nothing is
 raised. One that exists but cannot be read or parsed is `LZ1008` or `LZ1009`,
 never fatal, because it is not a catalog. A root, an entry, a `description`, a
-`placeholders` map or a note of the wrong shape is `LZ1010`. Two `placeholders`
+`placeholders` map, a note or a `sameAsSource` that is not a boolean is
+`LZ1010`. Two `placeholders`
 keys that normalize to one argument name, an NFC and an NFD spelling, keep one
 note: the spelling that matches the argument's own NFC name, then the lower
 code point of the name, then of the note. No diagnostic names the loser.
@@ -2516,7 +2519,7 @@ this rule; the flag is never consulted by any other module.
 **`--max-warnings` defaults to no cap**, matching eslint's `-1`, so warnings
 alone never produce exit 1. `exitCodeFor` receives `Number.POSITIVE_INFINITY`
 when the flag is absent. That default decides whether a fresh i18next import
-exits 0 or 1, since twenty-one rules default to `warn`, so it is stated here
+exits 0 or 1, since twenty-two rules default to `warn`, so it is stated here
 rather than left for M10 and M11 to each pick one.
 
 ### 10.1 Diagnostics
@@ -3125,7 +3128,7 @@ own identifiers.
 
 ## 13. Rule catalog
 
-Fifty-nine rules. Every code is stable forever. `severity` in the config
+Sixty rules. Every code is stable forever. `severity` in the config
 re-levels any of them to `off`, `warn` or `error`, except `LZ1001`, `LZ1007` and
 `LZ5001`, which are not re-levelable (section 3).
 
@@ -3150,7 +3153,7 @@ claim one. Ranges are thematic and a range may span two owners.
 | LZ1007 | `outdir-unsafe` | error | always, exit 2 | M9 | `outDir` resolves outside the project root, or to the root itself |
 | LZ1008 | `catalog-unreadable` | error | ifSource | M2 | the file exists and could not be read. A missing file is `LZ1005`. Never fatal for the meta sidecar |
 | LZ1009 | `catalog-json-syntax` | error | ifSource | M2 | the JSON scan failed, or the file nests more than 256 levels deep. Never fatal for the meta sidecar |
-| LZ1010 | `catalog-shape-invalid` | error | never | M2 | non-object root, or an array, number or boolean leaf, in a catalog; a root, entry, `description`, `placeholders` map or note of the wrong shape in the meta sidecar. A `null` leaf in a target catalog is a missing translation, not this; in the source catalog it is this, unless another route to the same key ends in a message string |
+| LZ1010 | `catalog-shape-invalid` | error | never | M2 | non-object root, or an array, number or boolean leaf, in a catalog; a root, entry, `description`, `placeholders` map, note or `sameAsSource` of the wrong shape in the meta sidecar. A `null` leaf in a target catalog is a missing translation, not this; in the source catalog it is this, unless another route to the same key ends in a message string |
 | LZ1011 | `duplicate-key` | error | never | M2 | the same flat key path from a nested and a dotted form where both end in a message string, from a JSON key written twice in one object whatever the values, from a bare `X` beside a group that folds to `X`, or from two namespace files of one locale. `JSON.parse` silently keeps the last one, which is how a translation disappears with no diff |
 | LZ1012 | `i18next-nesting-unsupported` | error | never | M2 | a value contains `$t(` |
 | LZ1013 | `i18next-format-unsupported` | error | never | M2 | a placeholder carries an inline formatter, `{{val, fmt}}`, or a name ICU cannot read as an argument, `{{user.name}}` |
@@ -3248,6 +3251,7 @@ nothing reporting it anywhere.
 | LZ3012 | `ambiguous-source` | warn | never | M5 | see below |
 | LZ3013 | `plural-category-unreachable` | warn | never | M5 | a keyword branch absent from `requiredCategories(locale, ordinal)`, so the locale can never select it |
 | LZ3014 | `bidi-control-unpaired` | warn | never | M5 | a value, source or target, holds an embedding, override or isolate control (U+202A to U+202E, U+2066 to U+2069) with no partner: an opener never closed, or a closer with nothing open. Once per control per value |
+| LZ3015 | `translation-same-as-source` | warn | never | M5 | a target value that renders is the source's normalized ICU text, holds a letter outside argument and tag syntax, belongs to a locale whose language subtag differs from the source's, and its key has no `"sameAsSource": true` in the meta sidecar. One diagnostic per locale, every such key in `related` |
 
 `LZ3012 ambiguous-source` is the thesis expressed as a default-on rule, and it
 is the gettext `msgctxt` problem: "Open" can be a verb or an adjective, and a
@@ -3287,6 +3291,19 @@ balances inside its branch; a markup tag renders inline, so a pair may span one.
 The marks U+200E, U+200F and U+061C open nothing and are never reported. The
 hint names the closer, U+202C for an embedding or override and U+2069 for an
 isolate.
+
+`LZ3015` exists because a value byte-equal to its source passes every other rule
+and the record marks it `translated`, so a target catalog seeded by copying the
+source file reports nothing. Comparison is on the lowered body, so an i18next
+target equal to an ICU source after conversion counts. Some values are equal by
+necessity and are exempt with no meta entry: a value whose literal text holds
+no letter (`\p{L}`), such as `{count}`, `{a} / {b}` or `<b>{name}</b>`, and a
+target locale whose language subtag equals the source's, such as `en-GB` under
+`en`. Anything else that is meant to match, a brand or a proper noun, takes
+`"sameAsSource": true` on its meta entry (section 2.2). One diagnostic is raised
+per locale rather than per key, the `LZ3012` shape, so a seeded catalog prints
+one block; its `key` is `null` and `related` lists every key in code point order
+with its span in that locale's file. The record status stays `translated`.
 
 ### LZ4xxx, identity and output
 
@@ -3568,6 +3585,7 @@ export type RuleName =
   | 'ambiguous-source'
   | 'plural-category-unreachable'
   | 'bidi-control-unpaired'
+  | 'translation-same-as-source'
   | 'identifier-collision'
   | 'identifier-reserved'
   | 'confusable-key'
@@ -3751,6 +3769,9 @@ export interface Message {
   readonly markupTags: readonly string[]
   readonly description: string | null
   readonly placeholders: readonly PlaceholderNote[]
+  // The meta sidecar's `sameAsSource: true`: a target value equal to the source
+  // is meant, such as a brand name, so LZ3015 skips this message.
+  readonly sameAsSource: boolean
   // Each locale's OWN lowered body, and nothing else. A locale whose key is
   // missing, whose value is blank, or whose value failed to lower has no entry
   // here. Never padded, never back-filled with another locale's nodes.
@@ -3830,6 +3851,7 @@ export interface MetaEntry {
   readonly key: string
   readonly description: string | null
   readonly placeholders: readonly PlaceholderNote[]
+  readonly sameAsSource: boolean
   readonly span: Span
 }
 
@@ -4504,7 +4526,8 @@ export declare function runChecks(program: Program): readonly Diagnostic[]
 
 Pure, synchronous, no filesystem, and it never re-parses: every cross-locale
 comparison reads `Message.bodies[].args`, `Message.bodies[].markupTags`,
-`Message.origins`, `Message.spans` and `Program.extras`, all of which M4 already
+`Message.bodies[].nodes`, `Message.sameAsSource`, `Message.origins`,
+`Message.spans` and `Program.extras`, all of which M4 already
 filled. It calls M3's `unify` to detect `LZ3006` and M1's `requiredCategories`
 for `LZ3007` and `LZ3013`. `LZ3001` for a key absent from a target catalog has
 no entry in `Message.spans`, so its `file` is `config.catalogs` with
@@ -4519,7 +4542,7 @@ target's own arg-level dedup would hide.
 
 It reads exactly four fields of `Config`, each of them for a string it has to
 print: `config.catalogs` for `LZ3001`'s `file`, `config.meta` for the path
-`LZ3012`'s fix line tells the user to edit, `config.formats.timeZone` to gate
+the fix lines of `LZ3012` and `LZ3015` tell the user to edit, `config.formats.timeZone` to gate
 `LZ3011`, and `config.severity['ambiguous-source']` to pick the `or` pair in
 `LZ3012`'s hint (section 10.1). It stamps every diagnostic at the rule's default
 severity and re-levels nothing. The source locale comes from
@@ -4537,7 +4560,7 @@ M5 raises no additional diagnostic for the fallback itself, because `LZ3001` and
 `LZ3002` cover the reasons that carry one and M3 already reported a lowering
 failure against that locale's own file.
 
-Raises LZ3001 through LZ3014.
+Raises LZ3001 through LZ3015.
 
 ### M6, emit
 

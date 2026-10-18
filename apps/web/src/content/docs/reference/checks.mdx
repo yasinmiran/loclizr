@@ -1,12 +1,12 @@
 ---
 title: Catalog checks
-description: Fifty-nine rules by code, with default severity, fatal scope, trigger and fix.
+description: Sixty rules by code, with default severity, fatal scope, trigger and fix.
 ---
 
 import { Aside } from '@astrojs/starlight/components'
 
-Every `loclizr build` runs all fifty-nine rules: no separate lint command, no flag that turns them
-off. Each has a permanent code and a name that is its `severity` key. Defaults: 35 `error`, 19
+Every `loclizr build` runs all sixty rules: no separate lint command, no flag that turns them
+off. Each has a permanent code and a name that is its `severity` key. Defaults: 35 `error`, 22
 `warn`, 3 `off`.
 
 ## When rules run
@@ -149,9 +149,9 @@ they point at: `{name}` and `few {...}` in an ICU catalog, `{{name}}` and an `it
 i18next one.
 
 <Aside type="caution">
-None of them reads the words. A target value byte-identical to the source passes every rule and is
-recorded `translated`, so a catalog seeded by copying `en.json` reports nothing.
-[Translation workflow](/guides/translation-workflow/) keeps those strings visible.
+None of them reads the words. Only `LZ3015` looks at the text, and only for a value identical to
+the source: a value translated wrongly, or into the wrong language, passes every rule and is
+recorded `translated`.
 </Aside>
 
 | Code | Rule | Default | Fatal | Fires when | Fix |
@@ -170,6 +170,7 @@ recorded `translated`, so a catalog seeded by copying `en.json` reports nothing.
 | `LZ3012` | `ambiguous-source` | warn | never | Keys share byte-identical source text and any one lacks a description. One diagnostic per text, listing every colliding key. | Paste the printed meta entries, or the printed `severity` line. |
 | `LZ3013` | `plural-category-unreachable` | warn | never | A keyword branch the locale's plural rules never select. | Use an exact branch (`de` never selects `zero`: write `=0`), or delete it. |
 | `LZ3014` | `bidi-control-unpaired` | warn | never | A value opens an embedding, override or isolate (U+202A to U+202E, U+2066 to U+2069) and never closes it, or closes one with nothing open. A pair balances inside one plural or select branch. U+200E and U+200F are marks and never fire it. | Close it with the printed control (U+202C, or U+2069 for an isolate), or delete it. |
+| `LZ3015` | `translation-same-as-source` | warn | never | A rendered target value equals the source and holds a letter outside argument and tag syntax. Not raised for a locale with the source's language subtag (`en-GB` under `en`). One diagnostic per locale, listing every key. | Translate it, or mark a brand or proper noun `"sameAsSource": true` in the meta sidecar. |
 
 ### `LZ3012` is the rule an imported catalog hits first
 

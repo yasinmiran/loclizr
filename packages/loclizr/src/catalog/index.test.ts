@@ -146,12 +146,14 @@ describe('readCatalogs on the worked example', () => {
         key: 'cart.items',
         description: 'Badge under the cart icon on every page',
         placeholders: [{ name: 'count', note: 'Number of line items, not total quantity' }],
+        sameAsSource: false,
         span: expect.objectContaining({ line: 2 }),
       },
       {
         key: 'order.status',
         description: 'Chip in the order list. Past tense.',
         placeholders: [],
+        sameAsSource: false,
         span: expect.objectContaining({ line: 8 }),
       },
     ])
@@ -446,8 +448,27 @@ describe('readCatalogs descriptions', () => {
 
     expect(codes(diagnostics)).toEqual(['LZ1010', 'LZ1010'])
     expect(meta?.entries).toEqual([
-      { key: 'a', description: null, placeholders: [], span: expect.anything() },
-      { key: 'b', description: null, placeholders: [], span: expect.anything() },
+      { key: 'a', description: null, placeholders: [], sameAsSource: false, span: expect.anything() },
+      { key: 'b', description: null, placeholders: [], sameAsSource: false, span: expect.anything() },
+    ])
+  })
+
+  it('reads sameAsSource and reports one that is not a boolean', async () => {
+    const root = await tree({
+      'locales/en.json': json({ brand: 'loclizr', title: 'Home' }),
+      'locales/en.meta.json': json({ brand: { sameAsSource: true }, title: { sameAsSource: 'yes' } }),
+    })
+    const { meta, diagnostics } = await readCatalogs(makeConfig(root))
+
+    expect(codes(diagnostics)).toEqual(['LZ1010'])
+    expect(diagnostics[0]).toMatchObject({
+      key: 'title',
+      message: 'The sameAsSource of "title" is not a boolean.',
+      span: expect.objectContaining({ line: 6 }),
+    })
+    expect(meta?.entries.map((entry) => [entry.key, entry.sameAsSource])).toEqual([
+      ['brand', true],
+      ['title', false],
     ])
   })
 

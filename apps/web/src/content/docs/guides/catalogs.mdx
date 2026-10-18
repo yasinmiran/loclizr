@@ -197,7 +197,9 @@ system) imports every leaf there as a string to translate, so a note would ship 
 }
 ```
 
-Both fields land in the context record. A note for a key that no longer exists is `LZ1015`, and a
+Both fields land in the context record. A third field, `"sameAsSource": true`, marks a key whose
+translations are meant to equal the source, such as a brand name, so `LZ3015
+translation-same-as-source` skips it; it is not written to the record. A note for a key that no longer exists is `LZ1015`, and a
 placeholder note for an argument the message does not take is `LZ1022`.
 `LZ3012 ambiguous-source` fires when keys share source text and one lacks a description:
 
