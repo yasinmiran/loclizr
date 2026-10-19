@@ -10,6 +10,7 @@ const PUBLIC = [
   'getLocale',
   'localeFromHeaders',
   'negotiate',
+  'resetLocale',
   'setLocale',
   'subscribe',
 ]

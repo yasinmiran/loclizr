@@ -61,11 +61,8 @@ Vitest blocks here ran under vitest 5 with jsdom 30 against a two-message catalo
 In CI, run `check` before `test`, since `pretest` rewrites the record `check` compares
 ([Continuous integration](/guides/continuous-integration/)).
 
-<Aside type="caution">
-No reset export exists. Vitest isolates files, so each starts with an empty store and `getLocale()`
-returns the source locale; within a file, one test's locale carries into the next. The `beforeEach`
-call is the reset.
-</Aside>
+Vitest isolates files, so each starts with an empty store; within a file, one test's locale carries
+into the next unless `beforeEach` sets it or [`resetLocale()`](#reset-between-tests) clears it.
 
 ## Quiet the `<html lang>` warning
 
@@ -120,6 +117,36 @@ test('detection latches on the first read', () => {
 Set the locale, not the cookie, before the first render: a cookie written after the first
 `getLocale()` read is never consulted. A cookie-detection test writes `document.cookie` first, so
 that file's first read is the one that latches.
+
+## Reset between tests
+
+```ts title="test/detect.test.ts"
+// @vitest-environment jsdom
+import { getLocale, resetLocale } from 'loclizr'
+import { afterEach, expect, test } from 'vitest'
+import * as m from '../src/loclizr/messages'
+
+afterEach(() => {
+  resetLocale()
+})
+
+test('a returning visitor gets the cookie locale', () => {
+  document.cookie = 'locale=de; path=/'
+  expect(getLocale()).toBe('de')
+  expect(m.cart_greeting({ name: 'Ada' })).toBe('Hallo Ada, dein Warenkorb ist bereit')
+})
+
+test('a first visit gets the source locale', () => {
+  expect(getLocale()).toBe('en')
+  expect(m.cart_greeting({ name: 'Ada' })).toBe('Hi Ada, your cart is ready')
+})
+```
+
+`resetLocale()` puts the store back where a first visit starts: it drops the stored tag, expires the
+locale cookie, removes `<html lang>` and unlatches detection, so the next read detects again. It
+keeps the registered locale list and the subscribers, and notifies them. Without it, the second test
+reads the `de` the first one latched. A file that only picks locales needs no reset: the
+`beforeEach` call overwrites the last test's choice.
 
 ## Node and server rendering
 

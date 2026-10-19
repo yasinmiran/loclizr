@@ -2689,8 +2689,20 @@ The store holds a raw requested tag, a string. Public API:
 ```ts
 getLocale(): Locale
 setLocale(locale: Locale, options?: SetLocaleOptions): void
+resetLocale(): void
 subscribe(listener: () => void): () => void
 ```
+
+**`resetLocale()` returns the store to the unset state a fresh page starts
+in, for test setup.** It clears the stored tag, the latched detection and a
+pending `<html lang>` write, so the next read runs step 3 below again. With a
+`document` it expires the cookie under the registered name and removes the
+`lang` attribute, since detection would otherwise read back the locale
+`setLocale` wrote there. It notifies listeners, so a component left mounted
+across tests does not keep a stale snapshot. It keeps the registration, the
+listeners and the spent once-per-process warnings: the generated module that
+registered runs `$configure1` once per module cache and is not imported again.
+Like `setLocale`, it throws inside a request scope.
 
 `getLocale()` resolves in this order:
 
@@ -4940,7 +4952,7 @@ export type {
   LocaleSetup, LoclizrConfig, MessageOptions, NegotiateOptions, SetLocaleOptions,
 } from './types'
 export { defineConfig } from './runtime/define-config'
-export { getLocale, setLocale, subscribe } from './runtime/store'
+export { getLocale, resetLocale, setLocale, subscribe } from './runtime/store'
 export { localeFromHeaders, negotiate } from './runtime/negotiate'
 export { $configure1, $dateTime1, $number1, $plural1 } from './runtime/abi'
 ```
@@ -5046,14 +5058,14 @@ nobody else:
   `src/runtime/store.ts`, so the store is hoisted into a shared chunk and the
   entry is reduced to re-exports. The budget is 900 bytes and it is **not
   met**: the shipped runtime, a store, an RFC 4647 matcher, a cookie reader,
-  `negotiate` and `localeFromHeaders`, five warning strings and four ABI
-  helpers, measures about 2830 bytes in the shape tsdown ships (about 2420
-  before the two negotiation functions joined the entry), and about 1500
-  minified without them. An app that imports neither drops them, since the
+  `negotiate` and `localeFromHeaders`, five warning strings, a test reset and
+  four ABI helpers, measures about 2920 bytes in the shape tsdown ships (about
+  2510 without the two negotiation functions), and about 1550 minified
+  without them. An app that imports neither drops them, since the
   package is `"sideEffects": false`. The test keeps the 900-byte
   assertion verbatim as an expected failure, so the suite turns red the day
   the budget is met and the number can be tightened, and a second, ordinary
-  assertion holds a 2870-byte ceiling so a regression still fails; its message
+  assertion holds a 2960-byte ceiling so a regression still fails; its message
   prints budget, measured and ceiling together. A green suite here therefore
   says the runtime has not grown, not that the budget is met.
 - React tests carry `// @vitest-environment jsdom` as a file docblock, so the

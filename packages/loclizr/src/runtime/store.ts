@@ -62,6 +62,27 @@ export function setLocale(locale: Locale, options?: SetLocaleOptions): void {
   for (const listener of [...state.listeners]) listener()
 }
 
+// For test setup: back to the unset state a fresh page starts in. The
+// registration and the listeners stay because the generated module that
+// registered and the components that subscribed are not loaded again.
+export function resetLocale(): void {
+  if (scopedLocale() !== undefined) {
+    throw new Error(
+      'loclizr: resetLocale() cannot run inside a request scope. Pass { locale } per call instead.',
+    )
+  }
+  const state = storeState()
+  state.raw = null
+  state.detected = null
+  state.pendingLang = null
+  if (typeof document !== 'undefined') {
+    document.cookie = `${cookieName()}=; path=/; max-age=0; SameSite=Lax`
+    // Detection would read a leftover lang back as the locale just reset.
+    document.documentElement.removeAttribute('lang')
+  }
+  for (const listener of [...state.listeners]) listener()
+}
+
 export function subscribe(listener: LocaleListener): () => void {
   const { listeners } = storeState()
   listeners.add(listener)

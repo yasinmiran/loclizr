@@ -12,6 +12,6 @@ export type {
   SetLocaleOptions,
 } from './types'
 export { defineConfig } from './runtime/define-config'
-export { getLocale, setLocale, subscribe } from './runtime/store'
+export { getLocale, resetLocale, setLocale, subscribe } from './runtime/store'
 export { localeFromHeaders, negotiate } from './runtime/negotiate'
 export { $configure1, $dateTime1, $number1, $plural1 } from './runtime/abi'

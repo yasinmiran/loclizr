@@ -20,6 +20,7 @@ Signatures are quoted from the published `.d.ts`; snippets ran against the examp
 export declare function defineConfig(config: LoclizrConfig): LoclizrConfig
 export declare function getLocale(): Locale
 export declare function setLocale(locale: Locale, options?: SetLocaleOptions): void
+export declare function resetLocale(): void
 export declare function subscribe(listener: LocaleListener): () => void
 export declare function negotiate(accepted: readonly string[], options: NegotiateOptions): string
 export declare function localeFromHeaders(headers: {
@@ -91,6 +92,23 @@ cookie (`path=/`, one year, `SameSite=Lax` unless the `cookie` config sets other
 | No DOM (React Native) | updates and notifies in memory, persists nothing |
 | Inside a request scope | throws `setLocale() cannot run inside a request scope. Pass { locale } per call instead.` |
 
+### `resetLocale`
+
+```ts
+import { getLocale, resetLocale, setLocale } from 'loclizr'
+import * as m from './loclizr/messages'
+
+setLocale('de')
+m.nav_home()                         // 'Startseite'
+resetLocale()
+getLocale()                          // 'en'
+```
+
+For test setup ([Testing](/guides/testing/#reset-between-tests)). Clears the stored tag and the
+latched detection, so the next read detects again, and notifies subscribers. With a `document` it
+also expires the cookie and removes `<html lang>`. The registered locale list, the subscribers and
+the once-per-process warnings stay. Inside a request scope it throws, as `setLocale` does.
+
 ### `subscribe`
 
 ```ts
@@ -101,8 +119,8 @@ const unsubscribe = subscribe(() => document.title = m.app_cart())
 unsubscribe()
 ```
 
-Called after every `setLocale`; returns the remover. Listeners take no arguments, so read
-`getLocale()` inside.
+Called after every `setLocale` and `resetLocale`; returns the remover. Listeners take no
+arguments, so read `getLocale()` inside.
 
 ### `negotiate` and `localeFromHeaders`
 
