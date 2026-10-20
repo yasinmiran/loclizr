@@ -90,7 +90,7 @@
       "usage": [
         {
           "file": "src/components/Cart.vue",
-          "scope": null
+          "scope": "Cart"
         }
       ]
     },

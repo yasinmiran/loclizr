@@ -41,7 +41,7 @@
       "usage": [
         {
           "file": "src/App.svelte",
-          "scope": null
+          "scope": "App"
         }
       ]
     },
@@ -90,7 +90,7 @@
       "usage": [
         {
           "file": "src/Cart.svelte",
-          "scope": null
+          "scope": "Cart"
         }
       ]
     },

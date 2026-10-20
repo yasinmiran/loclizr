@@ -41,7 +41,7 @@
       "usage": [
         {
           "file": "src/pages/[lang]/index.astro",
-          "scope": null
+          "scope": "index"
         }
       ]
     },
@@ -90,7 +90,7 @@
       "usage": [
         {
           "file": "src/components/CartBadge.astro",
-          "scope": null
+          "scope": "CartBadge"
         }
       ]
     },
@@ -122,7 +122,7 @@
       "usage": [
         {
           "file": "src/pages/[lang]/index.astro",
-          "scope": null
+          "scope": "index"
         }
       ]
     },

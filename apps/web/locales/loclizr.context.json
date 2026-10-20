@@ -681,7 +681,7 @@
       "usage": [
         {
           "file": "src/components/Landing.astro",
-          "scope": null
+          "scope": "Landing"
         },
         {
           "file": "src/components/site-language.ts",
@@ -783,7 +783,7 @@
       "usage": [
         {
           "file": "src/components/Landing.astro",
-          "scope": null
+          "scope": "Landing"
         },
         {
           "file": "src/components/site-language.ts",
@@ -885,7 +885,7 @@
       "usage": [
         {
           "file": "src/components/Landing.astro",
-          "scope": null
+          "scope": "Landing"
         },
         {
           "file": "src/components/site-language.ts",
@@ -987,7 +987,7 @@
       "usage": [
         {
           "file": "src/components/Landing.astro",
-          "scope": null
+          "scope": "Landing"
         },
         {
           "file": "src/components/site-language.ts",
@@ -1089,7 +1089,7 @@
       "usage": [
         {
           "file": "src/components/Landing.astro",
-          "scope": null
+          "scope": "Landing"
         },
         {
           "file": "src/components/site-language.ts",
@@ -1191,7 +1191,7 @@
       "usage": [
         {
           "file": "src/components/Landing.astro",
-          "scope": null
+          "scope": "Landing"
         },
         {
           "file": "src/components/site-language.ts",
@@ -1293,7 +1293,7 @@
       "usage": [
         {
           "file": "src/components/Landing.astro",
-          "scope": null
+          "scope": "Landing"
         },
         {
           "file": "src/components/site-language.ts",
@@ -1395,7 +1395,7 @@
       "usage": [
         {
           "file": "src/components/Landing.astro",
-          "scope": null
+          "scope": "Landing"
         },
         {
           "file": "src/components/site-language.ts",
@@ -1497,7 +1497,7 @@
       "usage": [
         {
           "file": "src/components/Landing.astro",
-          "scope": null
+          "scope": "Landing"
         },
         {
           "file": "src/components/site-language.ts",
@@ -1599,7 +1599,7 @@
       "usage": [
         {
           "file": "src/components/Landing.astro",
-          "scope": null
+          "scope": "Landing"
         },
         {
           "file": "src/components/site-language.ts",
@@ -1701,7 +1701,7 @@
       "usage": [
         {
           "file": "src/components/Landing.astro",
-          "scope": null
+          "scope": "Landing"
         },
         {
           "file": "src/components/site-language.ts",
@@ -1803,7 +1803,7 @@
       "usage": [
         {
           "file": "src/components/Landing.astro",
-          "scope": null
+          "scope": "Landing"
         },
         {
           "file": "src/components/site-language.ts",
@@ -5825,7 +5825,7 @@
       "usage": [
         {
           "file": "src/components/SiteLanguage.astro",
-          "scope": null
+          "scope": "SiteLanguage"
         },
         {
           "file": "src/components/site-language.ts",
