@@ -262,7 +262,7 @@ Three of the example app's twenty-six messages: a plural, a select and a markup 
 | Field | Type | Meaning |
 | --- | --- | --- |
 | `file` | `string` | POSIX, relative to the project root. |
-| `scope` | `string` or `null` | Deepest enclosing function, method, class or variable declaration. `null` at module scope. |
+| `scope` | `string` or `null` | Deepest enclosing function, method, class or variable declaration. `null` at module scope, except in a `.svelte`, `.vue` or `.astro` file, where it is the file name without its extension (`Cart` for `Cart.vue`). |
 
 <Aside type="note">
 `order.status` has a `null`-scope site: line 7 of `App.tsx`,

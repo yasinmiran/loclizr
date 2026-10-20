@@ -180,3 +180,28 @@ describe('the enclosing declaration in ordinary nesting', () => {
     ).toEqual(['pick'])
   })
 })
+
+describe('a top-level usage in a single-file component', () => {
+  test.each([
+    ['src/components/Cart.vue', '<template>\n<p>{{ m.cart_items({ count }) }}</p>\n</template>'],
+    ['src/components/Cart.svelte', '<p>{m.cart_items({ count })}</p>'],
+    ['src/components/Cart.astro', '---\n<p>{m.cart_items({ count })}</p>'],
+  ])('takes the component name from the file name in %s', (file, template) => {
+    expect(scopesOf([template], file)).toEqual(['Cart'])
+  })
+
+  test('keeps the enclosing function inside the component script', () => {
+    expect(
+      scopesOf(['function label() {', '  return m.nav_home()', '}', '<p>{m.nav_cart()}</p>'], 'src/Nav.svelte'),
+    ).toEqual(['label', 'Nav'])
+  })
+
+  test('strips only the last extension and matches it case-insensitively', () => {
+    expect(scopesOf(['<p>{m.nav_home()}</p>'], 'src/Cart.page.SVELTE')).toEqual(['Cart.page'])
+  })
+
+  test('leaves a top-level usage in a script module unnamed', () => {
+    expect(scopesOf(['export const home = m.nav_home()'], 'src/Cart.ts')).toEqual([null])
+    expect(scopesOf(['m.nav_home()'], 'src/Cart.tsx')).toEqual([null])
+  })
+})

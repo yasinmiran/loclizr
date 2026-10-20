@@ -28,6 +28,9 @@ interface FileScan {
 // Template text in a component file is prose to a JS lexer exactly as JSX text
 // is, so a bare apostrophe there needs the same narrowed string lexing.
 const JSX_EXTENSIONS: ReadonlySet<string> = new Set(['.jsx', '.tsx', '.svelte', '.vue', '.astro'])
+// A single-file component is the file itself, so a usage with no enclosing
+// declaration still has a component to name, the way React's function does.
+const COMPONENT_EXTENSIONS: ReadonlySet<string> = new Set(['.svelte', '.vue', '.astro'])
 const TRAILING_SLASHES = /\/+$/u
 
 export async function scan(input: {
@@ -108,14 +111,19 @@ function scanText(input: {
     groups: input.groups,
   })
   if (!bindings.importedGenerated) return { sites: [], importedGenerated: false }
+  const sites = collectSites({
+    source: input.text,
+    code: scrubbed.codeOnly,
+    file: input.file,
+    bindings,
+    ids: input.ids,
+  })
+  const component = componentName(input.file)
   return {
-    sites: collectSites({
-      source: input.text,
-      code: scrubbed.codeOnly,
-      file: input.file,
-      bindings,
-      ids: input.ids,
-    }),
+    sites:
+      component === null
+        ? sites
+        : sites.map((site) => (site.scope === null ? { ...site, scope: component } : site)),
     importedGenerated: true,
   }
 }
@@ -162,6 +170,13 @@ async function readText(file: string): Promise<string | null> {
 function isJsx(file: string): boolean {
   const dot = file.lastIndexOf('.')
   return dot !== -1 && JSX_EXTENSIONS.has(file.slice(dot).toLowerCase())
+}
+
+function componentName(file: string): string | null {
+  const name = file.slice(file.lastIndexOf('/') + 1)
+  const dot = name.lastIndexOf('.')
+  if (dot <= 0 || !COMPONENT_EXTENSIONS.has(name.slice(dot).toLowerCase())) return null
+  return name.slice(0, dot)
 }
 
 function groupById(sites: readonly FoundSite[]): readonly MessageUsage[] {

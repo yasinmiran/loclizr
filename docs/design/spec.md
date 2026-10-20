@@ -3098,7 +3098,11 @@ highest-value token a translator receives: "this string is in `CheckoutButton`"
 beats a line number. The column is the start of the access expression, the `m`
 of `m.nav_home` or the `errors` of `errors[code]`, not the member name. A
 usage at the top level of a module has `scope: null`; a braceless arrow body,
-`const Label = () => m.nav_home()`, names the arrow. Optional chaining,
+`const Label = () => m.nav_home()`, names the arrow. In a `.svelte`, `.vue` or
+`.astro` file the component is the file itself, so a usage with no enclosing
+declaration, in the template or at the top of the script or frontmatter, takes
+the file name with its last extension removed: `src/components/Cart.vue` gives
+`Cart`. The name comes from the path alone, so it stays deterministic. Optional chaining,
 `m?.nav_home` and `errors?.[code]`, resolves like plain access. A reference in
 type position, `typeof m.nav_home`, is a member access like any other and is
 recorded as a usage, because the tokenizer does not know a type from a value.
