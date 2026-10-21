@@ -16,6 +16,9 @@ a minor release may break an invariant, and this file says so when it does.
 ### Behaviour changes
 
 - A usage site in a `.svelte`, `.vue` or `.astro` file that has no enclosing declaration, such as a call in the template, now records the component name taken from the file name (`Cart` for `src/components/Cart.vue`) as its `scope` in the context record, where it used to record `null`. Only the record's `usage` field changes, which the staleness gate ignores, so `check` does not fail on it (#55).
+### Behaviour changes
+
+- A markup message's declaration now binds `<R extends T, T = R>`: a handler is `(chunks: readonly (string | T)[]) => R` and the message returns `readonly (string | R)[]`, so a call stored in a `const` takes its part type from the handler's return (`readonly string[]` for `(chunks) => chunks.join('')`) instead of `readonly unknown[]`. Group types follow as `<Base>Args<R, T = R>` and `<Base>Return<R>`. `m.x<ReactNode>(...)` and inline `<Parts of={...} />` calls compile as before; a JSX handler stored in a `const` still needs the type argument. Code that names `<Base>Return<X>` or passes two type arguments where `R` does not extend `T` sees the new shape (#93).
 
 ## 0.2.0 - 2026-10-13
 

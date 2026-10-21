@@ -158,10 +158,10 @@ Any other style name, like `eur`, must be defined in `formats.number` or `format
 
 ```ts title="src/loclizr/messages/terms.d.ts"
 /** en: "Read our <link>terms</link> before you continue." */
-export declare function terms_accept<T>(
-  args: { link: (chunks: readonly (string | T)[]) => T },
+export declare function terms_accept<R extends T, T = R>(
+  args: { link: (chunks: readonly (string | T)[]) => R },
   opts?: MessageOptions,
-): readonly (string | T)[]
+): readonly (string | R)[]
 ```
 
 - Tags nest: `<b><i>full</i> terms</b>` compiles to `args.b([args.i(['full']), ' terms'])`.

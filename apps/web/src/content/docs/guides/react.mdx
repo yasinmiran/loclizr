@@ -200,9 +200,11 @@ test that proves both.
    A markup message returns an array, not a string, and `Parts` renders it. `Terms` is memoized so
    the test can show the key reaching it.
 
-   Inside `of={...}` the prop type tells TypeScript the parts are `ReactNode`. Hoisted into a
-   `const`, the call has nothing to read that from and infers `unknown`, so `{chunks}` does not
-   compile. Pass the type:
+   Inside `of={...}` the prop type tells TypeScript the parts are `ReactNode`. Moved into a
+   `const`, a JSX handler has nothing to read that from: TypeScript cannot infer the part type
+   from the JSX, because the handler's `chunks` depend on that type. `{chunks}` then does not
+   compile. A handler that returns a string or a plain object is typed from its return. For JSX,
+   pass the type:
 
    ```tsx
    import type { ReactNode } from 'react'

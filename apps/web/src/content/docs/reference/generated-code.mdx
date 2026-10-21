@@ -427,22 +427,28 @@ export function terms_accept(args, opts) {
 
 ```ts title="src/loclizr/messages/terms.d.ts"
 /** en: "Read our <link>terms</link> before you continue." */
-export declare function terms_accept<T>(
-  args: { link: (chunks: readonly (string | T)[]) => T },
+export declare function terms_accept<R extends T, T = R>(
+  args: { link: (chunks: readonly (string | T)[]) => R },
   opts?: MessageOptions,
-): readonly (string | T)[]
+): readonly (string | R)[]
 ```
 
-Returns an array of parts. Each tag is a required handler from chunks to one part type `T`.
-TypeScript reads `T` from where the result goes, such as the `of` prop of `Parts`. A call with
-nowhere to read it from, such as a `const` hoisted out of JSX, infers `unknown`, so pass it:
-`m.terms_accept<ReactNode>({ link: (chunks) => <a href="/terms">{chunks}</a> })`, or annotate the
-chunks as `(chunks: readonly ReactNode[]) => ...`.
+Returns an array of parts. Each tag is a required handler that takes the chunks and returns a
+part. The handler's return type `R` becomes the part type, so a call stored in a `const` is typed
+too: with `(chunks) => chunks.join('')` the result is `readonly string[]`. `T` is the type of a
+chunk. It defaults to `R` and must accept `R`, because a translation may nest one tag inside
+another, so a handler's result can show up as a chunk of the tag around it.
+
+A JSX handler is the exception. TypeScript cannot infer `R` from what a handler returns when the
+handler's own `chunks` depend on it. Inside `<Parts of={...} />` the prop type supplies it. A JSX
+call stored in a `const` needs the type passed in:
+`m.terms_accept<ReactNode>({ link: (chunks) => <a href="/terms">{chunks}</a> })`, or annotated
+chunks: `(chunks: readonly ReactNode[]) => ...`.
 
 | Where | Call | Result |
 | --- | --- | --- |
 | React | `<Parts of={m.terms_accept({ link: (chunks) => <a href="/terms">{chunks}</a> })} />` | rendered through `Parts` from `loclizr/react` |
-| Plain Node | `m.terms_accept<{ a: unknown }>({ link: (chunks) => ({ a: chunks }) })` | `["Read our ",{"a":["terms"]}," before you continue."]` |
+| Plain Node | `m.terms_accept({ link: (chunks) => ({ a: chunks }) })` | `["Read our ",{"a":["terms"]}," before you continue."]` |
 
 Once a translation nests one tag inside another, `{chunks}` hands React an array holding an
 element, and React warns about keys in development; the output is still correct. Spreading the

@@ -12,20 +12,20 @@ export declare const errors: Readonly<{
 }>
 
 export type TermsKey = 'accept' | 'bare' | 'dropped' | 'notice' | 'title'
-export interface TermsArgs<T> {
-  accept: { link: (chunks: readonly (string | T)[]) => T }
-  bare: { link: (chunks: readonly (string | T)[]) => T }
-  dropped: { notice: (chunks: readonly (string | T)[]) => T }
-  notice: { count: number; b: (chunks: readonly (string | T)[]) => T }
+export interface TermsArgs<R, T = R> {
+  accept: { link: (chunks: readonly (string | T)[]) => R }
+  bare: { link: (chunks: readonly (string | T)[]) => R }
+  dropped: { notice: (chunks: readonly (string | T)[]) => R }
+  notice: { count: number; b: (chunks: readonly (string | T)[]) => R }
   title: EmptyArgs
 }
-export interface TermsReturn<T> {
-  accept: readonly (string | T)[]
+export interface TermsReturn<R> {
+  accept: readonly (string | R)[]
   bare: string
-  dropped: readonly (string | T)[]
-  notice: readonly (string | T)[]
+  dropped: readonly (string | R)[]
+  notice: readonly (string | R)[]
   title: string
 }
 export declare const terms: Readonly<{
-  [K in TermsKey]: <T>(args: TermsArgs<T>[K], opts?: MessageOptions) => TermsReturn<T>[K]
+  [K in TermsKey]: <R extends T, T = R>(args: TermsArgs<R, T>[K], opts?: MessageOptions) => TermsReturn<R>[K]
 }>

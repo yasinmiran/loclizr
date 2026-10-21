@@ -16,7 +16,7 @@ import type {
 } from '../types'
 import { compareCodepoint } from '../util'
 import { localDeclarations, messageContext, pluralSelectors, renderArm } from './body'
-import { argsShape, declaration, returnType } from './declare'
+import { HANDLER_PARAMETERS, argsShape, declaration, returnType } from './declare'
 import {
   HEADER,
   NOCHECK,
@@ -298,16 +298,16 @@ function groupTier(group: Group, members: readonly ResolvedMember[], emptyArgs: 
   const field = (entry: ResolvedMember, type: string): string =>
     `${pad(2)}${property(entry.member.member)}: ${type}`
   const signature = parts
-    ? `<T>(args: ${group.typeBase}Args<T>[K], opts?: MessageOptions) => ${group.typeBase}Return<T>[K]`
+    ? `${HANDLER_PARAMETERS}(args: ${group.typeBase}Args<R, T>[K], opts?: MessageOptions) => ${group.typeBase}Return<R>[K]`
     : `(args: ${group.typeBase}Args[K], opts?: MessageOptions) => string`
   return [
     `export type ${group.typeBase}Key = ${keys}`,
-    `export interface ${group.typeBase}Args${parts ? '<T>' : ''} {`,
+    `export interface ${group.typeBase}Args${parts ? '<R, T = R>' : ''} {`,
     ...members.map((entry) => field(entry, argsShape(entry.message.args, emptyArgs))),
     '}',
     ...(parts
       ? [
-          `export interface ${group.typeBase}Return<T> {`,
+          `export interface ${group.typeBase}Return<R> {`,
           ...members.map((entry) => field(entry, returnType(entry.message.kind))),
           '}',
         ]

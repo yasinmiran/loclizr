@@ -293,10 +293,10 @@ warn  LZ1020  icu-in-i18next-file  locales/en.json:15:14  en  status
 
 ```ts title="src/loclizr/messages/_root.d.ts"
 /** en: "Read our <b>terms</b> before you continue." */
-export declare function terms<T>(
-  args: { b: (chunks: readonly (string | T)[]) => T },
+export declare function terms<R extends T, T = R>(
+  args: { b: (chunks: readonly (string | T)[]) => R },
   opts?: MessageOptions,
-): readonly (string | T)[]
+): readonly (string | R)[]
 ```
 
 Some tags never lower: a numbered `<1>`, attributes, an unclosed or mismatched tag, a name cut by

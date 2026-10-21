@@ -29,6 +29,10 @@ export const notice: readonly (string | string)[] = m.terms_notice<string>({
 
 export const bare: string = m.terms_bare({ link: (chunks) => chunks.join('') })
 
+// No type argument and no contextual type: the handler's return decides the parts.
+const hoisted = m.terms_accept({ link: (chunks) => chunks.join('') })
+export const hoistedParts: readonly string[] = hoisted
+
 export function byCode(code: keyof typeof errors): string {
   return errors[code]({ seconds: 30 })
 }

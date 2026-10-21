@@ -49,9 +49,11 @@ describe('a group holding a markup message', () => {
   const declarations = contentsOf(withGroup([ACCEPT], TERMS_GROUP), 'groups.d.ts')
 
   test('never names a type parameter the file does not introduce', () => {
-    const uses = /\bT\b/u.test(declarations)
-    const introduces = /<T>/u.test(declarations)
-    expect(uses && !introduces).toBe(false)
+    for (const name of ['R', 'T']) {
+      const uses = new RegExp(`\\b${name}\\b`, 'u').test(declarations)
+      const introduces = declarations.includes('<R extends T, T = R>')
+      expect(uses && !introduces).toBe(false)
+    }
   })
 
   test('does not promise a plain string from a member that returns parts', () => {

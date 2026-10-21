@@ -279,13 +279,13 @@ describe('a handler argument the source body uses bare', () => {
   }
 
   test('binds the type parameter the handler names', () => {
-    expect(contentsOf(both(), 'messages/terms.d.ts')).toContain('export declare function terms_accept<T>(')
+    expect(contentsOf(both(), 'messages/terms.d.ts')).toContain('export declare function terms_accept<R extends T, T = R>(')
   })
 
   test('keeps the return type the source kind decides', () => {
     const declarations = contentsOf(both(), 'messages/terms.d.ts')
     expect(declarations).toContain('): string')
-    expect(declarations).not.toContain('readonly (string | T)[]>')
+    expect(declarations).not.toContain('readonly (string | R)[]')
   })
 
   test('never interpolates the handler into a template literal', () => {
@@ -322,7 +322,7 @@ describe('a handler argument the source body uses bare', () => {
       members: [{ key: 'terms.accept', id: 'terms_accept', member: 'accept' }],
     }
     const declarations = contentsOf(english(bare(), [group]), 'groups.d.ts')
-    expect(declarations).toContain('export interface TermsArgs<T> {')
-    expect(declarations).toContain('[K in TermsKey]: <T>(args: TermsArgs<T>[K], opts?: MessageOptions) => TermsReturn<T>[K]')
+    expect(declarations).toContain('export interface TermsArgs<R, T = R> {')
+    expect(declarations).toContain('[K in TermsKey]: <R extends T, T = R>(args: TermsArgs<R, T>[K], opts?: MessageOptions) => TermsReturn<R>[K]')
   })
 })

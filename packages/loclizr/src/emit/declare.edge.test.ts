@@ -117,23 +117,26 @@ describe('declaration line budget', () => {
       declared({ id, kind: 'markup', args: [{ name: 'b', type: { kind: 'markup' } }] }),
       'en',
     )
-    expect(lines[1]).toBe(`export declare function ${id}<T>(`)
-    expect(lines[4]).toBe('): readonly (string | T)[]')
+    expect(lines[1]).toBe(`export declare function ${id}<R extends T, T = R>(`)
+    expect(lines[4]).toBe('): readonly (string | R)[]')
   })
 })
 
 describe('declaration generics', () => {
-  test('binds T for a text message that takes a handler argument', () => {
+  test('binds the handler types for a text message that takes a handler argument', () => {
     const lines = declaration(declared({ id: 'f', args: [{ name: 'b', type: { kind: 'markup' } }] }), 'en')
-    expect(lines[1]).toBe(
-      'export declare function f<T>(args: { b: (chunks: readonly (string | T)[]) => T }, opts?: MessageOptions): string',
-    )
+    expect(lines.slice(1)).toEqual([
+      'export declare function f<R extends T, T = R>(',
+      '  args: { b: (chunks: readonly (string | T)[]) => R },',
+      '  opts?: MessageOptions,',
+      '): string',
+    ])
   })
 
-  test('binds T for a markup message with no arguments at all', () => {
+  test('binds the handler types for a markup message with no arguments at all', () => {
     const lines = declaration(declared({ id: 'f', kind: 'markup' }), 'en')
     expect(lines[1]).toBe(
-      'export declare function f<T>(args?: EmptyArgs, opts?: MessageOptions): readonly (string | T)[]',
+      'export declare function f<R extends T, T = R>(args?: EmptyArgs, opts?: MessageOptions): readonly (string | R)[]',
     )
   })
 

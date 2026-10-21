@@ -673,10 +673,10 @@ describe('selects and markup', () => {
     })
     expect(contentsOf(files, 'messages/terms.d.ts')).toContain(
       lines(
-        'export declare function terms_accept<T>(',
-        '  args: { link: (chunks: readonly (string | T)[]) => T },',
+        'export declare function terms_accept<R extends T, T = R>(',
+        '  args: { link: (chunks: readonly (string | T)[]) => R },',
         '  opts?: MessageOptions,',
-        '): readonly (string | T)[]',
+        '): readonly (string | R)[]',
       ),
     )
   })
@@ -1047,16 +1047,16 @@ describe('groups', () => {
         "import type { EmptyArgs, MessageOptions } from 'loclizr'",
         '',
         "export type TermsKey = 'accept' | 'title'",
-        'export interface TermsArgs<T> {',
-        '  accept: { link: (chunks: readonly (string | T)[]) => T }',
+        'export interface TermsArgs<R, T = R> {',
+        '  accept: { link: (chunks: readonly (string | T)[]) => R }',
         '  title: EmptyArgs',
         '}',
-        'export interface TermsReturn<T> {',
-        '  accept: readonly (string | T)[]',
+        'export interface TermsReturn<R> {',
+        '  accept: readonly (string | R)[]',
         '  title: string',
         '}',
         'export declare const terms: Readonly<{',
-        '  [K in TermsKey]: <T>(args: TermsArgs<T>[K], opts?: MessageOptions) => TermsReturn<T>[K]',
+        '  [K in TermsKey]: <R extends T, T = R>(args: TermsArgs<R, T>[K], opts?: MessageOptions) => TermsReturn<R>[K]',
         '}>',
         '',
       ),
