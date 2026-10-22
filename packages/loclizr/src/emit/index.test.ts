@@ -552,6 +552,29 @@ describe('selects and markup', () => {
     )
   })
 
+  // The language-switching guide tells mixed-direction apps to isolate values
+  // themselves, which is only true while emit adds no FSI/PDI of its own.
+  test('inserts a placeholder with no bidi isolation marks, inside a tag or not', () => {
+    const files = only({
+      message: message({
+        key: 'user.says',
+        source: 'says',
+        kind: 'markup',
+        args: [
+          { name: 'b', type: { kind: 'markup' } },
+          { name: 'name', type: { kind: 'stringish' } },
+          { name: 'text', type: { kind: 'stringish' } },
+        ],
+        bodies: [body('en', [markup('b', [arg('name')]), text(' wrote: '), arg('text')])],
+        origins: [translated('en')],
+      }),
+      locales: ['en'],
+    })
+    const contents = contentsOf(files, 'messages/user.js')
+    expect(contents).toContain('      return [args.b([`${args.name}`]), ` wrote: ${args.text}`]')
+    expect(contents).not.toMatch(/[⁦-⁩]|\\u206[6-9]/)
+  })
+
   test('spreads a branch that reaches a tag into the enclosing array', () => {
     const files = only({
       message: message({
