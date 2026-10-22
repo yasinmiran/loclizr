@@ -106,7 +106,8 @@ choice until the config sets `cookie: { name: 'locale', domain: 'example.com' }`
 ([Configuration](/reference/configuration/#cookie)).
 
 `setLocale` never sets `dir`; for an RTL locale set it yourself from `useLocale()` or a `subscribe`
-listener.
+listener. Values inside a message are not isolated either: see
+[Mixed-direction values](#mixed-direction-values).
 
 After a reload following a persisted switch, the store reads the cookie and sets `<html lang>` to
 match, so a client-only app sees no `<html lang>` warning; [React](/guides/react/) covers the
@@ -121,6 +122,39 @@ loclizr: setLocale() cannot run inside a request scope. Pass { locale } per call
 
 [Server rendering](/guides/server-rendering/) has the per-request shape.
 </Aside>
+
+## Mixed-direction values
+
+Generated code inserts every placeholder value as it is, with no bidi isolation marks around it.
+For `user.says`, `<b>{name}</b> כתב: {text}` in `he`:
+
+```js title="src/loclizr/messages/user.js"
+    case 'he':
+      return [args.b([`${args.name}`]), ` כתב: ${args.text}`]
+```
+
+A user-supplied value that ends in a neutral character, such as the name `Ann!` inside that Hebrew
+sentence, is reordered against the text around it and displays as `!Ann`. The reverse holds in a
+left-to-right sentence: an Arabic name in `{name} - {count, number} reviews` makes the count display
+before the name. Isolate the value yourself, one of two ways:
+
+- Wrap the string in U+2068 and U+2069 (first strong isolate, pop directional isolate) before you
+  pass it.
+- Put the argument inside a tag in the catalog, `<iso>{name}</iso>`, and have the handler render a
+  `<bdi>` element or wrap its text in U+2068 and U+2069.
+
+```json title="locales/he.json"
+{ "user": { "says_isolated": "<iso>{name}</iso> כתב: {text}" } }
+```
+
+```ts
+const isolate = (s: string) => `\u2068${s}\u2069`
+m.user_says_isolated({ iso: (chunks) => isolate(chunks.join('')), name: 'Ann!', text: 'ok' }, { locale: 'he' })
+// ["⁨Ann!⁩"," כתב: ok"]
+```
+
+A bare `{name}` is typed `string | number`, so it cannot carry an element: the isolation goes through
+a tag handler or a string.
 
 ## The per-call override
 

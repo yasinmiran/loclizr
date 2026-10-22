@@ -235,8 +235,9 @@ export function cart_greeting(args, opts) {
 export declare function cart_greeting(args: { name: string | number }, opts?: MessageOptions): string
 ```
 
-A bare `{name}` is `string | number`; ICU stringifies either. The `de-AT` arm was converted in
-memory from i18next's `Servus {{name}}, ...`.
+A bare `{name}` is `string | number`; ICU stringifies either. The value is inserted as it is, with
+no bidi isolation marks; [Mixed-direction values](/guides/language-switching/#mixed-direction-values)
+shows how to isolate it. The `de-AT` arm was converted in memory from i18next's `Servus {{name}}, ...`.
 
 </TabItem>
 <TabItem label="Plural">

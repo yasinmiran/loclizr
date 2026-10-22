@@ -19,6 +19,9 @@ a minor release may break an invariant, and this file says so when it does.
 ### Behaviour changes
 
 - A markup message's declaration now binds `<R extends T, T = R>`: a handler is `(chunks: readonly (string | T)[]) => R` and the message returns `readonly (string | R)[]`, so a call stored in a `const` takes its part type from the handler's return (`readonly string[]` for `(chunks) => chunks.join('')`) instead of `readonly unknown[]`. Group types follow as `<Base>Args<R, T = R>` and `<Base>Return<R>`. `m.x<ReactNode>(...)` and inline `<Parts of={...} />` calls compile as before; a JSX handler stored in a `const` still needs the type argument. Code that names `<Base>Return<X>` or passes two type arguments where `R` does not extend `T` sees the new shape (#93).
+### Fixes
+
+- The language-switching guide now says that generated code inserts placeholder values with no bidi isolation marks, and shows the two ways to isolate a value in a mixed-direction app: wrap the string in U+2068 and U+2069, or put the argument inside a tag whose handler renders `<bdi>` or adds the marks. Generated output is unchanged (#94).
 
 ## 0.2.0 - 2026-10-13
 
