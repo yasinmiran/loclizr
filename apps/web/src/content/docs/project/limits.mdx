@@ -140,12 +140,12 @@ copy and glossary hits do not; glossary is the first candidate after v0.1. See
 
 ## Escape hatches
 
-There is no per-key or per-locale silencing: a rule is re-levelled for every key and locale at once.
+There is no per-key silencing: a rule is re-levelled for every key at once, and per locale only through `severity`'s locale map.
 
 | Hatch | What it does |
 | --- | --- |
 | [`identifiers`](/reference/configuration/#identifiers) | renames a generated function whose mangled key collides or reads badly |
-| [`severity`](/reference/configuration/#severity) | re-levels any rule but three to `error`, `warn` or `off`, catalog-wide |
+| [`severity`](/reference/configuration/#severity) | re-levels any rule but three to `error`, `warn` or `off`, catalog-wide or per locale |
 | `./loclizr/messages/cart.js` | deep-imports one namespace module where the bundler tree-shakes nothing, see [Generated code](/reference/generated-code/#what-tree-shakes-and-what-does-not) |
 | `{ locale }` per call | overrides the store for one message, see [Language switching](/guides/language-switching/#the-per-call-override) |
 | [`record: false`](/reference/configuration/#record) | no context record, no `LZ5003`, no `LZ5007` |

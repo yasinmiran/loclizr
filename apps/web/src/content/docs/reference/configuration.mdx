@@ -75,7 +75,7 @@ Optional: the defaults below apply without one. Groups and format styles need a 
 | --- | --- | --- | --- |
 | `scan.include` | `string[]` | `['src/**/*.{ts,tsx,js,jsx,mts,mjs,svelte,vue,astro}']` | Globs for the usage scan. |
 | `scan.exclude` | `string[]` | `['**/node_modules/**', '**/dist/**']` | Skipped globs; `outDir` always added. |
-| `severity` | `Partial<Record<RuleName, Severity>>` | `{}` | Rule name to `'off'`, `'warn'` or `'error'`. |
+| `severity` | `Partial<Record<RuleName, Severity \| LocaleSeverity>>` | `{}` | Rule name to `'off'`, `'warn'` or `'error'`, or to a map of locale to one. |
 
 `IntlOptions` is `Readonly<Record<string, string | number | boolean>>`.
 
@@ -352,6 +352,53 @@ of the three fixed rules, also the only ones that exit 2:
   error. The report names it in a `nothing generated: 1 fatal (LZ1003)` line and, outside
   `--quiet`, still closes on the counts line.
 - Only `LZ3012` reads it, to name in its hint the severity it is not running at.
+
+### Per-locale levels
+
+A rule can run at a different level for one locale, such as a locale still being translated:
+
+```ts title="loclizr.config.ts"
+import { defineConfig } from 'loclizr'
+
+export default defineConfig({
+  locales: ['en', 'de', 'fr'],
+  severity: {
+    'missing-translation': { default: 'error', fr: 'warn' },
+  },
+})
+```
+
+With `cart.checkout` missing from both `de.json` and `fr.json`, `loclizr check` prints:
+
+```text
+error  LZ3001  missing-translation  locales/de.json  de  cart.checkout
+
+  The de catalog has no value for this key, so this message renders en text.
+
+  fix  add "cart.checkout" to locales/de.json
+
+warn  LZ3001  missing-translation  locales/fr.json  fr  cart.checkout
+
+  The fr catalog has no value for this key, so this message renders en text.
+
+  fix  add "cart.checkout" to locales/fr.json
+
+2 messages, 3 locales (source en), 1 error, 1 warning
+fell back to source text: de 1, fr 1
+```
+
+- A locale key matches the diagnostic's locale exactly: `de` does not cover `de-AT`.
+- Every other locale takes `default`, and so does a diagnostic with no locale, such as `LZ3012`.
+  Without `default` they keep the rule's own level.
+- A key that `locales` does not declare is `LZ1001`, so a typo cannot fall through to `default`:
+
+```text
+error  LZ1001  config-invalid  loclizr.config.ts  fe
+
+  `severity.missing-translation` names `fe`, which `locales` does not declare.
+
+  fix  the declared locales are en, de, fr, or use 'default' for every other locale.
+```
 
 ### Sharing a config across projects
 
