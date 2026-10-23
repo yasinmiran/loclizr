@@ -1,5 +1,5 @@
 import { isAbsolute, relative, resolve } from 'node:path'
-import { RULES, diag } from '../diagnostics'
+import { diag, severityFor } from '../diagnostics'
 import type { Config, Diagnostic, DiscoveredCatalog, LoclizrConfig, RuleName } from '../types'
 import { compareCodepoint, toPosix } from '../util'
 import { DEFAULT_META, DEFAULT_RECORD, isLocaleTag, readFields } from './fields'
@@ -58,8 +58,7 @@ export function resolveConfig(input: {
   // never gets the chance to apply that override on a null config, so the three
   // re-levelable `always` rules are resolved here and resolution carries on
   // wherever the remaining fields still describe a buildable project.
-  const blocks = (rule: RuleName): boolean =>
-    (fields.severity[rule] ?? RULES[rule].severity) === 'error'
+  const blocks = (rule: RuleName): boolean => severityFor(fields.severity, rule, null) === 'error'
 
   const usable = usableCatalogs(input.discovered, [meta, record], diagnostics)
   if (usable.length === 0) {
@@ -127,6 +126,8 @@ export function resolveConfig(input: {
   // Nothing is inferable from an empty locale set, and a second fatal stacked on
   // the one the user already saw is noise.
   if (firstLocale === undefined) return { config: null, diagnostics }
+  const unknownLevels = undeclaredSeverityLocales(fields.severity, locales)
+  if (unknownLevels.length > 0) return { config: null, diagnostics: [...diagnostics, ...unknownLevels] }
 
   // With nothing on disk, LZ1003 has already said the only thing there is to
   // say, and a source catalog nobody has is the same fact a second time.
@@ -232,6 +233,28 @@ export function resolveConfig(input: {
     },
     diagnostics,
   }
+}
+
+// Only the declared list can say a key is a typo, so this waits for it rather
+// than living with the shape checks in fields.ts. A misspelled tag would
+// otherwise fall through to `default` without a word.
+function undeclaredSeverityLocales(severity: Config['severity'], locales: readonly string[]): Diagnostic[] {
+  const declared = new Set(locales)
+  const found: Diagnostic[] = []
+  for (const [rule, level] of Object.entries(severity)) {
+    if (typeof level !== 'object') continue
+    for (const locale of Object.keys(level)) {
+      if (locale === 'default' || declared.has(locale)) continue
+      found.push(
+        diag('config-invalid', {
+          message: `\`severity.${rule}\` names \`${locale}\`, which \`locales\` does not declare.`,
+          hint: `the declared locales are ${locales.join(', ')}, or use 'default' for every other locale.`,
+          locale,
+        }),
+      )
+    }
+  }
+  return found
 }
 
 function sourceNotDeclared(sourceLocale: string): Diagnostic {

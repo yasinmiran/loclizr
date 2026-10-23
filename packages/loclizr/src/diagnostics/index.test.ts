@@ -9,6 +9,7 @@ import {
   renderHuman,
   renderJson,
   RULES,
+  severityFor,
   sortDiagnostics,
 } from './index'
 
@@ -511,5 +512,60 @@ describe('renderJson', () => {
       span: null,
       related: [],
     })
+  })
+})
+
+describe('applySeverity with a per-locale level', () => {
+  const missing = (locale: string | null) =>
+    diag('missing-translation', { message: `no ${locale ?? 'locale'}`, locale: locale ?? undefined })
+
+  test('a locale with its own entry takes it and every other locale takes default', () => {
+    const kept = applySeverity([missing('fr'), missing('de')], {
+      'missing-translation': { default: 'error', fr: 'warn' },
+    })
+    expect(kept.map((diagnostic) => [diagnostic.locale, diagnostic.severity])).toEqual([
+      ['fr', 'warn'],
+      ['de', 'error'],
+    ])
+  })
+
+  test('a diagnostic with no locale takes default', () => {
+    const [kept] = applySeverity([missing(null)], { 'missing-translation': { default: 'warn', fr: 'error' } })
+    expect(kept?.severity).toBe('warn')
+  })
+
+  test('without default, an unnamed locale keeps the rule default', () => {
+    const kept = applySeverity([missing('fr'), missing('de'), missing(null)], {
+      'missing-translation': { fr: 'off' },
+    })
+    expect(kept.map((diagnostic) => [diagnostic.locale, diagnostic.severity])).toEqual([
+      ['de', 'error'],
+      [null, 'error'],
+    ])
+  })
+
+  test('a locale entry matches the tag exactly, so de does not cover de-AT', () => {
+    const [kept] = applySeverity([missing('de-AT')], { 'missing-translation': { de: 'warn' } })
+    expect(kept?.severity).toBe('error')
+  })
+
+  test('fatality follows the resolved level, as it does for the bare form', () => {
+    const fatal = [diag('catalog-json-syntax', { message: 'bad JSON', locale: 'fr', fatal: true })]
+    expect(hasFatal(applySeverity(fatal, { 'catalog-json-syntax': { fr: 'warn' } }))).toBe(false)
+    expect(hasFatal(applySeverity(fatal, { 'catalog-json-syntax': { de: 'warn' } }))).toBe(true)
+  })
+})
+
+describe('severityFor', () => {
+  test('resolves a bare level, a per-locale level and an absent rule', () => {
+    expect(severityFor({ 'unused-message': 'warn' }, 'unused-message', 'fr')).toBe('warn')
+    expect(severityFor({ 'unused-message': { fr: 'error' } }, 'unused-message', 'fr')).toBe('error')
+    expect(severityFor({ 'unused-message': { fr: 'error' } }, 'unused-message', null)).toBe('off')
+    expect(severityFor({}, 'missing-translation', 'fr')).toBe('error')
+  })
+
+  test('a locale named like an Object.prototype member is not inherited', () => {
+    const overrides = { 'missing-translation': { default: 'warn' } } as const
+    expect(severityFor(overrides, 'missing-translation', 'constructor')).toBe('warn')
   })
 })

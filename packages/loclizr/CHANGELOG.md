@@ -22,6 +22,7 @@ a minor release may break an invariant, and this file says so when it does.
 ### Fixes
 
 - The language-switching guide now says that generated code inserts placeholder values with no bidi isolation marks, and shows the two ways to isolate a value in a mixed-direction app: wrap the string in U+2068 and U+2069, or put the argument inside a tag whose handler renders `<bdi>` or adds the marks. Generated output is unchanged (#94).
+- `severity` accepts a per-locale value, such as `{ 'missing-translation': { default: 'error', fr: 'warn' } }`, so a rollout locale can run a rule at a different level than the rest. A locale key matches exactly, every other locale and a diagnostic with no locale take `default`, and a key that `locales` does not declare is `LZ1001 config-invalid`. A bare level still applies to every locale (#121).
 
 ## 0.2.0 - 2026-10-13
 

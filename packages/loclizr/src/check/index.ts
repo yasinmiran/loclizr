@@ -1,4 +1,4 @@
-import { diag } from '../diagnostics'
+import { diag, severityFor } from '../diagnostics'
 import { unify } from '../icu'
 import type {
   Arg,
@@ -575,7 +575,7 @@ function describeHint(program: Program, undescribed: readonly Message[]): string
   const width = Math.max(...labels.map((label) => label.length))
   // The alternative has to name the severity the rule is not already running at,
   // or it offers the setting the project already has.
-  const gated = program.config.severity['ambiguous-source'] === 'error'
+  const gated = severityFor(program.config.severity, 'ambiguous-source', null) === 'error'
   return [
     meta === null ? 'set meta in loclizr.config.ts, then describe:' : `add descriptions in ${meta}:`,
     ...labels.map((label) => `       ${label.padEnd(width + 1)}{ "description": "" }`),

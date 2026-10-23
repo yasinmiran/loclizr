@@ -2,9 +2,11 @@ import type {
   CookieAttributes,
   FormatsConfig,
   IntlOptions,
+  LocaleSeverity,
   LoclizrConfig,
   RuleName,
   Severity,
+  SeverityOverrides,
 } from '../types'
 import { RULES } from '../diagnostics'
 import { countToken, globMetacharacterIn } from './pattern'
@@ -27,7 +29,7 @@ export interface UserFields {
   readonly formats: FormatsConfig
   readonly scanInclude: readonly string[]
   readonly scanExclude: readonly string[]
-  readonly severity: Readonly<Partial<Record<RuleName, Severity>>>
+  readonly severity: SeverityOverrides
 }
 
 export interface FieldIssue {
@@ -451,14 +453,14 @@ function readOptionsRecord(
 function readSeverity(
   raw: Readonly<Record<string, unknown>>,
   issues: FieldIssue[],
-): Readonly<Partial<Record<RuleName, Severity>>> {
+): SeverityOverrides {
   const value = raw['severity']
   if (value === undefined) return {}
   if (!isPlainObject(value)) {
     issues.push(expected('severity', 'a map of rule name to off, warn or error', SEVERITY_EXAMPLE))
     return {}
   }
-  const overrides: Partial<Record<RuleName, Severity>> = {}
+  const overrides: Partial<Record<RuleName, Severity | LocaleSeverity>> = {}
   for (const [rule, level] of Object.entries(value)) {
     if (!Object.hasOwn(RULES, rule)) {
       issues.push({
@@ -474,14 +476,41 @@ function readSeverity(
       })
       continue
     }
+    if (isPlainObject(level)) {
+      const perLocale = readLocaleSeverity(rule, level, issues)
+      if (perLocale !== null) overrides[rule as RuleName] = perLocale
+      continue
+    }
     if (typeof level !== 'string' || !SEVERITIES.includes(level)) {
       const example = `severity: { '${rule}': 'warn' }`
-      issues.push(expected(`severity.${rule}`, "'off', 'warn' or 'error'", example))
+      const shape = "'off', 'warn' or 'error', or a map of locale to one"
+      issues.push(expected(`severity.${rule}`, shape, example))
       continue
     }
     overrides[rule as RuleName] = level as Severity
   }
   return overrides
+}
+
+// Locale keys are checked against `locales` later, in resolve.ts, once the
+// declared list is known; here only the levels are.
+function readLocaleSeverity(
+  rule: string,
+  value: Readonly<Record<string, unknown>>,
+  issues: FieldIssue[],
+): LocaleSeverity | null {
+  const levels: Record<string, Severity> = {}
+  let valid = true
+  for (const [locale, level] of Object.entries(value)) {
+    if (typeof level === 'string' && SEVERITIES.includes(level)) {
+      levels[locale] = level as Severity
+      continue
+    }
+    const example = `severity: { '${rule}': { default: 'error', '${locale}': 'warn' } }`
+    issues.push(expected(`severity.${rule}.${locale}`, "'off', 'warn' or 'error'", example))
+    valid = false
+  }
+  return valid ? levels : null
 }
 
 function readGlobs(

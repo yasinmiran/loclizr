@@ -375,8 +375,18 @@ export interface Config {
   readonly fallback: 'bcp47' | Readonly<Record<string, readonly string[]>>
   readonly formats: FormatsConfig
   readonly scan: ScanConfig
-  readonly severity: Readonly<Partial<Record<RuleName, Severity>>>
+  readonly severity: SeverityOverrides
 }
+
+// A bare level applies to every locale. The object form names a level per
+// declared locale, matched exactly, and `default` for every other locale and for
+// a diagnostic with no locale; without `default` those keep the rule's own level.
+export interface LocaleSeverity {
+  readonly default?: Severity | undefined
+  readonly [locale: string]: Severity | undefined
+}
+
+export type SeverityOverrides = Readonly<Partial<Record<RuleName, Severity | LocaleSeverity>>>
 
 export interface LoclizrConfig {
   readonly locales?: readonly string[] | undefined
@@ -405,7 +415,7 @@ export interface LoclizrConfig {
         readonly exclude?: readonly string[] | undefined
       }
     | undefined
-  readonly severity?: Readonly<Partial<Record<RuleName, Severity>>> | undefined
+  readonly severity?: SeverityOverrides | undefined
 }
 
 export interface Program {

@@ -512,6 +512,52 @@ describe('LZ1001 config-invalid', () => {
     expect(resolved.severity).toEqual({ 'ambiguous-source': 'error', 'unused-message': 'warn' })
   })
 
+  it('keeps a per-locale level verbatim', () => {
+    const resolved = config(
+      run({ severity: { 'missing-translation': { default: 'error', fr: 'warn' } } }, [
+        catalog('en'),
+        catalog('fr'),
+      ]),
+    )
+    expect(resolved.severity).toEqual({ 'missing-translation': { default: 'error', fr: 'warn' } })
+  })
+
+  it('rejects a per-locale key that is not a declared locale, naming the declared ones', () => {
+    const result = run(
+      { locales: ['en', 'fr'], severity: { 'missing-translation': { default: 'error', de: 'warn' } } },
+      [catalog('en'), catalog('fr')],
+    )
+    expect(result.config).toBeNull()
+    const diagnostic = only(result.diagnostics, 'LZ1001')
+    expect(diagnostic.message).toBe(
+      '`severity.missing-translation` names `de`, which `locales` does not declare.',
+    )
+    expect(diagnostic.hint).toBe("the declared locales are en, fr, or use 'default' for every other locale.")
+  })
+
+  it('rejects an unknown level inside a per-locale value', () => {
+    const result = loose({ severity: { 'missing-translation': { fr: 'loud' } } }, 'en', 'fr')
+    expect(result.config).toBeNull()
+    expect(only(result.diagnostics, 'LZ1001').message).toContain('severity.missing-translation.fr')
+  })
+
+  it('rejects a per-locale value that is not a plain object of levels', () => {
+    for (const value of [['warn'], null, 3]) {
+      const result = loose({ severity: { 'missing-translation': value } }, 'en')
+      expect(result.config).toBeNull()
+      expect(codes(result.diagnostics)).toEqual(['LZ1001'])
+    }
+  })
+
+  it('reads default for a fatal rule resolved before any locale is known', () => {
+    const result = run(
+      { locales: ['en', 'en_GB'], severity: { 'locale-tag-invalid': { default: 'warn' } } },
+      [catalog('en')],
+    )
+    expect(codes(result.diagnostics)).toContain('LZ1002')
+    expect(config(result).locales).toEqual(['en'])
+  })
+
   it('rejects a sourceLocale the locale list does not declare', () => {
     const result = run({ locales: ['de'], sourceLocale: 'en' }, [catalog('en'), catalog('de')])
     expect(result.config).toBeNull()

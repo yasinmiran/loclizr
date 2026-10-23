@@ -639,6 +639,18 @@ down would let a build write outside the project root and still exit 0, and
 turning `config-invalid` down is self-referential. A `severity` entry naming one
 of those three is itself `LZ1001 config-invalid`, raised by `resolveConfig`.
 
+A value is a bare level, which applies to every locale, or a map of locale to
+level for a rule a rollout locale should run differently:
+`severity: { 'missing-translation': { default: 'error', fr: 'warn' } }`. A
+diagnostic whose `locale` has an entry takes it, matched exactly, so `de` does
+not cover `de-AT`; any other diagnostic, one with `locale: null` included, takes
+`default`, and keeps the rule's default level when `default` is absent. A key
+other than `default` that `locales` does not declare is `LZ1001` naming the
+declared locales, because a misspelled tag would otherwise fall through to
+`default` without a word. Fatality follows the resolved level exactly as it
+does for the bare form. `severityFor` in M1 is the one place the value is
+resolved.
+
 `cookie` takes a name, `cookie: 'locale'`, or an object carrying the name and
 the attributes `setLocale` writes:
 `cookie: { name, domain?, path?, secure?, sameSite?, maxAge? }`. Each attribute
@@ -2591,7 +2603,8 @@ severity column and the `or` line reading `make this a hard gate` and naming
 
 **The `or` pair is chosen by M5, when it builds the hint.** It is the one place
 an analysis module looks at `config.severity`, and it looks at exactly one key,
-`config.severity['ambiguous-source']`: `'error'` prints the turn-it-down pair,
+`ambiguous-source`, resolved through `severityFor` with no locale because the
+diagnostic carries none, so a per-locale value reads its `default`: `'error'` prints the turn-it-down pair,
 anything else prints the harden-it pair. The alternative is a structured hint
 that M10 completes while re-levelling, which buys nothing, because the sentence
 is English rather than a decision. The load-bearing half of the seam is
@@ -2659,8 +2672,8 @@ Every module emits a `Diagnostic` at its rule's **default** severity, stamping
 `Diagnostic.severity` is `'warn' | 'error'` and a default-`off` rule has no
 representable stamp. **No analysis module re-levels a diagnostic, and M10 alone
 applies `config.severity`.** It runs `applySeverity` over the whole set once,
-before reporting: the effective severity is `overrides[rule] ??
-RULES[rule].severity`, the diagnostic is dropped when that is `off` unless it is
+before reporting: the effective severity is
+`severityFor(overrides, rule, d.locale)` (section 3), the diagnostic is dropped when that is `off` unless it is
 fatal (`Diagnostic.fatal` true), in which case it is kept at `warn`, because
 `off` cannot unblock the tree and so must not hide why a run wrote nothing and
 exited 1; otherwise its severity is rewritten to it. That is what makes a
@@ -2671,8 +2684,8 @@ The invariant is about **deciding**, not about reading, and the difference is
 worth stating because the frozen wording read as the second and no module could
 keep it. Analysis modules do read configuration where the spec tells them to:
 M5 resolves `LZ3001`'s `file` from `config.catalogs`, gates `LZ3011` on
-`config.formats.timeZone`, and names `config.severity['ambiguous-source']` in
-`LZ3012`'s hint. What none of them may do is change whether a diagnostic is
+`config.formats.timeZone`, and names the level `config.severity` resolves for
+`ambiguous-source` in `LZ3012`'s hint. What none of them may do is change whether a diagnostic is
 raised, or at what severity it is stamped, based on `config.severity`. Exactly
 one rule reaches into that field at all, for one key, to write a sentence.
 
@@ -3172,7 +3185,7 @@ claim one. Ranges are thematic and a range may span two owners.
 
 | Code | Rule | Default | Fatal | Owner | Trigger |
 | --- | --- | --- | --- | --- | --- |
-| LZ1001 | `config-invalid` | error | always, exit 2 | M9 | the config file threw, a field failed validation or is not a config field, or `severity` names `config-invalid`, `outdir-unsafe` or `output-unwritable` |
+| LZ1001 | `config-invalid` | error | always, exit 2 | M9 | the config file threw, a field failed validation or is not a config field, or `severity` names `config-invalid`, `outdir-unsafe` or `output-unwritable`, or a per-locale `severity` value has a key other than `default` that `locales` does not declare |
 | LZ1002 | `locale-tag-invalid` | error | always | M9 | a locale **declared** in `locales`, or the declared `sourceLocale`, is rejected by `Intl.getCanonicalLocales`; one tag in both places is reported once |
 | LZ1003 | `no-catalogs-found` | error | always | M9 | the `catalogs` pattern matched nothing |
 | LZ1004 | `source-catalog-missing` | error | always | M9 | no catalog file for the source locale, or the source locale could not be inferred |
@@ -3942,8 +3955,18 @@ export interface Config {
   readonly fallback: 'bcp47' | Readonly<Record<string, readonly string[]>>
   readonly formats: FormatsConfig
   readonly scan: ScanConfig
-  readonly severity: Readonly<Partial<Record<RuleName, Severity>>>
+  readonly severity: SeverityOverrides
 }
+
+// A bare level applies to every locale. The object form names a level per
+// declared locale, matched exactly, and `default` for every other locale and for
+// a diagnostic with no locale; without `default` those keep the rule's own level.
+export interface LocaleSeverity {
+  readonly default?: Severity | undefined
+  readonly [locale: string]: Severity | undefined
+}
+
+export type SeverityOverrides = Readonly<Partial<Record<RuleName, Severity | LocaleSeverity>>>
 
 export interface LoclizrConfig {
   readonly locales?: readonly string[] | undefined
@@ -3972,7 +3995,7 @@ export interface LoclizrConfig {
         readonly exclude?: readonly string[] | undefined
       }
     | undefined
-  readonly severity?: Readonly<Partial<Record<RuleName, Severity>>> | undefined
+  readonly severity?: SeverityOverrides | undefined
 }
 
 export interface Program {
@@ -4161,7 +4184,7 @@ Rules of engagement:
 - Every module emits diagnostics at the rule's **default** severity, stamping
   `warn` where that default is `off`, and no module re-levels. M10 alone applies
   `config.severity`, once, over the whole set. The single read of that field
-  outside M10 is M5 naming `config.severity['ambiguous-source']` in `LZ3012`'s
+  outside M10 is M5 naming the resolved `ambiguous-source` level in `LZ3012`'s
   hint (section 10.1), which changes a sentence and not a severity.
 - `packages/loclizr/package.json` is frozen. No module adds a dependency. The
   freeze is scoped to that one file; `examples/vite-react/package.json` belongs
@@ -4214,7 +4237,16 @@ types at the end of that file, plus:
 
 ```ts
 // src/diagnostics/index.ts
-import type { Config, Diagnostic, DiagnosticFields, Rule, RuleName, Summary } from '../types'
+import type {
+  Config,
+  Diagnostic,
+  DiagnosticFields,
+  Rule,
+  RuleName,
+  Severity,
+  SeverityOverrides,
+  Summary,
+} from '../types'
 
 export declare const RULES: Readonly<Record<RuleName, Rule>>
 export declare function diag(rule: RuleName, fields: DiagnosticFields): Diagnostic
@@ -4222,6 +4254,11 @@ export declare function applySeverity(
   diagnostics: readonly Diagnostic[],
   overrides: Config['severity'],
 ): readonly Diagnostic[]
+export declare function severityFor(
+  overrides: SeverityOverrides,
+  rule: RuleName,
+  locale: string | null,
+): Severity
 export declare function sortDiagnostics(diagnostics: readonly Diagnostic[]): readonly Diagnostic[]
 export declare function hasError(diagnostics: readonly Diagnostic[]): boolean
 export declare function hasFatal(diagnostics: readonly Diagnostic[]): boolean
@@ -4263,8 +4300,12 @@ default is `true` so that a forgotten field blocks the build rather than letting
 it emit against a source catalog it could not read. `hasFatal` is
 `d.fatal && d.severity === 'error'`.
 
-`applySeverity` resolves each diagnostic's effective severity as
-`overrides[rule] ?? RULES[rule].severity`, drops it when that is `off` and the
+`severityFor(overrides, rule, locale)` returns a bare override as is; for a
+per-locale override, the level of an own key equal to `locale`, else `default`;
+and `RULES[rule].severity` when neither applies or the rule has no override. A
+key is read with `Object.hasOwn`, so a locale never reaches a level through the
+prototype. `applySeverity` resolves each diagnostic's effective severity as
+`severityFor(overrides, d.rule, d.locale)`, drops it when that is `off` and the
 diagnostic is not fatal, rewrites a fatal one asked for `off` to `warn`, and
 otherwise rewrites `severity` to it. It never consults the stamped severity, so
 a default-`off` rule stays silent without its producing module knowing anything
@@ -4571,7 +4612,7 @@ target's own arg-level dedup would hide.
 It reads exactly four fields of `Config`, each of them for a string it has to
 print: `config.catalogs` for `LZ3001`'s `file`, `config.meta` for the path
 the fix lines of `LZ3012` and `LZ3015` tell the user to edit, `config.formats.timeZone` to gate
-`LZ3011`, and `config.severity['ambiguous-source']` to pick the `or` pair in
+`LZ3011`, and the level `severityFor` resolves for `ambiguous-source` to pick the `or` pair in
 `LZ3012`'s hint (section 10.1). It stamps every diagnostic at the rule's default
 severity and re-levels nothing. The source locale comes from
 `Program.sourceLocale`, not from the config. Every message or hint that spells

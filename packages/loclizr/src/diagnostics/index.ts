@@ -8,6 +8,7 @@ import type {
   Rule,
   RuleName,
   Severity,
+  SeverityOverrides,
   Summary,
 } from '../types'
 import { compareCodepoint } from '../util'
@@ -111,7 +112,7 @@ export function applySeverity(
       kept.push(diagnostic)
       continue
     }
-    const requested: Severity = overrides[diagnostic.rule] ?? RULES[diagnostic.rule].severity
+    const requested = severityFor(overrides, diagnostic.rule, diagnostic.locale)
     // 'off' cannot unblock the tree, so it cannot hide why the run wrote
     // nothing and exited 1 either; a fatal diagnostic is heard at warn.
     const effective: Severity = requested === 'off' && diagnostic.fatal ? 'warn' : requested
@@ -119,6 +120,17 @@ export function applySeverity(
     kept.push(diagnostic.severity === effective ? diagnostic : { ...diagnostic, severity: effective })
   }
   return kept
+}
+
+// The one place a configured level is resolved, so every reader of `severity`
+// agrees on what a per-locale value means for a given diagnostic.
+export function severityFor(overrides: SeverityOverrides, rule: RuleName, locale: string | null): Severity {
+  const level = overrides[rule]
+  if (level === undefined) return RULES[rule].severity
+  if (typeof level === 'string') return level
+  // Own keys only: a locale tag never reaches a level through the prototype.
+  const named = locale !== null && Object.hasOwn(level, locale) ? level[locale] : undefined
+  return named ?? level.default ?? RULES[rule].severity
 }
 
 export function sortDiagnostics(diagnostics: readonly Diagnostic[]): readonly Diagnostic[] {

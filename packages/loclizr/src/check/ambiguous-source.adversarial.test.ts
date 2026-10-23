@@ -146,6 +146,21 @@ describe('keys that share one source string', () => {
     expect(ambiguous.severity).toBe('warn')
   })
 
+  it('reads the default of a per-locale level, since the diagnostic carries no locale', () => {
+    const gated = runChecks(
+      program({
+        config: config({
+          locales: ['en'],
+          sourceLocale: 'en',
+          severity: { 'ambiguous-source': { default: 'error' } },
+        }),
+        messages: [openMessage('dialog.open', 12), openMessage('file.open', 31)],
+      }),
+    )
+    const lines = (only(gated, 'LZ3012').hint ?? '').split('\n')
+    expect(lines[3]).toBe('or   turn the rule down in loclizr.config.ts:')
+  })
+
   it('flips the alternative for error alone, so an explicit warn reads like the default', () => {
     for (const severity of ['warn', 'off'] as const) {
       const diagnostics = runChecks(
