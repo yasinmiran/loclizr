@@ -101,6 +101,27 @@ describe('the detected cookie', () => {
     expect(listener).not.toHaveBeenCalled()
   })
 
+  test('reads the configured cookie when the list registers after the first read', () => {
+    document.cookie = 'lang=de; path=/'
+    document.documentElement.lang = 'en'
+    const listener = vi.fn()
+    subscribe(listener)
+    getLocale()
+    $configure1({ ...SETUP, cookie: 'lang' })
+    expect(getLocale()).toBe('de')
+    expect(document.documentElement.lang).toBe('de')
+    expect(listener).not.toHaveBeenCalled()
+  })
+
+  test('drops a default-named cookie read before the list registered another name', () => {
+    document.cookie = 'locale=de; path=/'
+    document.documentElement.lang = 'en'
+    getRawLocale()
+    $configure1({ ...SETUP, cookie: 'lang' })
+    expect(getLocale()).toBe('en')
+    expect(document.documentElement.lang).toBe('en')
+  })
+
   test('leaves html lang to setLocale when it ran before the list registered', () => {
     document.cookie = 'locale=de; path=/'
     getRawLocale()

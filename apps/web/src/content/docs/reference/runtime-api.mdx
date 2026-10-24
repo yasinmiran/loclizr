@@ -62,7 +62,8 @@ Then it matches by exact tag and subtag truncation, falling back to the source l
 - `m.getLocale()`, typed as `AppLocale`, is the usual import.
 - The first generated `_locale.js` to load registers the list. Called before any message module
   loads, it returns the stored tag or `'en'` and warns once outside production, naming the missing
-  import.
+  import. Such an early read can only look for a cookie named `locale`, so a tree configured with
+  another `cookie` reads its own cookie again when it registers.
 - On a server outside a request scope it returns the source locale, so a prerender gets source
   text, not a 500. Where `loclizr/server` is loaded, it warns once to wrap the whole request in
   `runWithLocale`; a message call outside a scope prints the same warning.

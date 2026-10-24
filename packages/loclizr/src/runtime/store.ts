@@ -124,6 +124,13 @@ export function registerDefaults(setup: {
   const registered = state.setup
   if (registered === null) {
     state.setup = setup
+    // A read before any registration could only look for the default cookie
+    // name. getLocale() has handed out no detected tag yet, so detecting again
+    // with the configured name moves no snapshot.
+    if (state.raw === null && state.detected !== null && setup.cookie !== 'locale') {
+      state.pendingLang = null
+      state.detected = detect()
+    }
     declarePendingLang(state)
     return
   }

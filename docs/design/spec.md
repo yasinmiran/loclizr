@@ -2915,6 +2915,11 @@ comes first, never at module load, and only where
 The result is latched, a miss included, so a cookie written after that first
 read cannot move a snapshot `useSyncExternalStore` has already handed out with
 no notification; `setLocale` is the way to change the locale afterwards.
+A read before any generated module has registered can look only for the
+default name `locale`. When the first registration names another cookie and
+`setLocale` has not run, detection runs once more with the configured name.
+That moves no snapshot, because `getLocale()` hands out no detected tag until a
+locale list is registered.
 
 Never `navigator.languages`. Never `localStorage`. The server saw neither, so
 either one guarantees a hydration mismatch.
