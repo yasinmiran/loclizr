@@ -26,6 +26,9 @@ a minor release may break an invariant, and this file says so when it does.
 ### Fixes
 
 - With a `cookie` other than `locale` in the config, a `getLocale()` that ran before the generated tree registered latched a read of the default `locale` cookie, so the configured cookie was never read and the client stayed on the source locale while the server rendered the cookie's locale. The first registration now detects again with the configured name.
+### Fixes
+
+- The Vue example's `useLocale` composable now subscribes in `onMounted` and unsubscribes in `onUnmounted`, as the Vue guide shows, so a server render no longer leaves a listener on the process-wide store; its test file gains a server render test and matches the guide's again; the package is unchanged.
 
 ## 0.2.0 - 2026-10-13
 

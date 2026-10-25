@@ -1,6 +1,7 @@
 // @vitest-environment jsdom
 import { mount } from '@vue/test-utils'
-import { computed, defineComponent, effectScope, h, nextTick } from 'vue'
+import { computed, createSSRApp, defineComponent, h, nextTick, type ShallowRef } from 'vue'
+import { renderToString } from 'vue/server-renderer'
 import { setLocale } from 'loclizr'
 import { beforeEach, expect, test } from 'vitest'
 import App from './App.vue'
@@ -39,10 +40,24 @@ test('a computed that never reads the ref is cached', async () => {
   expect(wrapper.text()).toBe('Home')
 })
 
-test('the subscription ends with its scope', () => {
-  const scope = effectScope()
-  const locale = scope.run(() => useLocale())!
-  scope.stop()
+test('the subscription ends on unmount', () => {
+  let locale!: ShallowRef<m.AppLocale>
+  const Probe = defineComponent(() => {
+    locale = useLocale()
+    return () => h('span', locale.value)
+  })
+  mount(Probe).unmount()
+  setLocale('de', { persist: false })
+  expect(locale.value).toBe('en')
+})
+
+test('a server render leaves no subscription', async () => {
+  let locale!: ShallowRef<m.AppLocale>
+  const Probe = defineComponent(() => {
+    locale = useLocale()
+    return () => h('span', locale.value)
+  })
+  await renderToString(createSSRApp(Probe))
   setLocale('de', { persist: false })
   expect(locale.value).toBe('en')
 })
