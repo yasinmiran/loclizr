@@ -172,12 +172,14 @@ describe('select options a catalog can legally write', () => {
     expect(codes(result.diagnostics)).toStrictEqual(['LZ2001'])
   })
 
-  it('keeps the first option union when one select name repeats', () => {
+  it('unions the options when one select name repeats', () => {
     const result = lower(
       '{s, select, a {x} other {y}} {s, select, b {x} other {y}}',
       icuContext(),
     )
-    expect(result.args).toStrictEqual([{ name: 's', type: { kind: 'select', options: ['a'] } }])
+    expect(result.args).toStrictEqual([
+      { name: 's', type: { kind: 'select', options: ['a', 'b'] } },
+    ])
     expect(result.diagnostics).toStrictEqual([])
   })
 

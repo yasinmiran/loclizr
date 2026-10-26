@@ -838,6 +838,14 @@ narrowing to `number` or `date` still survives.
 repeat through `unify`. `{d, date, medium} at {d, time, short}` is legitimate
 and unifies cleanly to `date`. `{x, number} of {x, date, short}` does not, and
 is `LZ2009 arg-type-conflict-local`, an error fatal for that message only.
+Two `select`s on one name, `{g, select, male {he} other {they}} saw
+{g, select, female {her} other {them}}`, fold to the union of both option lists,
+kept in first-appearance order (`male`, `female`), so the declaration prints
+`g: 'female' | 'male'`. The across-locale rule that
+keeps the accumulator's options does not apply inside one value, where every
+`select` is the same locale's, and keeping only the first would type out an
+option the value renders and report a translation that handles it as
+`LZ3009`.
 Without the dedup, `Body.args` would carry two entries for one name and emit
 would print an arbitrary winner into a declaration whose body formats both
 ways. Argument names are normalized to NFC first, so an NFC and an NFD `café`
@@ -4609,10 +4617,10 @@ no entry in `Message.spans`, so its `file` is `config.catalogs` with
 which it can do because section 3 fixes what that pattern is relative to and
 section 2 fixes every key of a split catalog as `<ns>.<rest>`. `LZ3008` and
 `LZ3009` read the source's reachable option set from the `select` `ArgType` in
-`comparison.source.args`, already deduplicated through `unify`, and the
-target's from the union of every `select` node on that name in the target
-body, because a second target `select` on one name renders branches the
-target's own arg-level dedup would hide.
+`comparison.source.args`, which `lower` already folded into the union of every
+`select` on that name (section 5.1), and the target's from the union of every
+`select` node on that name in the target body, which is the same set read off
+the nodes.
 
 It reads exactly four fields of `Config`, each of them for a string it has to
 print: `config.catalogs` for `LZ3001`'s `file`, `config.meta` for the path

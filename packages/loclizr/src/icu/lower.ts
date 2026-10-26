@@ -396,8 +396,17 @@ function register(
     }
     return name
   }
-  state.args[position] = { name, type: unified }
+  state.args[position] = { name, type: withinLocale(unified, existing.type, type) }
   return name
+}
+
+// `unify` keeps the accumulator's options because across locales only the
+// source's count. Within one value every select is the source's own, so a
+// call site may pass any option either one names.
+function withinLocale(unified: ArgType, a: ArgType, b: ArgType): ArgType {
+  if (a.kind !== 'select' || b.kind !== 'select') return unified
+  const added = b.options.filter((option) => !a.options.includes(option))
+  return added.length === 0 ? a : { kind: 'select', options: [...a.options, ...added] }
 }
 
 // `stringish` is the compiler's word for it; the record and every user facing
