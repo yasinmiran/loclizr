@@ -32,6 +32,9 @@ a minor release may break an invariant, and this file says so when it does.
 ### Fixes
 
 - A source value that uses one argument in two `select`s, such as `{g, select, male {he} other {they}} saw {g, select, female {her} other {them}}`, now types the argument as the union of both option lists (`'female' | 'male'`), where it kept only the first select's options. Calls that pass an option only the second select names now compile, and a translation that handles it no longer reports `LZ3009 select-option-extra`. The record's `options` for that argument gains the extra names, so the next `loclizr check` on such a project reports `LZ5003` until `loclizr build` rewrites the record.
+### Fixes
+
+- The pipeline diagram on the How it works page now says the check step runs 59 rules, not 56, matching the rule table; a test keeps the two in step.
 
 ## 0.2.0 - 2026-10-13
 

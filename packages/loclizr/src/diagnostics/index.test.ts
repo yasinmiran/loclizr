@@ -1,3 +1,6 @@
+import { readFileSync } from 'node:fs'
+import { dirname, resolve } from 'node:path'
+import { fileURLToPath } from 'node:url'
 import { afterEach, describe, expect, test, vi } from 'vitest'
 import type { Diagnostic, RuleName, Span, Summary } from '../types'
 import {
@@ -68,6 +71,20 @@ afterEach(() => {
 describe('RULES', () => {
   test('carries the sixty rules of the catalog', () => {
     expect(Object.keys(RULES)).toHaveLength(60)
+  })
+
+  // The docs site's pipeline diagram is drawn by hand, so nothing else notices
+  // when a new rule leaves its count behind.
+  test('matches the rule count the docs pipeline diagram prints', () => {
+    const diagrams = resolve(
+      dirname(fileURLToPath(import.meta.url)),
+      '../../../../apps/web/src/assets/diagrams',
+    )
+    for (const file of ['pipeline.json', 'pipeline.excalidraw', 'pipeline.svg']) {
+      const counts = [...readFileSync(resolve(diagrams, file), 'utf8').matchAll(/(\d+) rules/g)]
+      expect(counts.length, file).toBeGreaterThan(0)
+      for (const [, count] of counts) expect(Number(count), file).toBe(Object.keys(RULES).length)
+    }
   })
 
   test('keys the table by the rule name it holds', () => {

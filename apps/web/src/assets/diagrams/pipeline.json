@@ -13,7 +13,7 @@
     { "id": "lower", "label": "Parse ICU once\none lowered tree per message", "kind": "service", "group": "build" },
     { "id": "scan", "label": "Scan usage sites\nfile and scope", "kind": "service", "group": "build" },
     { "id": "emit", "label": "Emit", "kind": "service", "group": "build" },
-    { "id": "check", "label": "Check\n56 rules", "kind": "service", "group": "build" },
+    { "id": "check", "label": "Check\n59 rules", "kind": "service", "group": "build" },
     { "id": "record", "label": "Record", "kind": "service", "group": "build" },
     { "id": "tree", "label": "src/loclizr/\ntyped ESM and .d.ts", "kind": "datastore", "group": "outputs" },
     { "id": "report", "label": "Diagnostics\nand exit code", "kind": "service", "group": "outputs" },
