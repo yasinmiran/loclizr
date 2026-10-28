@@ -262,7 +262,9 @@ function renderOne(group: readonly [Diagnostic, ...Diagnostic[]], paint: Palette
     repeated ? renderGroupHeader(group, paint) : renderHeader(diagnostic, paint),
     '',
   ]
-  for (const line of bodyLines(diagnostic.message)) lines.push(indent(line, 2))
+  for (const line of bodyLines(keysOnOneLine(diagnostic.message, diagnostic))) {
+    lines.push(indent(line, 2))
+  }
   if (repeated) {
     lines.push('')
     for (const line of renderLocations(group, paint)) lines.push(line)
@@ -273,7 +275,7 @@ function renderOne(group: readonly [Diagnostic, ...Diagnostic[]], paint: Palette
   }
   if (diagnostic.hint !== null) {
     lines.push('')
-    for (const line of renderHint(diagnostic.hint)) lines.push(line)
+    for (const line of renderHint(keysOnOneLine(diagnostic.hint, diagnostic))) lines.push(line)
   }
   return lines.join('\n')
 }
@@ -283,6 +285,17 @@ function renderOne(group: readonly [Diagnostic, ...Diagnostic[]], paint: Palette
 // neutralized inside each line.
 function bodyLines(text: string): readonly string[] {
   return text.replaceAll('\r\n', '\n').split('\n').map(sanitize)
+}
+
+// The module that raised a diagnostic quotes its keys inside the message and the
+// hint too, and there a key's newline would survive the split above, breaking a
+// quoted key across two lines or printing what reads as a second diagnostic.
+// Longest first, so a key that contains another is folded whole.
+function keysOnOneLine(text: string, diagnostic: Diagnostic): string {
+  const keys = [diagnostic.key, ...diagnostic.related.map((entry) => entry.key)]
+    .filter((key): key is string => key !== null && /[\r\n]/u.test(key))
+    .sort((a, b) => b.length - a.length)
+  return keys.reduce((folded, key) => folded.replaceAll(key, foldBreaks(key)), text)
 }
 
 function renderHeader(diagnostic: Diagnostic, paint: Palette): string {
@@ -351,7 +364,11 @@ function indent(line: string, width: number): string {
 // space rather than one per newline, because two spaces are what separates two
 // header fields.
 function oneLine(text: string): string {
-  return sanitize(text.replaceAll(/[\r\n]+/gu, ' '))
+  return sanitize(foldBreaks(text))
+}
+
+function foldBreaks(text: string): string {
+  return text.replaceAll(/[\r\n]+/gu, ' ')
 }
 
 // Catalog keys, translator-authored source text, descriptions and file paths

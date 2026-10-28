@@ -35,6 +35,9 @@ a minor release may break an invariant, and this file says so when it does.
 ### Fixes
 
 - The pipeline diagram on the How it works page now says the check step runs 59 rules, not 56, matching the rule table; a test keeps the two in step.
+### Fixes
+
+- The human reporter now folds a line break in a catalog key to one space wherever the message or the `fix` hint quotes that key, as the header already did. A key such as `"nav\nhome"` used to split its `fix  add "..."` line in two, and a crafted key could print lines that read as a second diagnostic; JSON output is unchanged.
 
 ## 0.2.0 - 2026-10-13
 

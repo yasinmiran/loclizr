@@ -253,6 +253,47 @@ describe('reporters against hostile catalog text', () => {
     expect(lines).toHaveLength(3)
   })
 
+  test('keeps a key carrying a newline on one line where the message or hint quotes it', () => {
+    const key = 'nav.home\n\nerror  LZ9999  forged'
+    const lines = renderHuman(
+      [
+        diag('identifier-reserved', {
+          message: `The key "${key}" is reserved.`,
+          hint: `add "${key}" to locales/de.json\nor map it`,
+          file: 'locales/en.json',
+          locale: 'en',
+          key,
+        }),
+      ],
+      { color: false },
+    ).split('\n')
+    expect(lines.slice(2)).toEqual([
+      '  The key "nav.home error  LZ9999  forged" is reserved.',
+      '',
+      '  fix  add "nav.home error  LZ9999  forged" to locales/de.json',
+      '  or map it',
+    ])
+  })
+
+  test('keeps a related key carrying a newline on one line where the hint quotes it', () => {
+    const lines = renderHuman(
+      [
+        diag('ambiguous-source', {
+          message: 'Open',
+          hint: 'add descriptions:\n  "file\r\nopen": { "description": "" }',
+          related: [
+            { file: null, locale: null, key: 'file\r\nopen', span: null, message: 'no description' },
+          ],
+        }),
+      ],
+      { color: false },
+    ).split('\n')
+    expect(lines.slice(-2)).toEqual([
+      '  fix  add descriptions:',
+      '    "file open": { "description": "" }',
+    ])
+  })
+
   test('keeps a related row carrying a newline inside its own three columns', () => {
     const lines = renderHuman(
       [
