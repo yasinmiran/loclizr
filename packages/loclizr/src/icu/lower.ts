@@ -682,11 +682,15 @@ function parseDiagnostic(state: State, failure: ParseFailure): Diagnostic {
 // A converted i18next value no longer lines up with its file, and neither does an
 // ICU value whose JSON source needed an escape before the error: the escape is
 // more bytes on disk than the character it decodes to. Both report the entry's
-// own span rather than a position that names the wrong line.
+// own span rather than a position that names the wrong line. An escape JSON did
+// not need, such as \u00e9 or \/, leaves no trace in the decoded value, but it
+// makes the entry span longer than the value's shortest spelling, and since its
+// place is unknown the whole value counts as shifted.
 function spanFor(state: State, range: Range | null): Span {
   const context = state.context
   if (context.catalogFormat === 'i18next' || range === null) return context.span
   if (!jsonVerbatim(state.icu.slice(0, range.start))) return context.span
+  if (context.span.length > shortestJsonLength(state.icu)) return context.span
   return {
     line: context.span.line,
     column: context.span.column + range.start,
@@ -704,3 +708,20 @@ function jsonVerbatim(text: string): boolean {
   }
   return true
 }
+
+// The length, in UTF-16 units, of the shortest JSON string body that decodes to
+// this text: two for a quote, a backslash or a control with a short escape, six
+// for any other control, one for everything else.
+function shortestJsonLength(text: string): number {
+  let length = 0
+  for (let at = 0; at < text.length; at += 1) {
+    const unit = text.charCodeAt(at)
+    if (unit === 0x22 || unit === 0x5c || SHORT_ESCAPES.has(unit)) length += 2
+    else if (unit < 0x20) length += 6
+    else length += 1
+  }
+  return length
+}
+
+// \b, \t, \n, \f and \r.
+const SHORT_ESCAPES: ReadonlySet<number> = new Set([0x08, 0x09, 0x0a, 0x0c, 0x0d])

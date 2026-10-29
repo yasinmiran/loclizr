@@ -377,6 +377,37 @@ describe('diagnostic spans after characters JSON may or may not escape', () => {
     expect(span?.line).toBe(SPAN.line)
   })
 
+  // The entry span covers the value as spelled on disk, so a span longer than the
+  // value's shortest JSON spelling means an escape JSON did not need sits in it.
+  it.each([
+    ['\\u00e9', 'été ', '\\u00e9t\\u00e9 '],
+    ['\\/', '/ ', '\\/ '],
+  ])('falls back to the entry span after an optional %s escape', (_label, decoded, raw) => {
+    const value = `${decoded}{x, number, zesty}`
+    const span = { ...SPAN, length: `${raw}{x, number, zesty}`.length }
+    const result = lower(value, icuContext({ span }))
+    expect(only(result.diagnostics, 'LZ2002').span).toStrictEqual(span)
+  })
+
+  it('composes the offset when the value is spelled on disk exactly as it decodes', () => {
+    const value = 'été {x, number, zesty}'
+    const span = { ...SPAN, length: value.length }
+    const result = lower(value, icuContext({ span }))
+    expect(only(result.diagnostics, 'LZ2002').span).toStrictEqual({
+      line: SPAN.line,
+      column: SPAN.column + 4,
+      offset: SPAN.offset + 4,
+      length: 18,
+    })
+  })
+
+  it('composes past a required escape that sits after the error', () => {
+    const value = '{x, number, zesty} "quoted"'
+    const span = { ...SPAN, length: '{x, number, zesty} \\"quoted\\"'.length }
+    const result = lower(value, icuContext({ span }))
+    expect(only(result.diagnostics, 'LZ2002').span?.column).toBe(SPAN.column)
+  })
+
   it('never reports a span shorter than one character', () => {
     for (const value of ['{', '}', '{x, number, zesty}', '{9x}', '{c, plural, one {a}}']) {
       for (const diagnostic of lower(value, icuContext()).diagnostics) {

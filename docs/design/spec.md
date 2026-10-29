@@ -3267,8 +3267,13 @@ so a truncated ICU makes **no** category claims rather than wrong ones.
 `LZ2001`'s span depends on the format the file was read as, which
 `RawCatalog.format` carries and `LowerContext.catalogFormat` passes through, so
 it is never re-derived. For a file read as ICU, M3 composes `context.span` with
-the parser's offset into the ICU string. For one read as i18next, M3 reports
-`context.span` verbatim and appends the parser's own message to the hint,
+the parser's offset into the ICU string, but only while that offset is also an
+offset into the file: once a character before it needs a JSON escape, or the
+value's spelling on disk is longer than its shortest JSON spelling (an optional
+escape such as `\u00e9` or `\/` somewhere in it), M3 reports `context.span`
+verbatim instead of a column that names the wrong character. For one read as
+i18next, M3 reports `context.span` verbatim and appends the parser's own
+message to the hint,
 because section 2.1 rewrote the value twice and JSON unescaping had already
 shifted everything before that, so any offset arithmetic would point at the
 wrong column for every converted catalog. Precise spans on converted catalogs

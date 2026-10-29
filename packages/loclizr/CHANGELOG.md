@@ -38,6 +38,9 @@ a minor release may break an invariant, and this file says so when it does.
 ### Fixes
 
 - The human reporter now folds a line break in a catalog key to one space wherever the message or the `fix` hint quotes that key, as the header already did. A key such as `"nav\nhome"` used to split its `fix  add "..."` line in two, and a crafted key could print lines that read as a second diagnostic; JSON output is unchanged.
+### Fixes
+
+- An ICU diagnostic such as `LZ2003` or `LZ2004` in a value that spells a character with an escape JSON does not need, such as `\u00e9` or `\/`, now points at the start of the value, where it used to name a column short by the bytes each escape saves (`locales/en.json:2:13` for an error at column 23).
 
 ## 0.2.0 - 2026-10-13
 
