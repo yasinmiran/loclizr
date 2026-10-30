@@ -117,6 +117,35 @@ describe('the enclosing declaration', () => {
     ).toEqual(['load', 'load'])
   })
 
+  it('ends an expression-bodied arrow at its line when no semicolon follows', () => {
+    expect(
+      scopesOf(['export const Label = () => m.nav_home()', 'export const title = m.nav_cart()']),
+    ).toEqual(['Label', null])
+  })
+
+  it('does not name the statements after an arrow that holds no usage', () => {
+    expect(
+      scopesOf(['function Cart() {', '  const pick = (x) => x', '  m.nav_home()', '}']),
+    ).toEqual(['Cart'])
+  })
+
+  it('keeps an expression body open across a break the expression continues over', () => {
+    expect(
+      scopesOf([
+        'const Label = () =>',
+        '  m.nav_home()',
+        '    .toUpperCase() + m.nav_cart()',
+        '    + m.cart_items()',
+      ]),
+    ).toEqual(['Label', 'Label', 'Label'])
+  })
+
+  it('keeps an unparenthesized multiline jsx body open', () => {
+    expect(
+      scopesOf(['const Cart = () => <p>', '  {m.nav_home()}', '</p>'], 'src/Cart.tsx'),
+    ).toEqual(['Cart'])
+  })
+
   it('names a function whose identifier is Cyrillic', () => {
     expect(scopesOf(['function Корзина() {', '  return m.nav_home()', '}'])).toEqual(['Корзина'])
   })

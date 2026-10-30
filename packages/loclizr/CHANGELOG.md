@@ -41,6 +41,9 @@ a minor release may break an invariant, and this file says so when it does.
 ### Fixes
 
 - An ICU diagnostic such as `LZ2003` or `LZ2004` in a value that spells a character with an escape JSON does not need, such as `\u00e9` or `\/`, now points at the start of the value, where it used to name a column short by the bytes each escape saves (`locales/en.json:2:13` for an error at column 23).
+### Fixes
+
+- In code written without semicolons, a usage after an expression-bodied arrow such as `const pick = (x) => x` no longer records that arrow as its `scope` in the context record; it records the enclosing function, or `null` at module level. `usage` is projected out of the record gates, so `loclizr check` results are unchanged.
 
 ## 0.2.0 - 2026-10-13
 

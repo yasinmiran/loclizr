@@ -116,6 +116,28 @@ const CONTINUES_STATEMENT: ReadonlySet<string> = new Set([
   '^',
 ])
 
+// A line that opens with one of these continues the expression above it.
+const CONTINUES_EXPRESSION: ReadonlySet<string> = new Set([
+  '.',
+  '?',
+  ':',
+  '=',
+  ',',
+  '+',
+  '-',
+  '*',
+  '/',
+  '%',
+  '|',
+  '&',
+  '^',
+  '<',
+  '>',
+  '(',
+  '[',
+  '`',
+])
+
 const CLOSERS: Readonly<Record<')' | ']' | '}', '(' | '[' | '{'>> = { ')': '(', ']': '[', '}': '{' }
 
 // Every frame carries the index of the nearest frame at or below it with a scope,
@@ -174,6 +196,9 @@ export function collectSites(input: {
   // arrow component written `const Cart = () => <p/>`. It has no bracket to live
   // in, so it lives at the depth it was written at.
   let loose: Named | null = null
+  // The break that last kept `loose` open, so a run of blank lines after it is
+  // looked across once rather than once per line.
+  let looseHeldUntil = 0
   let classBody: Named | null = null
   let body: Body | null = null
   let expectName = false
@@ -197,6 +222,15 @@ export function collectSites(input: {
     if (declaration !== null && frames.length <= declaration.depth) declaration = null
     if (body !== null && frames.length <= body.depth) body = null
     if (classBody !== null && frames.length <= classBody.depth) classBody = null
+  }
+
+  // Without a semicolon a line break is where an expression body ends, so
+  // `const pick = (x) => x` must not name the statements written after it.
+  function endLooseAtBreak(at: number): void {
+    if (loose === null || frames.length !== loose.depth || at < looseHeldUntil) return
+    const next = skipSpace(code, at)
+    if (endsExpressionBody(code, lastSignificant, next)) loose = null
+    else looseHeldUntil = next
   }
 
   function takeName(): string | null {
@@ -338,6 +372,7 @@ export function collectSites(input: {
         if (atPending) pending = null
         if (atDeclaration) declaration = null
       }
+      endLooseAtBreak(index)
       index += 1
       continue
     }
@@ -485,6 +520,14 @@ function continuesStatement(code: string, before: number): boolean {
   const char = code.charAt(before)
   if (char === '>' && code.charAt(before - 1) === '=') return true
   return CONTINUES_STATEMENT.has(char)
+}
+
+// A `>` ending the line is a JSX tag, as in `const Cart = () => <p>`, whose
+// children follow on the next lines; a token opening the next line that cannot
+// start a statement carries the expression over the break, as in a call chain.
+function endsExpressionBody(code: string, before: number, next: number): boolean {
+  if (continuesStatement(code, before) || code.charAt(before) === '>') return false
+  return !CONTINUES_EXPRESSION.has(code.charAt(next))
 }
 
 // Only whitespace or a return type annotation stands between a parameter list and
