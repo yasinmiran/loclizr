@@ -612,12 +612,13 @@ and `maxAge`, a `domain` carrying a scheme, port, path, space, comma or `;`, a
 `path` that does not start with `/` or carries a space, comma or `;`, a
 `sameSite` other than `'lax'`, `'strict'` or `'none'`, `sameSite: 'none'`
 without `secure: true` (browsers drop that cookie silently), and a `maxAge` that
-is not a whole number of seconds, 0 or more; a `formats.timeZone` or a named
-style in `formats.number` or `formats.dateTime` that `Intl.DateTimeFormat` or
-`Intl.NumberFormat` refuses to construct, probed at the fixed locale `en` so
-the verdict is machine independent, with the `Intl` message as the hint; a
-named style holding a non-finite number, which `Intl` would silently coerce
-rather than refuse (`hour12: NaN` builds); a
+is not a whole number of seconds, 1 or more (`max-age=0` expires the cookie as
+`setLocale` writes it, so the choice would never persist); a `formats.timeZone`
+or a named style in `formats.number` or `formats.dateTime` that
+`Intl.DateTimeFormat` or `Intl.NumberFormat` refuses to construct, probed at
+the fixed locale `en` so the verdict is machine independent, with the `Intl`
+message as the hint; a named style holding a non-finite number, which `Intl`
+would silently coerce rather than refuse (`hour12: NaN` builds); a
 `sourceLocale` that `locales` does not declare; and a top-level field the
 config does not have, `outdir` for `outDir`, because a JavaScript config gets
 no type check and a misspelled path field would otherwise fall back to its
@@ -655,14 +656,14 @@ resolved.
 the attributes `setLocale` writes:
 `cookie: { name, domain?, path?, secure?, sameSite?, maxAge? }`. Each attribute
 left out keeps its default, so `{ name: 'locale' }` builds exactly what
-`'locale'` builds. The name is still all `_locale.js` exports as `cookie`, so
-`m.cookie` and every server options object stay a string; the attributes reach
-the store through `$configure1` (section 6.2) and nothing else reads them,
-because only the browser writes the cookie. `Config.cookie` is the name and
-`Config.cookieAttributes` holds the attributes the config wrote, absent when it
-wrote none. `secure: true` on a plain `http://` page other than `localhost`
-stores nothing, which is the case `setLocale`'s read-back warning in section
-11.3 already reports.
+`'locale'` builds. In either form `_locale.js` exports only the name as
+`cookie`, so `m.cookie` and every server options object take a string; the
+attributes reach the store through `$configure1` (section 6.2) and nothing else
+reads them, because only the browser writes the cookie. `Config.cookie` is the
+name and `Config.cookieAttributes` holds the attributes the config wrote,
+absent when it wrote none. `secure: true` on a plain `http://` page other than
+`localhost` stores nothing, which is the case `setLocale`'s read-back warning
+in section 11.3 already reports.
 
 `augmentLocale` controls one block in the generated barrel's declarations, the
 `declare module 'loclizr' { interface LocaleRegistry ... }` augmentation. It is
@@ -1286,14 +1287,16 @@ $configure1({ locales, sourceLocale, cookie, cookieAttributes? }): (options?: Me
 ```
 
 `cookieAttributes` is passed only when the config wrote an attribute (section
-3), so a tree built without one is byte-identical to one built before the key
-existed. M6 prints it as the finished attribute string `setLocale` appends
-after the value, in the order `path`, `max-age`, `domain`, `SameSite`,
-`Secure`, with each attribute the config left out at its default:
+3), so a tree built without one prints
+`$configure1({ locales, sourceLocale, cookie })`. M6 prints the key as the
+finished attribute string `setLocale` appends after the value, in the order
+`path`, `max-age`, `domain`, `SameSite`, `Secure`, with each attribute the
+config left out at its default:
 `'path=/; max-age=31536000; domain=example.com; SameSite=Lax; Secure'`. The
 store writes it verbatim, so the browser ships no attribute formatter, and M9
-has already rejected every value that could break out of its attribute. It is
-an added optional key, not an ABI break, so the helper keeps its name.
+has already rejected every value that could break out of its attribute. An
+optional key is not a breaking change under section 6, so the helper is
+`$configure1`.
 
 It does two things:
 
@@ -2802,9 +2805,10 @@ export type { NegotiateOptions }
 
 **`negotiate` and `localeFromHeaders` are pure, so `loclizr` exports them too**,
 from `src/runtime/negotiate.ts`, and `loclizr/server` re-exports that one
-implementation. A static site with no server picks its first locale in the
-browser, and `loclizr/server` imports `node:async_hooks`, so without the main
-entry export it would hand-roll the match and the cookie test. Section 11.3
+implementation. A client-rendered app (a Vite SPA, no HTML rendered ahead of
+time) picks its first locale in the browser, and `loclizr/server` imports
+`node:async_hooks`, so without the main entry export it would hand-roll the
+match and the cookie test. Section 11.3
 gives the one call. `matchLocale` stays internal: its empty-string fallback is
 a sentinel `negotiate` relies on, and `negotiate([tag], options)` covers a
 single tag.
@@ -2943,24 +2947,27 @@ re-renders it.
 Never `navigator.languages`. Never `localStorage`. The server saw neither, so
 either one guarantees a hydration mismatch.
 
-A static site with no server has nothing to hydrate against, so an app may make
-the first visit follow the browser itself, with one call before the first
-render:
+A client-rendered app, one with no HTML rendered ahead of time (the Vite SPA row
+of the table below), has nothing to hydrate against, so it may make the first
+visit follow the browser itself, with one call before the first render:
 
 ```ts
-setLocale(
+m.setLocale(
   localeFromHeaders(
     { cookie: document.cookie, acceptLanguage: navigator.languages.join(',') },
     { locales: m.locales, sourceLocale: m.sourceLocale, cookie: m.cookie },
-  ),
+  ) as m.AppLocale,
 )
 ```
 
 That is the app's explicit choice, not detection. It reads the configured
 cookie with the same reader as the store and the server, so a chosen locale
-still wins on every later visit. A server-rendered page does not make this
-call: the server has already chosen, and a second negotiation on the client
-could disagree with it.
+still wins on every later visit. `localeFromHeaders` returns `string`, and the
+cast to `m.AppLocale` is sound because the result is always one of `m.locales`.
+A page rendered on a server or prerendered at build time does not make this
+call: its HTML already carries a locale, and a second negotiation on the client
+can pick another one, so the page hydrates in a language its HTML was not
+rendered in.
 
 `setLocale` persists to that same cookie by default (`path=/`, one year,
 `SameSite=Lax`, no `Domain`, no `Secure`, each replaced by the attribute the

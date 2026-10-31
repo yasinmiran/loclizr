@@ -193,8 +193,7 @@ function namespaceTypes(namespace: Namespace): string {
 
 function localeModule(program: Program): string {
   const locales = byCodepoint(program.locales).map(quoted).join(', ')
-  // Left out when the config wrote no attribute, so the store's defaults apply
-  // and such a tree stays byte-identical to one built before the field existed.
+  // Left out when the config wrote no attribute, so the store's defaults apply.
   // Printed here rather than in the store, so the browser ships no formatter.
   const attributes = program.config.cookieAttributes
   const setup = ['locales', 'sourceLocale', 'cookie']

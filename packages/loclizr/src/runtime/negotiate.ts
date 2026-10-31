@@ -2,9 +2,9 @@ import type { NegotiateOptions } from '../types'
 import { readCookie } from './cookie'
 import { matchLocale } from './store'
 
-// Pure, so the browser entry carries them too: a static site negotiates its
-// first locale from navigator.languages with the cookie reader the store and
-// the server share.
+// Pure, so the browser entry carries them too: a client-rendered app
+// negotiates its first locale from navigator.languages with the cookie reader
+// the store and the server share.
 
 interface AcceptedRange {
   readonly tag: string

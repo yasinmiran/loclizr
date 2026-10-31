@@ -20,7 +20,7 @@ describe('the loclizr entry', () => {
     expect(Object.keys(entry).sort()).toEqual([...ABI, ...PUBLIC].sort())
   })
 
-  // A static site picks its first locale in the browser, which cannot import
+  // A client-rendered app picks its first locale in the browser, which cannot import
   // loclizr/server because of node:async_hooks.
   test('negotiate and localeFromHeaders are the ones loclizr/server exports', () => {
     expect(entry.negotiate).toBe(server.negotiate)

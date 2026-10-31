@@ -199,18 +199,19 @@ export default defineConfig({
 | `path` | `string` starting with `/` | `'/'` |
 | `secure` | `boolean` | `false` |
 | `sameSite` | `'lax' \| 'strict' \| 'none'` | `'lax'` |
-| `maxAge` | whole seconds, 0 or more | one year |
+| `maxAge` | whole seconds, 1 or more | one year |
 
-`m.cookie` stays the name, so server options do not change. The build prints the attributes as one
-more key of `$configure1` in `_locale.js`, so only the browser sees them:
+`m.cookie` is the name in either form, so server options take it as is. The build prints the
+attributes as one more key of `$configure1` in `_locale.js`, so only the browser sees them:
 
 ```js title="src/loclizr/messages/_locale.js"
 export const $l = $configure1({ locales, sourceLocale, cookie, cookieAttributes: 'path=/; max-age=31536000; domain=example.com; SameSite=Lax; Secure' })
 ```
 
 `LZ1001` rejects an attribute the browser would drop or misread: a `domain` with a scheme, port,
-path or `;`, a `path` not starting with `/`, a negative or fractional `maxAge`, an unknown key, and
-`sameSite: 'none'` without `secure: true`:
+path or `;`, a `path` not starting with `/`, a zero, negative or fractional `maxAge` (`max-age=0`
+expires the cookie as `setLocale` writes it), an unknown key, and `sameSite: 'none'` without
+`secure: true`:
 
 ```txt title="cookie: { name: 'locale', domain: 'example.com', sameSite: 'none' }"
 error  LZ1001  config-invalid  loclizr.config.mjs

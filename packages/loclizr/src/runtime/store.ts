@@ -197,8 +197,8 @@ function cookieName(): string {
   return storeState().setup?.cookie ?? 'locale'
 }
 
-// The defaults every earlier release wrote, so a tree built without attributes
-// keeps the cookie the hydration channel was built on.
+// emit leaves cookieAttributes out of $configure1 when the config sets none,
+// so the defaults live here.
 function cookieAttributes(): string {
   return storeState().setup?.cookieAttributes ?? 'path=/; max-age=31536000; SameSite=Lax'
 }

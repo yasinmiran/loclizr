@@ -133,9 +133,9 @@ arguments, so read `getLocale()` inside.
 
 The same functions `loclizr/server` exports, documented under
 [`negotiate`](#negotiate) and [`localeFromHeaders`](#localefromheaders). They import nothing
-from Node, so a browser bundle can call them: a static site picks its first locale from
+from Node, so a browser bundle can call them: a client-rendered app picks its first locale from
 `navigator.languages` and the locale cookie with one call, shown in
-[First visit on a static site](/guides/language-switching/#first-visit-on-a-static-site).
+[First visit in a client-rendered app](/guides/language-switching/#first-visit-in-a-client-rendered-app).
 
 ### Types
 
@@ -148,7 +148,7 @@ from Node, so a browser bundle can call them: a static site picks its first loca
 | `SetLocaleOptions` | `{ readonly persist?: boolean \| undefined }` |
 | `LocaleListener` | `() => void` |
 | `LocaleResolver` | `(options?: MessageOptions \| undefined) => string`, the type of `$l` |
-| `LocaleSetup` | `{ locales, sourceLocale, cookie }`, all required, passed to `$configure1` |
+| `LocaleSetup` | `{ locales, sourceLocale, cookie, cookieAttributes? }`, passed to `$configure1`; `cookieAttributes` is the attribute string the build prints from the `cookie` config for `setLocale` to write, absent when the config sets none |
 | `NegotiateOptions` | `{ locales, sourceLocale, cookie? }`, taken by `negotiate`, `localeFromHeaders` and `loclizr/server` |
 | `IntlOptions` | `Readonly<Record<string, string \| number \| boolean>>` |
 | `LoclizrConfig` | the config shape, see [Configuration](/reference/configuration/) |

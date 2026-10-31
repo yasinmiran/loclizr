@@ -52,11 +52,14 @@ describe('cookie as an object', () => {
     expect(config(run('lang')).cookieAttributes).toBeUndefined()
   })
 
-  it('accepts a leading dot on the domain and a zero max-age', () => {
-    expect(config(run({ name: 'lang', domain: '.example.com', maxAge: 0 })).cookieAttributes).toEqual({
+  it('accepts a leading dot on the domain', () => {
+    expect(config(run({ name: 'lang', domain: '.example.com' })).cookieAttributes).toEqual({
       domain: '.example.com',
-      maxAge: 0,
     })
+  })
+
+  it('accepts a max-age of one second', () => {
+    expect(config(run({ name: 'lang', maxAge: 1 })).cookieAttributes).toEqual({ maxAge: 1 })
   })
 })
 
@@ -77,6 +80,15 @@ describe('cookie attributes that never hold', () => {
   it.each([[1.5], [-1], [Number.NaN], [Number.POSITIVE_INFINITY], ['3600']])('rejects the max-age %j', (maxAge) => {
     expect(rejected(run({ name: 'lang', maxAge })).message).toContain('`cookie.maxAge`')
   })
+
+  it.each([['0', 0], ['-0', -0]])(
+    'rejects the max-age %s, which expires the cookie as setLocale writes it',
+    (_, maxAge) => {
+      const diagnostic = rejected(run({ name: 'lang', maxAge }))
+      expect(diagnostic.message).toContain('`cookie.maxAge` is `0`')
+      expect(diagnostic.hint).toContain('leave maxAge out')
+    },
+  )
 
   it.each([['app'], ['/app; Domain=evil.test'], ['']])('rejects the path %j', (path) => {
     expect(rejected(run({ name: 'lang', path })).message).toContain('`cookie.path`')

@@ -307,10 +307,15 @@ function readCookie(
     attributes.sameSite = sameSite as 'lax' | 'strict' | 'none'
   }
   const maxAge = value['maxAge']
-  if (typeof maxAge === 'number' && Number.isSafeInteger(maxAge) && maxAge >= 0) {
+  if (typeof maxAge === 'number' && Number.isSafeInteger(maxAge) && maxAge > 0) {
     attributes.maxAge = maxAge
+  } else if (maxAge === 0) {
+    issues.push({
+      message: '`cookie.maxAge` is `0`, which expires the cookie as `setLocale` writes it, so the choice never persists.',
+      hint: `leave maxAge out to keep one year, or pass a positive number of seconds: ${MAX_AGE_EXAMPLE}.`,
+    })
   } else if (maxAge !== undefined) {
-    issues.push(expected('cookie.maxAge', 'a whole number of seconds, 0 or more', MAX_AGE_EXAMPLE))
+    issues.push(expected('cookie.maxAge', 'a whole number of seconds, 1 or more', MAX_AGE_EXAMPLE))
   }
   return { name, attributes: Object.keys(attributes).length === 0 ? undefined : attributes }
 }
