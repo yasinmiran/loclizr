@@ -382,6 +382,7 @@ describe('diagnostic spans after characters JSON may or may not escape', () => {
   it.each([
     ['\\u00e9', 'été ', '\\u00e9t\\u00e9 '],
     ['\\/', '/ ', '\\/ '],
+    ['\\ud83d\\udc4d', '\u{1f44d} ', '\\ud83d\\udc4d '],
   ])('falls back to the entry span after an optional %s escape', (_label, decoded, raw) => {
     const value = `${decoded}{x, number, zesty}`
     const span = { ...SPAN, length: `${raw}{x, number, zesty}`.length }
@@ -401,11 +402,69 @@ describe('diagnostic spans after characters JSON may or may not escape', () => {
     })
   })
 
-  it('composes past a required escape that sits after the error', () => {
-    const value = '{x, number, zesty} "quoted"'
-    const span = { ...SPAN, length: '{x, number, zesty} \\"quoted\\"'.length }
+  // Each row pairs a character with its shortest spelling in a JSON string: the
+  // escape where JSON requires one, the character itself everywhere else.
+  const SHORTEST_SPELLINGS = [
+    ['a quote', '"', '\\"'],
+    ['a backslash', '\\', '\\\\'],
+    ['a backspace', '\b', '\\b'],
+    ['a tab', '\t', '\\t'],
+    ['a line feed', '\n', '\\n'],
+    ['a form feed', '\f', '\\f'],
+    ['a carriage return', '\r', '\\r'],
+    ['a control with no short escape', '\u0001', '\\u0001'],
+    ['a vertical tab, which has no short escape', '\u000b', '\\u000b'],
+    ['the last control', '\u001f', '\\u001f'],
+    ['a DEL', '\u007f', '\u007f'],
+    ['a line separator', '\u2028', '\u2028'],
+    ['an astral emoji', '\u{1f44d}', '\u{1f44d}'],
+  ] as const
+
+  it.each(SHORTEST_SPELLINGS)(
+    'composes the exact span past %s that sits after the error',
+    (_label, decoded, raw) => {
+      const value = `ab {x, number, zesty} ${decoded}`
+      const span = { ...SPAN, length: `ab {x, number, zesty} ${raw}`.length }
+      const result = lower(value, icuContext({ span }))
+      expect(only(result.diagnostics, 'LZ2002').span).toStrictEqual({
+        line: SPAN.line,
+        column: SPAN.column + 3,
+        offset: SPAN.offset + 3,
+        length: 18,
+      })
+    },
+  )
+
+  it.each(SHORTEST_SPELLINGS)(
+    'falls back after an optional escape before the error even with %s after it',
+    (_label, decoded, raw) => {
+      const value = `/ {x, number, zesty} ${decoded}`
+      const span = { ...SPAN, length: `\\/ {x, number, zesty} ${raw}`.length }
+      const result = lower(value, icuContext({ span }))
+      expect(only(result.diagnostics, 'LZ2002').span).toStrictEqual(span)
+    },
+  )
+
+  // Where an optional escape sits is unknown, so one after the error still counts.
+  it.each([
+    ['\\u00e9', 'café', 'caf\\u00e9'],
+    ['\\ud83d\\udc4d', '\u{1f44d}', '\\ud83d\\udc4d'],
+  ])('falls back after an optional %s escape that sits after the error', (_label, decoded, raw) => {
+    const value = `{x, number, zesty} ${decoded}`
+    const span = { ...SPAN, length: `{x, number, zesty} ${raw}`.length }
     const result = lower(value, icuContext({ span }))
-    expect(only(result.diagnostics, 'LZ2002').span?.column).toBe(SPAN.column)
+    expect(only(result.diagnostics, 'LZ2002').span).toStrictEqual(span)
+  })
+
+  // A UTF-8 file can spell a lone surrogate only as an escape, six units against the
+  // one it weighs, so it falls back like an optional escape wherever it sits.
+  it.each([
+    ['before', '\ud800 {x, number, zesty}', '\\ud800 {x, number, zesty}'],
+    ['after', '{x, number, zesty} \ud800', '{x, number, zesty} \\ud800'],
+  ])('falls back to the entry span with an escaped lone surrogate %s the error', (_where, value, raw) => {
+    const span = { ...SPAN, length: raw.length }
+    const result = lower(value, icuContext({ span }))
+    expect(only(result.diagnostics, 'LZ2002').span).toStrictEqual(span)
   })
 
   it('never reports a span shorter than one character', () => {

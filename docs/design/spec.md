@@ -845,7 +845,10 @@ is `LZ2009 arg-type-conflict-local`, an error fatal for that message only.
 Two `select`s on one name, `{g, select, male {he} other {they}} saw
 {g, select, female {her} other {them}}`, fold to the union of both option lists,
 kept in first-appearance order (`male`, `female`), so the declaration prints
-`g: 'female' | 'male'`. The across-locale rule that
+`g: 'female' | 'male'`. A `select` with only an `other` branch adds no option,
+so beside one that names options, before or after it, the fold is that one's
+options: `{g, select, other {x}} {g, select, male {y} other {z}}` types `g` as
+`'male'`, as a bare `{g}` in its place would. The across-locale rule that
 keeps the accumulator's options does not apply inside one value, where every
 `select` is the same locale's, and keeping only the first would type out an
 option the value renders and report a translation that handles it as
@@ -909,7 +912,8 @@ neither module re-parses anything.
 A `select` argument types as the union of the source locale's non-`other`
 options. A call site that must pass an open set, such as a value straight from
 an API, writes the message as a bare `{x}` instead; a `select` with only an
-`other` branch is therefore typed `string | number`.
+`other` branch, when no `select` on that name in the value names an option, is
+therefore typed `string | number`.
 
 ### 5.2 Format styles
 
@@ -3321,9 +3325,10 @@ so a truncated ICU makes **no** category claims rather than wrong ones.
 `RawCatalog.format` carries and `LowerContext.catalogFormat` passes through, so
 it is never re-derived. For a file read as ICU, M3 composes `context.span` with
 the parser's offset into the ICU string, but only while that offset is also an
-offset into the file: once a character before it needs a JSON escape, or the
-value's spelling on disk is longer than its shortest JSON spelling (an optional
-escape such as `\u00e9` or `\/` somewhere in it), M3 reports `context.span`
+offset into the file: once a character before it needs a JSON escape, or
+`context.span.length`, the value as spelled on disk, is longer than its
+shortest JSON spelling (an optional escape such as `\u00e9` or `\/` somewhere
+in it, even after the error), M3 reports `context.span`
 verbatim instead of a column that names the wrong character. For one read as
 i18next, M3 reports `context.span` verbatim and appends the parser's own
 message to the hint,
@@ -3938,6 +3943,10 @@ export interface RawEntry {
   // converted it; in a file read as ICU it is the catalog text verbatim. M4
   // lowers this directly and never calls toIcu.
   readonly value: string
+  // The value as the file spells it, a string's quotes left out, so `length`
+  // counts each escape as written. M3 compares that length with the value's
+  // shortest JSON spelling to tell when an offset into the value is no longer
+  // an offset into the file.
   readonly span: Span
 }
 
@@ -4571,18 +4580,28 @@ with `shouldParseSkeletons: false` and each `::` style probed on its own, so
 `LZ2003` lowers the rest of the message (section 5.2). It deduplicates `args`
 by NFC-normalized name, folding each repeat through `unify` and raising
 `LZ2009` where that returns null, and it orders `args` by first appearance in
-the canonical branch order rather than the text order (section 5.1). It merges
+the canonical branch order rather than the text order (section 5.1). Where a
+repeat and the type before it are both `select`, the fold keeps the union of
+both option lists in first-appearance order, not only the first's. It merges
 adjacent text nodes. It never calls `requiredCategories`: `LZ2006` tests the
 universal CLDR keyword set, and every locale-specific category rule is M5's.
 
 The span `LZ2001` and every body-scoped diagnostic carry for a file read as
-ICU is `context.span` offset by the parser's position, but only when every
-character before the error point is one a JSON string holds verbatim. A
-control character, `"` or `\` before it is more bytes on disk than in the
-decoded value, so the offset would land on a line the value does not occupy;
-the diagnostic then carries `context.span` verbatim, as a converted file
-always does. A `\uXXXX` escape of an ordinary character, or a lone surrogate,
-cannot be detected from the decoded value and still drifts.
+ICU is `context.span` offset by the parser's position, but only while that
+position is also an offset into the file. A control character, `"` or `\`
+before the error point is more bytes on disk than in the decoded value, so the
+offset would fall short of the error. An escape JSON does not need, such as
+`\u00e9`, `\/` or an escaped surrogate pair, leaves no trace in the decoded
+value, so M3 compares `context.span.length`, which M2 measures as the file
+spells the value with its quotes left out, against the value's shortest JSON
+spelling in UTF-16 units: two for `"`, `\` and a control with a short escape
+such as `\n`, six for any other control, one for everything else. A longer
+span means such an escape sits somewhere in the value, at a place M3 cannot
+know, so it counts after the error point as well as before it. A lone
+surrogate weighs one unit too, though a UTF-8 file can spell it only as a
+six-unit escape, so a value that holds one always takes this path. In either
+case the diagnostic carries `context.span` verbatim, as a converted file
+always does.
 
 `printIcu` emits **re-parseable** ICU in the exact canonical form of section
 5.5, applying `escapeIcuLiteral` to every text node and passing `inPlural` from

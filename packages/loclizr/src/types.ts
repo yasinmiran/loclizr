@@ -287,6 +287,10 @@ export interface RawEntry {
   // converted it; in a file read as ICU it is the catalog text verbatim. M4
   // lowers this directly and never calls toIcu.
   readonly value: string
+  // The value as the file spells it, a string's quotes left out, so `length`
+  // counts each escape as written. M3 compares that length with the value's
+  // shortest JSON spelling to tell when an offset into the value is no longer
+  // an offset into the file.
   readonly span: Span
 }
 

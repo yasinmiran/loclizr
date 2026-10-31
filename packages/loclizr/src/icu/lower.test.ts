@@ -110,6 +110,15 @@ describe('lower, argument types', () => {
     expect(codes(result.diagnostics)).toStrictEqual([])
   })
 
+  it.each([
+    ['before', '{g, select, other {x}} {g, select, male {y} other {z}}'],
+    ['after', '{g, select, male {y} other {z}} {g, select, other {x}}'],
+  ])('types a select with only other %s one that names options as those options', (_order, value) => {
+    const result = lower(value, icuContext())
+    expect(result.args).toStrictEqual([{ name: 'g', type: { kind: 'select', options: ['male'] } }])
+    expect(codes(result.diagnostics)).toStrictEqual([])
+  })
+
   it('normalizes argument names to NFC so an NFD spelling is the same argument', () => {
     const nfc = 'café'
     const nfd = 'café'
