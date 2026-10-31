@@ -2,7 +2,15 @@
 import { afterEach, describe, expect, test, vi } from 'vitest'
 import { $configure1 } from './abi'
 import { resetRuntime } from './__fixtures__/reset'
-import { getLocale, getRawLocale, registerDefaults, setLocale, subscribe } from './store'
+import { localeFromHeaders } from './negotiate'
+import {
+  getLocale,
+  getRawLocale,
+  registerDefaults,
+  resetLocale,
+  setLocale,
+  subscribe,
+} from './store'
 
 const SETUP = { locales: ['de', 'de-AT', 'en'], sourceLocale: 'en', cookie: 'locale' } as const
 
@@ -347,5 +355,77 @@ describe('a cookie write the page does not keep', () => {
     } finally {
       vi.unstubAllEnvs()
     }
+  })
+})
+
+describe('a setLocale cookie written before the first registration', () => {
+  const LANG = { ...SETUP, cookie: 'lang' } as const
+
+  test('moves to the configured cookie when the list registers', () => {
+    setLocale('de')
+    expect(document.cookie).toBe('locale=de')
+    $configure1(LANG)
+    expect(document.cookie).toBe('lang=de')
+  })
+
+  test('survives a reload, and the server reads it with the configured name', () => {
+    setLocale('de')
+    $configure1(LANG)
+    resetRuntime()
+    document.documentElement.removeAttribute('lang')
+    $configure1(LANG)
+    expect(getLocale()).toBe('de')
+    expect(localeFromHeaders({ cookie: document.cookie }, LANG)).toBe('de')
+  })
+
+  test('keeps the persisted tag when a later call declined persistence', () => {
+    setLocale('de')
+    setLocale('fr', { persist: false })
+    $configure1({ ...LANG, locales: ['de', 'en', 'fr'] })
+    expect(document.cookie).toBe('lang=de')
+    expect(getLocale()).toBe('fr')
+  })
+
+  test('is not written after resetLocale cleared it', () => {
+    setLocale('de')
+    resetLocale()
+    $configure1(LANG)
+    expect(document.cookie).toBe('')
+  })
+
+  test('leaves a default-named cookie something else rewrote since', () => {
+    setLocale('de')
+    document.cookie = 'locale=fr; path=/'
+    $configure1(LANG)
+    expect(document.cookie).toBe('locale=fr; lang=de')
+  })
+
+  test('is rewritten with the configured attributes under the default name', () => {
+    setLocale('de')
+    const writes = countCookieWrites()
+    $configure1({ ...SETUP, cookieAttributes: 'path=/app; max-age=60; SameSite=Lax' })
+    expect(writes()).toBe(2)
+    expect(document.cookie).toBe('')
+  })
+
+  test('stays put under the default name with default attributes', () => {
+    setLocale('de')
+    const writes = countCookieWrites()
+    $configure1(SETUP)
+    expect(writes()).toBe(0)
+    expect(document.cookie).toBe('locale=de')
+  })
+
+  test('is not invented in a store an older copy created without the field', () => {
+    Reflect.set(globalThis, Symbol.for('loclizr.store'), {
+      raw: 'de',
+      detected: null,
+      pendingLang: null,
+      setup: null,
+      listeners: new Set(),
+      warned: new Set(),
+    })
+    $configure1(LANG)
+    expect(document.cookie).toBe('')
   })
 })
