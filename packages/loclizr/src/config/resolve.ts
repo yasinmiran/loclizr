@@ -57,8 +57,14 @@ export function resolveConfig(input: {
   // A rule the user took out of error stops being fatal (section 9), and M10
   // never gets the chance to apply that override on a null config, so the three
   // re-levelable `always` rules are resolved here and resolution carries on
-  // wherever the remaining fields still describe a buildable project.
-  const blocks = (rule: RuleName): boolean => severityFor(fields.severity, rule, null) === 'error'
+  // wherever the remaining fields still describe a buildable project. Each
+  // diagnostic is resolved with its own locale, as applySeverity would, so a
+  // per-locale level stops resolution exactly where the bare level does.
+  const blocks = (rule: RuleName): boolean =>
+    diagnostics.some(
+      (diagnostic) =>
+        diagnostic.rule === rule && severityFor(fields.severity, rule, diagnostic.locale) === 'error',
+    )
 
   const usable = usableCatalogs(input.discovered, [meta, record], diagnostics)
   if (usable.length === 0) {
@@ -126,7 +132,9 @@ export function resolveConfig(input: {
   // Nothing is inferable from an empty locale set, and a second fatal stacked on
   // the one the user already saw is noise.
   if (firstLocale === undefined) return { config: null, diagnostics }
-  const unknownLevels = undeclaredSeverityLocales(fields.severity, locales)
+  // Checked against the list as written: a tag LZ1002 dropped is still declared,
+  // and a level named for it is how its LZ1002 was re-levelled.
+  const unknownLevels = undeclaredSeverityLocales(fields.severity, declared)
   if (unknownLevels.length > 0) return { config: null, diagnostics: [...diagnostics, ...unknownLevels] }
 
   // With nothing on disk, LZ1003 has already said the only thing there is to

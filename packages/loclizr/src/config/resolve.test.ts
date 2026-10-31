@@ -549,13 +549,66 @@ describe('LZ1001 config-invalid', () => {
     }
   })
 
-  it('reads default for a fatal rule resolved before any locale is known', () => {
+  it('reads default for an invalid tag the map does not name', () => {
     const result = run(
       { locales: ['en', 'en_GB'], severity: { 'locale-tag-invalid': { default: 'warn' } } },
       [catalog('en')],
     )
     expect(codes(result.diagnostics)).toContain('LZ1002')
     expect(config(result).locales).toEqual(['en'])
+  })
+
+  it('blocks on an invalid tag the map does not name when it has no default', () => {
+    const result = run(
+      { locales: ['en', 'en_GB'], severity: { 'locale-tag-invalid': { en: 'warn' } } },
+      [catalog('en')],
+    )
+    expect(result.config).toBeNull()
+    expect(codes(result.diagnostics)).toEqual(['LZ1002'])
+  })
+
+  it('takes the level named for an invalid tag, as the bare level does', () => {
+    for (const level of ['warn', { en_GB: 'warn' }] as const) {
+      const result = run(
+        { locales: ['en', 'en_GB'], severity: { 'locale-tag-invalid': level } },
+        [catalog('en')],
+      )
+      expect(config(result).locales).toEqual(['en'])
+      expect(codes(result.diagnostics)).toEqual(['LZ1002'])
+    }
+  })
+
+  it('blocks on an invalid tag named at error, and never calls the tag undeclared', () => {
+    const result = run(
+      {
+        locales: ['en', 'en_GB'],
+        severity: { 'locale-tag-invalid': { default: 'warn', en_GB: 'error' } },
+      },
+      [catalog('en')],
+    )
+    expect(result.config).toBeNull()
+    expect(codes(result.diagnostics)).toEqual(['LZ1002'])
+  })
+
+  it('blocks when any invalid tag resolves to error, whatever the others resolve to', () => {
+    const result = run(
+      { locales: ['en', 'en_GB', 'de_AT'], severity: { 'locale-tag-invalid': { en_GB: 'warn' } } },
+      [catalog('en')],
+    )
+    expect(result.config).toBeNull()
+    expect(codes(result.diagnostics)).toEqual(['LZ1002', 'LZ1002'])
+  })
+
+  it('calls a level for an invalid sourceLocale undeclared when locales does not list it', () => {
+    const result = run(
+      { locales: ['en'], sourceLocale: 'en_GB', severity: { 'locale-tag-invalid': { en_GB: 'warn' } } },
+      [catalog('en')],
+    )
+    expect(result.config).toBeNull()
+    expect(codes(result.diagnostics)).toEqual(['LZ1002', 'LZ1001'])
+    expect(only(result.diagnostics, 'LZ1001').message).toBe(
+      '`severity.locale-tag-invalid` names `en_GB`, which `locales` does not declare.',
+    )
   })
 
   it('rejects a sourceLocale the locale list does not declare', () => {
@@ -661,6 +714,30 @@ describe('LZ1004 source-catalog-missing', () => {
     const diagnostic = only(result.diagnostics, 'LZ1004')
     expect(diagnostic.file).toBe('locales/en.json')
     expect(diagnostic.locale).toBe('en')
+  })
+
+  it('takes a per-locale level for the source locale, as the bare level does', () => {
+    for (const level of ['warn', { en: 'warn' }, { default: 'error', en: 'off' }] as const) {
+      const result = run(
+        { locales: ['en', 'de'], sourceLocale: 'en', severity: { 'source-catalog-missing': level } },
+        [catalog('de')],
+      )
+      expect(config(result).locales).toEqual(['en', 'de'])
+      expect(codes(result.diagnostics)).toEqual(['LZ1004', 'LZ1005'])
+    }
+  })
+
+  it('keeps blocking on a level named for another locale', () => {
+    const result = run(
+      {
+        locales: ['en', 'de'],
+        sourceLocale: 'en',
+        severity: { 'source-catalog-missing': { de: 'warn' } },
+      },
+      [catalog('de')],
+    )
+    expect(result.config).toBeNull()
+    expect(codes(result.diagnostics)).toEqual(['LZ1004'])
   })
 
   it('infers en whenever an en catalog exists', () => {

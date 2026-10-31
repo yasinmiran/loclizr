@@ -181,8 +181,21 @@ fell back to source text: de 1, de-AT 1
 | pull requests | `npx loclizr check` | 0, with missing keys still printed and counted |
 | `main`, scheduled before a release | `npx loclizr check --max-warnings 0` | 1, so nothing ships untranslated unnoticed |
 
-Severity is per rule, not per locale, so staging one new locale relaxes it for all of them.
-Delete the line once the catalogs catch up.
+A [per-locale level](/reference/configuration/#per-locale-levels) relaxes only the locales still
+being translated and keeps every other locale at `error`. A locale key matches exactly, so `de-AT`,
+which inherits the missing `nav.home` through `de`, needs its own entry: with `de` alone, its
+`LZ3001` stays at `error` and the run exits 1.
+
+```ts title="loclizr.config.ts"
+import { defineConfig } from 'loclizr'
+
+export default defineConfig({
+  severity: { 'missing-translation': { default: 'error', de: 'warn', 'de-AT': 'warn' } },
+})
+```
+
+On this tree it prints the two warnings above and exits 0. Delete the line once the catalogs
+catch up.
 
 ## Rules for the vendor export
 
@@ -196,9 +209,12 @@ What the TMS exports for an untranslated key decides the rule. Set it once:
 
 Configure the last row away if the TMS allows it. `LZ3015` lists every copied key for a locale and
 skips values with no letter outside arguments and tags (`{count}`), and locales that share the
-source's language (`en-GB` under `en`):
+source's language (`en-GB` under `en`).
 
-```text
+This run is not on the `vite-react` copy. It is a two-locale project whose `en.json` and `de.json`
+both hold `{ "brand": "Acme", "nav": { "home": "Home", "cart": "Cart" } }`:
+
+```txt frame="terminal" title="npx loclizr check, de.json copied from en.json"
 warn  LZ3015  translation-same-as-source  locales/de.json:2:13  de
 
   3 de values are identical to the en source, so they render en text in de.
@@ -209,6 +225,8 @@ warn  LZ3015  translation-same-as-source  locales/de.json:2:13  de
 
   fix  translate each listed value, or mark one that is meant to match, such as a brand name, in locales/en.meta.json:
          "brand": { "sameAsSource": true }
+
+3 messages, 2 locales (source en), 0 errors, 1 warning
 ```
 
 A brand or proper noun that is meant to match takes `"sameAsSource": true` on its entry in

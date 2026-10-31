@@ -648,9 +648,12 @@ not cover `de-AT`; any other diagnostic, one with `locale: null` included, takes
 `default`, and keeps the rule's default level when `default` is absent. A key
 other than `default` that `locales` does not declare is `LZ1001` naming the
 declared locales, because a misspelled tag would otherwise fall through to
-`default` without a word. Fatality follows the resolved level exactly as it
-does for the bare form. `severityFor` in M1 is the one place the value is
-resolved.
+`default` without a word; a tag `locales` lists stays declared when `LZ1002`
+rejects it. Fatality follows the resolved level exactly as it does for the bare
+form, for the rules that stop config resolution too: M9 resolves each of their
+diagnostics with its own locale, as M10 would, so `LZ1004` for a missing source
+catalog reads the source locale's entry and `LZ1002` the rejected tag's.
+`severityFor` in M1 is the one place the value is resolved.
 
 `cookie` takes a name, `cookie: 'locale'`, or an object carrying the name and
 the attributes `setLocale` writes:
