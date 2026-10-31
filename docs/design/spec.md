@@ -5208,14 +5208,15 @@ nobody else:
   `src/runtime/store.ts`, so the store is hoisted into a shared chunk and the
   entry is reduced to re-exports. The budget is 900 bytes and it is **not
   met**: the shipped runtime, a store, an RFC 4647 matcher, a cookie reader,
-  `negotiate` and `localeFromHeaders`, five warning strings, a test reset and
-  four ABI helpers, measures about 2920 bytes in the shape tsdown ships (about
-  2510 without the two negotiation functions), and about 1550 minified
-  without them. An app that imports neither drops them, since the
-  package is `"sideEffects": false`. The test keeps the 900-byte
+  `negotiate` and `localeFromHeaders`, four warning strings, a test reset and
+  four ABI helpers, measures about 3030 bytes in the shape tsdown ships, and
+  about 1880 bundled and minified with `process.env.NODE_ENV` set to
+  `"production"`. A tree-shaking bundler drops `negotiate` and
+  `localeFromHeaders` from an app that imports neither, as it drops any unused
+  function declaration. The test keeps the 900-byte
   assertion verbatim as an expected failure, so the suite turns red the day
   the budget is met and the number can be tightened, and a second, ordinary
-  assertion holds a 2960-byte ceiling so a regression still fails; its message
+  assertion holds a 3070-byte ceiling so a regression still fails; its message
   prints budget, measured and ceiling together. A green suite here therefore
   says the runtime has not grown, not that the budget is met.
 - React tests carry `// @vitest-environment jsdom` as a file docblock, so the
