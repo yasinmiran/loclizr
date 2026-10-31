@@ -208,7 +208,7 @@ chain. A source value that fails to parse gets no function: see
 
 - **No per-locale delivery.** Every locale is inlined into each used message function, so bundle
   size grows with locale count. Example app, 26 messages in 3 locales, `vite build`: tree plus
-  runtime 8.3 kB minified (3.0 kB gzipped); tree alone, `loclizr` external, 5.2 kB (1.8 kB);
+  runtime 8.0 kB minified (2.9 kB gzipped); tree alone, `loclizr` external, 4.9 kB (1.7 kB);
   runtime alone 4.4 kB (1.8 kB).
 - **No runtime `format()`.** ICU is parsed at build time; the browser ships no parser, and content
   unknown at build time has no formatter.

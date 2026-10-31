@@ -5210,7 +5210,7 @@ nobody else:
   met**: the shipped runtime, a store, an RFC 4647 matcher, a cookie reader,
   `negotiate` and `localeFromHeaders`, four warning strings, a test reset and
   four ABI helpers, measures about 3030 bytes in the shape tsdown ships, and
-  about 1880 bundled and minified with `process.env.NODE_ENV` set to
+  about 1850 bundled and minified with `process.env.NODE_ENV` set to
   `"production"`. A tree-shaking bundler drops `negotiate` and
   `localeFromHeaders` from an app that imports neither, as it drops any unused
   function declaration. The test keeps the 900-byte
