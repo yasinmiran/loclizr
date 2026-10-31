@@ -200,10 +200,10 @@ test that proves both.
    A markup message returns an array, not a string, and `Parts` renders it. `Terms` is memoized so
    the test can show the key reaching it.
 
-   Inside `of={...}` the prop type tells TypeScript the parts are `ReactNode`. Moved into a
-   `const`, a JSX handler has nothing to read that from: TypeScript cannot infer the part type
-   from the JSX, because the handler's `chunks` depend on that type. `{chunks}` then does not
-   compile. A handler that returns a string or a plain object is typed from its return. For JSX,
+   Inside `of={...}` the prop type gives the handler's `chunks` the type `readonly ReactNode[]`.
+   Moved into a `const` with no type annotation, the call has nothing to read that from, so
+   `chunks` is `readonly unknown[]` and `{chunks}` does not compile. A handler that returns a
+   string or a plain object works there, and the call is typed from what it returns. For JSX,
    pass the type:
 
    ```tsx
@@ -213,6 +213,11 @@ test that proves both.
    ```
 
    Annotating the handler works too: `(chunks: readonly ReactNode[]) => ...`.
+
+   A message's handlers share one part type. When one tag's handler returns JSX and another's
+   returns a string, as in `b: (chunks) => <b>{chunks}</b>` next to
+   `i: (chunks) => chunks.join('')`, pass `<ReactNode>` inside `of={...}` too; annotating the
+   chunks does not help there.
 
    Once tags nest, as in `<link><b>full</b> terms</link>`, the outer handler's `chunks` holds an
    element and React logs a key warning in development; a translator may nest tags the source keeps

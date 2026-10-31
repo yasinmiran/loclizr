@@ -1126,15 +1126,30 @@ supported; the parser does not produce them.
 
 Every declaration that takes a handler binds `<R extends T, T = R>`. `R` is the
 part a handler returns and `T` is the type of a chunk it receives. Two type
-parameters, not one, so a call with no contextual type, such as one stored in a
+parameters, not one, so a call with no contextual type, such as an unannotated
 `const`, infers the part type from the handler's return: with one `T` in both
 positions TypeScript fixes `T` to `unknown` while typing `chunks`, before it
 reads the return. `R extends T` keeps nesting sound, because an inner handler's
 result appears among the outer handler's chunks, so `m.x<string, number>(...)`
-is `TS2344`. A JSX handler still needs the type argument when hoisted
-(`m.x<ReactNode>(...)`, which sets both), since TypeScript cannot infer a type
-parameter from the return of a function whose own parameter type depends on it.
-Verified on TypeScript 7.0.2.
+is `TS2344`.
+
+`T` can be inferred only from an annotated `chunks`. With none, TypeScript fixes
+it when it types the first `chunks`, before it reads that handler's return, to
+its default `R` as inferred so far: the part type the result is assigned to
+(`ReactNode` inside `<Parts of={...} />`, or a `const`'s annotation) and the
+return of any handler that takes no parameter, or `unknown` when there is
+neither. A call with no contextual type whose handlers all take unannotated
+`chunks` therefore hands them `chunks: readonly unknown[]`. A string or object
+handler can use those, but JSX children reject them (`TS2322`), so a JSX handler
+that renders `{chunks}` in such a call needs `m.x<ReactNode>(...)`, which sets
+both, or annotated chunks, `(chunks: readonly ReactNode[]) => ...`. `R` is then
+inferred from the handlers' returns, and every tag of a message shares it: it is
+the one return type that every other return is assignable to. The contextual
+part type does not widen it, so handlers whose returns have no such type among
+them (a JSX element and a string, a string and a number) are `TS2322` wherever
+the call sits, inside `<Parts of={...} />` included, annotated chunks or not,
+and take the type argument, such as `m.x<ReactNode>(...)`. Verified on
+TypeScript 7.0.2.
 
 `LZ3010 markup-mismatch` compares **deduplicated sorted tag sets only**, never
 nesting arity. A translator legitimately renests `<b>` and `<i>`, and requiring

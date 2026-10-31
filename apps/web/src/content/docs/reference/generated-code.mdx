@@ -440,11 +440,17 @@ too: with `(chunks) => chunks.join('')` the result is `readonly string[]`. `T` i
 chunk. It defaults to `R` and must accept `R`, because a translation may nest one tag inside
 another, so a handler's result can show up as a chunk of the tag around it.
 
-A JSX handler is the exception. TypeScript cannot infer `R` from what a handler returns when the
-handler's own `chunks` depend on it. Inside `<Parts of={...} />` the prop type supplies it. A JSX
-call stored in a `const` needs the type passed in:
+A handler's chunks are typed before its return is read, from where the result goes. Inside
+`<Parts of={...} />` they are `readonly ReactNode[]`. With nowhere to read the type from, such as
+a `const` with no annotation, they are `readonly unknown[]`: a string or object handler can use
+them, but JSX cannot render them, so a JSX call stored that way needs the type passed in:
 `m.terms_accept<ReactNode>({ link: (chunks) => <a href="/terms">{chunks}</a> })`, or annotated
 chunks: `(chunks: readonly ReactNode[]) => ...`.
+
+Every tag of a message shares one `R`, so one handler's return type has to accept all the
+others. For `<b>Note:</b> read <i>the terms</i>.`, handlers that return JSX for `b` and
+`chunks.join('')` or the chunks themselves for `i` do not compile, inside `Parts` too, and
+annotated chunks do not change that. Pass the part type: `m.terms_note<ReactNode>({ ... })`.
 
 | Where | Call | Result |
 | --- | --- | --- |
