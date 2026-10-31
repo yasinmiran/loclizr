@@ -5,6 +5,7 @@ export function useLocale(): ShallowRef<m.AppLocale> {
   const locale = shallowRef(m.getLocale())
   let off = (): void => {}
   onMounted(() => {
+    locale.value = m.getLocale()
     off = m.subscribe(() => {
       locale.value = m.getLocale()
     })

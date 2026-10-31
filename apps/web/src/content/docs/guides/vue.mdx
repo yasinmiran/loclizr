@@ -6,7 +6,7 @@ description: A Vue 3 composable over subscribe and getLocale, and the two ways t
 import { Aside, Steps } from '@astrojs/starlight/components'
 
 A Vite and Vue 3 app whose templates follow `setLocale`, with a test that proves it. There is no
-`loclizr/vue` entry: a fourteen-line composable over `subscribe` and `getLocale` is the whole
+`loclizr/vue` entry: a fifteen-line composable over `subscribe` and `getLocale` is the whole
 binding.
 
 <Steps>
@@ -66,6 +66,7 @@ binding.
      const locale = shallowRef(m.getLocale())
      let off = (): void => {}
      onMounted(() => {
+       locale.value = m.getLocale()
        off = m.subscribe(() => {
          locale.value = m.getLocale()
        })
@@ -76,10 +77,11 @@ binding.
    ```
 
    `subscribe` calls its listener with no argument and never on attach, so the ref starts from
-   `getLocale()`. The listener attaches in `onMounted` and detaches in `onUnmounted`. Neither hook
-   runs in a server render, so a server-rendered component, such as an
-   [Astro island](/guides/astro/#islands), leaves no listener on the process-wide store. Call
-   `useLocale` from a component's setup.
+   `getLocale()`, and `onMounted` reads it again before attaching the listener: children mount
+   before their parent, so a switch a child makes in its own `onMounted` reaches the ref.
+   `onUnmounted` detaches the listener. Neither hook runs in a server render, so a server-rendered
+   component, such as an [Astro island](/guides/astro/#islands), leaves no listener on the
+   process-wide store. Call `useLocale` from a component's setup.
 
    `./loclizr/messages` resolves once a build has run: `npm run dev`, `npm test` or
    `npx loclizr build` writes it.
@@ -173,9 +175,9 @@ binding.
    ```ts title="src/locale.test.ts"
    // @vitest-environment jsdom
    import { mount } from '@vue/test-utils'
-   import { computed, createSSRApp, defineComponent, h, nextTick, type ShallowRef } from 'vue'
+   import { computed, createSSRApp, defineComponent, h, nextTick, onMounted, type ShallowRef } from 'vue'
    import { renderToString } from 'vue/server-renderer'
-   import { setLocale } from 'loclizr'
+   import { getLocale, setLocale } from 'loclizr'
    import { beforeEach, expect, test } from 'vitest'
    import App from './App.vue'
    import Root from './Root.vue'
@@ -234,6 +236,21 @@ binding.
      setLocale('de', { persist: false })
      expect(locale.value).toBe('en')
    })
+
+   test('a switch before mount reaches the ref', () => {
+     let locale!: ShallowRef<m.AppLocale>
+     const Child = defineComponent(() => {
+       onMounted(() => setLocale('de', { persist: false }))
+       return () => h('i')
+     })
+     const Parent = defineComponent(() => {
+       locale = useLocale()
+       return () => h(Child)
+     })
+     mount(Parent)
+     expect(getLocale()).toBe('de')
+     expect(locale.value).toBe('de')
+   })
    ```
 
    ```txt frame="terminal" title="npm test"
@@ -242,7 +259,7 @@ binding.
    4 messages, 2 locales (source en), 0 errors, 0 warnings
 
     Test Files  1 passed (1)
-         Tests  5 passed (5)
+         Tests  6 passed (6)
    ```
 
    The first three lines come from `pretest`: the build runs before Vitest, so a fresh clone

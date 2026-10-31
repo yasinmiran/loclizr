@@ -1,8 +1,8 @@
 // @vitest-environment jsdom
 import { mount } from '@vue/test-utils'
-import { computed, createSSRApp, defineComponent, h, nextTick, type ShallowRef } from 'vue'
+import { computed, createSSRApp, defineComponent, h, nextTick, onMounted, type ShallowRef } from 'vue'
 import { renderToString } from 'vue/server-renderer'
-import { setLocale } from 'loclizr'
+import { getLocale, setLocale } from 'loclizr'
 import { beforeEach, expect, test } from 'vitest'
 import App from './App.vue'
 import Root from './Root.vue'
@@ -60,4 +60,19 @@ test('a server render leaves no subscription', async () => {
   await renderToString(createSSRApp(Probe))
   setLocale('de', { persist: false })
   expect(locale.value).toBe('en')
+})
+
+test('a switch before mount reaches the ref', () => {
+  let locale!: ShallowRef<m.AppLocale>
+  const Child = defineComponent(() => {
+    onMounted(() => setLocale('de', { persist: false }))
+    return () => h('i')
+  })
+  const Parent = defineComponent(() => {
+    locale = useLocale()
+    return () => h(Child)
+  })
+  mount(Parent)
+  expect(getLocale()).toBe('de')
+  expect(locale.value).toBe('de')
 })
