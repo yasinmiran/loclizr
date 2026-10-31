@@ -157,6 +157,181 @@ describe('the enclosing declaration', () => {
   })
 })
 
+describe('an expression-bodied arrow whose body is a template literal', () => {
+  it('keeps a multiline tagged template open across the breaks inside it', () => {
+    expect(
+      scopesOf([
+        'const view = () => html`',
+        '  <p>${m.nav_home()}</p>',
+        '  <p>${m.nav_cart()}</p>',
+        '`',
+        'export const title = m.cart_items()',
+      ]),
+    ).toEqual(['view', 'view', null])
+  })
+
+  it('keeps a template body open when a semicolon ends it', () => {
+    expect(
+      scopesOf([
+        'function Cart() {',
+        '  const view = () => `',
+        '    ${m.nav_home()}',
+        '  `;',
+        '  return m.nav_cart()',
+        '}',
+      ]),
+    ).toEqual(['view', 'Cart'])
+  })
+
+  it('keeps a template body open past a hole that closes on its line', () => {
+    expect(
+      scopesOf([
+        'const view = () => `${m.nav_home()}',
+        '  ${m.nav_cart()}',
+        '`',
+        'const title = m.cart_items()',
+      ]),
+    ).toEqual(['view', 'view', null])
+  })
+
+  it('keeps a multiline template body open in a .tsx file, whose lexer keeps its text', () => {
+    expect(
+      scopesOf(
+        ['const view = () => `', '  ${m.nav_home()}', '`', 'const title = m.nav_cart()'],
+        'src/Cart.tsx',
+      ),
+    ).toEqual(['view', null])
+  })
+
+  it('ends a body whose one-line template closes before the break', () => {
+    expect(scopesOf(['const view = () => `x`', 'const title = m.nav_home()'])).toEqual([null])
+  })
+})
+
+describe('an expression-bodied arrow whose body is a jsx element', () => {
+  function jsxScopes(source: readonly string[], file = 'src/Cart.tsx') {
+    return scopesOf([...source, 'export const title = m.cart_items()'], file)
+  }
+
+  it('ends a one-line self-closing element at its line', () => {
+    expect(jsxScopes(['export const Icon = () => <svg />'])).toEqual([null])
+  })
+
+  it('ends a one-line element at its line', () => {
+    expect(jsxScopes(['const Label = () => <span>{m.nav_home()}</span>'])).toEqual([
+      'Label',
+      null,
+    ])
+  })
+
+  it('ends a one-line fragment at its line', () => {
+    expect(jsxScopes(['const Label = () => <>{m.nav_home()}</>'])).toEqual(['Label', null])
+  })
+
+  it('ends a multiline element at the line of its closing tag', () => {
+    expect(jsxScopes(['const Cart = () => <p>', '  {m.nav_home()}', '</p>'])).toEqual([
+      'Cart',
+      null,
+    ])
+  })
+
+  it('keeps the element open across adjacent children on their own lines', () => {
+    expect(
+      jsxScopes(['const Cart = () => <div>', '  {m.nav_home()}', '  {m.nav_cart()}', '</div>']),
+    ).toEqual(['Cart', 'Cart', null])
+  })
+
+  it('keeps the element open across a line of text', () => {
+    expect(
+      jsxScopes(['const Cart = () => <p>', '  Hello world', '  {m.nav_home()}', '</p>']),
+    ).toEqual(['Cart', null])
+  })
+
+  it('reads keywords and entities in element text as prose', () => {
+    expect(
+      jsxScopes(['const Cart = () => <p>Sign in with {m.nav_home()}&nbsp;{m.nav_cart()}</p>']),
+    ).toEqual(['Cart', 'Cart', null])
+  })
+
+  it('keeps a tag open across attributes on their own lines', () => {
+    expect(
+      jsxScopes([
+        'const Cart = () => <Badge',
+        '  title={m.nav_home()}',
+        '  label={m.nav_cart()}',
+        '/>',
+      ]),
+    ).toEqual(['Cart', 'Cart', null])
+  })
+
+  it('keeps an element open whose opening tag spans lines', () => {
+    expect(
+      jsxScopes(['const Cart = () => <p', '  className="cart">', '  {m.nav_home()}', '</p>']),
+    ).toEqual(['Cart', null])
+  })
+
+  it('counts nested elements', () => {
+    expect(
+      jsxScopes(['const Cart = () => <div>', '  <p>x</p>', '  {m.nav_home()}', '</div>']),
+    ).toEqual(['Cart', null])
+  })
+
+  it('reads an element in each branch of a ternary written across lines', () => {
+    expect(
+      jsxScopes([
+        'const Cart = () => ok',
+        '  ? <p>{m.nav_home()}</p>',
+        '  : <p>{m.nav_cart()}</p>',
+      ]),
+    ).toEqual(['Cart', 'Cart', null])
+  })
+
+  it('names the enclosing function after an element body inside it', () => {
+    expect(
+      scopesOf(
+        ['function Page() {', '  const Icon = () => <svg />', '  const title = m.nav_home()', '}'],
+        'src/Page.tsx',
+      ),
+    ).toEqual(['Page'])
+  })
+
+  it('reads an element in a .js file, where a < in operand position can only be jsx', () => {
+    expect(
+      jsxScopes(
+        ['const Cart = () => <p>', '  Hello world', '  {m.nav_home()}', '</p>'],
+        'src/Cart.js',
+      ),
+    ).toEqual(['Cart', null])
+  })
+
+  it.each([
+    ['a trailing comma', 'const make = () => <T,>(x: T) => x'],
+    ['a constraint', 'const make = () => <T extends object>(x: T) => x'],
+  ])('reads a generic arrow with %s as code, not an element', (_name, line) => {
+    expect(
+      scopesOf([line, 'function Cart() {', '  return m.nav_home()', '}'], 'src/Cart.tsx'),
+    ).toEqual(['Cart'])
+  })
+
+  it.each([
+    ['an apostrophe in a .js file', "const Empty = () => <p>Your cart's empty</p>", 'src/Cart.js'],
+    ['a url in a .js file', 'const Help = () => <p>see http://example.com</p>', 'src/Cart.js'],
+    ['a double slash in a .tsx file', 'const Help = () => <p>and // or</p>', 'src/Cart.tsx'],
+  ])('finds the usages after element text the tokenizer blanked, %s', (_name, line, file) => {
+    expect(idsOf([IMPORT, line, 'export const title = m.cart_items()'], file)).toEqual([
+      'cart_items',
+    ])
+  })
+
+  it('reads a < after an operand as a comparison', () => {
+    expect(jsxScopes(['const less = (a, b) => a < b'])).toEqual([null])
+  })
+
+  it('keeps a body open across a > that ends its line as an operator', () => {
+    expect(scopesOf(['const big = (x) => x >', '  m.nav_home()'], 'src/Cart.tsx')).toEqual(['big'])
+  })
+})
+
 describe('brace depth in a module file', () => {
   it.each([
     ["a quoted closing brace", "  const s = '}'"],

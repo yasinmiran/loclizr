@@ -138,6 +138,19 @@ const CONTINUES_EXPRESSION: ReadonlySet<string> = new Set([
   '`',
 ])
 
+const TAG_PUNCTUATION: ReadonlySet<string> = new Set([
+  ' ',
+  '\t',
+  '-',
+  ':',
+  '.',
+  '=',
+  '"',
+  "'",
+  '/',
+  '>',
+])
+
 const CLOSERS: Readonly<Record<')' | ']' | '}', '(' | '[' | '{'>> = { ')': '(', ']': '[', '}': '{' }
 
 // Every frame carries the index of the nearest frame at or below it with a scope,
@@ -180,6 +193,10 @@ export function collectSites(input: {
   readonly file: string
   readonly bindings: Bindings
   readonly ids: ReadonlySet<string>
+  // A `<` where an operand starts can open a JSX element.
+  readonly elements: boolean
+  // A single-file component, whose script blocks end at their tags or fence.
+  readonly component: boolean
 }): readonly FoundSite[] {
   const code = input.code
   const lineStarts = lineStartsOf(code)
@@ -199,6 +216,16 @@ export function collectSites(input: {
   // The break that last kept `loose` open, so a run of blank lines after it is
   // looked across once rather than once per line.
   let looseHeldUntil = 0
+  // The JSX elements open in `loose`'s body at its own depth, and the tag being
+  // read: their names, attributes and text are markup, not statements.
+  let openElements = 0
+  let tag: 'open' | 'close' | null = null
+  // The `>` that last closed a tag, which ends its line as markup rather than as
+  // a comparison carried onto the next line.
+  let tagEnd = -1
+  // The frame depth of each open template literal. Scrubbing keeps the line
+  // breaks in template text, and those are not breaks between statements.
+  const templates: number[] = []
   let classBody: Named | null = null
   let body: Body | null = null
   let expectName = false
@@ -228,9 +255,56 @@ export function collectSites(input: {
   // `const pick = (x) => x` must not name the statements written after it.
   function endLooseAtBreak(at: number): void {
     if (loose === null || frames.length !== loose.depth || at < looseHeldUntil) return
+    if (inTemplateText()) return
     const next = skipSpace(code, at)
-    if (endsExpressionBody(code, lastSignificant, next)) loose = null
+    if (endsExpressionBody(code, lastSignificant, next, tagEnd)) loose = null
     else looseHeldUntil = next
+  }
+
+  function inTemplateText(): boolean {
+    return templates[templates.length - 1] === frames.length
+  }
+
+  // A `<` where an operand starts opens an element of `loose`'s body, and up to
+  // the tag that closes it only the `{` of an expression is code, so a line break,
+  // a `;` or a word such as `with` in the text ends nothing. A character JSX
+  // cannot hold there, such as the `,` of `<T,>` or the `>` of the `=>` after
+  // `<T extends X>(x: T)`, shows a generic arrow rather than an element, and
+  // text that scrubbing blanked cannot be trusted to reach its closing tag.
+  function readsMarkup(char: string): boolean {
+    if (!input.elements || loose === null || frames.length !== loose.depth || inTemplateText()) {
+      return false
+    }
+    if (openElements === 0 && tag === null) {
+      if (char !== '<' || !opensElement(code, index)) return false
+      tag = 'open'
+      index += 1
+      return true
+    }
+    if (char === '{') return false
+    const next = tag === null ? afterText(code, input.source, index) : afterTag(code, index)
+    if (next === null) {
+      openElements = 0
+      tag = null
+      return false
+    }
+    if (tag === null) {
+      if (char === '<') tag = code.charAt(index + 1) === '/' ? 'close' : 'open'
+    } else if (char === '>') {
+      if (tag === 'close') openElements -= 1
+      else if (code.charAt(previousSignificant(code, index)) !== '/') openElements += 1
+      tag = null
+      tagEnd = index
+    }
+    index = next
+    return true
+  }
+
+  // Neither a script block nor the markup around it continues a statement of
+  // the other.
+  function endBlock(): void {
+    endStatement()
+    templates.length = 0
   }
 
   function takeName(): string | null {
@@ -251,6 +325,12 @@ export function collectSites(input: {
     const char = code.charAt(index)
     const dotted = afterDot
     afterDot = false
+
+    if (readsMarkup(char)) {
+      lastIdent = null
+      expectName = false
+      continue
+    }
 
     if (isIdentStartAt(code, index)) {
       const end = readIdentEnd(code, index)
@@ -377,6 +457,17 @@ export function collectSites(input: {
       continue
     }
 
+    // A backtick left after scrubbing delimits a template, unless it is escaped
+    // in the multiline template text that JSX lexing keeps. One at the depth the
+    // innermost template opened at closes it, and any other opens one, since `${`
+    // opens a frame of its own.
+    if (char === '`' && !isEscaped(code, index)) {
+      if (inTemplateText()) templates.pop()
+      else templates.push(frames.length)
+    }
+
+    if (input.component && bordersScript(code, index)) endBlock()
+
     // Only a `<` where a value starts can open type parameters, which keeps a
     // comparison such as `a < b, c = 1` from hiding the next declarator.
     if (declaration !== null && frames.length === declaration.depth) {
@@ -426,6 +517,9 @@ export function collectSites(input: {
       if (popped !== undefined) openCounts[popped.open] -= 1
     }
     frames.length = matching
+    // A stray backtick inside the brackets, such as one in a regular expression
+    // that JSX lexing keeps, closes with them.
+    while ((templates[templates.length - 1] ?? -1) > frames.length) templates.pop()
     if (pending !== null && frames.length < pending.depth) pending = null
     if (loose !== null && frames.length < loose.depth) loose = null
     if (declaration !== null && frames.length < declaration.depth) declaration = null
@@ -469,8 +563,13 @@ export function collectSites(input: {
     if (name === null) return
     const start = skipSpace(code, at + 2)
     const char = code.charAt(start)
-    if (char === '{' || char === '(') body = { at: start, name, depth: frames.length }
-    else loose = { name, depth: frames.length }
+    if (char === '{' || char === '(') {
+      body = { at: start, name, depth: frames.length }
+      return
+    }
+    loose = { name, depth: frames.length }
+    openElements = 0
+    tag = null
   }
 
   function innermostCall(): Frame | null {
@@ -522,12 +621,66 @@ function continuesStatement(code: string, before: number): boolean {
   return CONTINUES_STATEMENT.has(char)
 }
 
-// A `>` ending the line is a JSX tag, as in `const Cart = () => <p>`, whose
-// children follow on the next lines; a token opening the next line that cannot
-// start a statement carries the expression over the break, as in a call chain.
-function endsExpressionBody(code: string, before: number, next: number): boolean {
-  if (continuesStatement(code, before) || code.charAt(before) === '>') return false
+// A `>` ending the line is a comparison or type arguments carried onto the next
+// one, unless it closed a tag; a token opening the next line that cannot start a
+// statement carries the expression over the break, as in a call chain.
+function endsExpressionBody(code: string, before: number, next: number, tagEnd: number): boolean {
+  if (continuesStatement(code, before)) return false
+  if (code.charAt(before) === '>' && before !== tagEnd) return false
   return !CONTINUES_EXPRESSION.has(code.charAt(next))
+}
+
+// An element opens where an operand starts, after `=>` or an operator such as
+// `?`, `:`, `&&` or `||`, and only with a name or the `>` of a fragment. After an
+// operand the `<` is a comparison.
+function opensElement(code: string, at: number): boolean {
+  if (code.charAt(at + 1) !== '>' && !isIdentStartAt(code, at + 1)) return false
+  const before = previousSignificant(code, at)
+  const char = code.charAt(before)
+  if (char === '>') return code.charAt(before - 1) === '='
+  return char === '?' || char === ':' || char === '&' || char === '|' || char === '='
+}
+
+// JSX text holds anything but a `<` that opens a tag, a `>` or a `}`. Returns
+// where the next step starts, or null where the text cannot go on. Text that
+// scrubbing blanked, read as a comment from `//` or as a string from an
+// apostrophe, may have taken the closing tag with it, and reading on would hide
+// every usage up to the next `>`.
+function afterText(code: string, source: string, at: number): number | null {
+  const char = code.charAt(at)
+  if (char === '>' || char === '}' || char !== source.charAt(at)) return null
+  if (char !== '<') return at + 1
+  const next = code.charAt(at + 1)
+  return next === '/' || next === '>' || isIdentStartAt(code, at + 1) ? at + 1 : null
+}
+
+// A tag holds names, `=`, quoted values, which scrubbing has blanked, and the
+// `/` of a closing or self-closing tag.
+function afterTag(code: string, at: number): number | null {
+  if (isIdentStartAt(code, at)) return readIdentEnd(code, at)
+  const char = code.charAt(at)
+  if (TAG_PUNCTUATION.has(char) || isLineTerminator(char)) return at + 1
+  return null
+}
+
+// A component's script block starts and ends at its tags wherever they fall,
+// the closing one often on a line of code, and Astro's frontmatter ends at a
+// line opening with `---`, which no statement can open with.
+function bordersScript(code: string, at: number): boolean {
+  if (code.startsWith('<script', at) || code.startsWith('</script', at)) return true
+  return code.startsWith('---', at) && opensLine(code, at)
+}
+
+function isEscaped(code: string, at: number): boolean {
+  let before = at - 1
+  while (code.charAt(before) === '\\') before -= 1
+  return (at - 1 - before) % 2 === 1
+}
+
+function opensLine(code: string, at: number): boolean {
+  let before = at - 1
+  while (code.charAt(before) === ' ' || code.charAt(before) === '\t') before -= 1
+  return before < 0 || isLineTerminator(code.charAt(before))
 }
 
 // Only whitespace or a return type annotation stands between a parameter list and

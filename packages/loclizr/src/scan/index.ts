@@ -31,6 +31,9 @@ const JSX_EXTENSIONS: ReadonlySet<string> = new Set(['.jsx', '.tsx', '.svelte', 
 // A single-file component is the file itself, so a usage with no enclosing
 // declaration still has a component to name, the way React's function does.
 const COMPONENT_EXTENSIONS: ReadonlySet<string> = new Set(['.svelte', '.vue', '.astro'])
+// A `<` where an operand starts can only open a JSX element here; a `.ts` file
+// reads it as a type assertion, and a component's script holds no JSX.
+const ELEMENT_EXTENSIONS: ReadonlySet<string> = new Set(['.js', '.jsx', '.mjs', '.cjs', '.tsx'])
 const TRAILING_SLASHES = /\/+$/u
 
 export async function scan(input: {
@@ -103,7 +106,7 @@ function scanText(input: {
   readonly ids: ReadonlySet<string>
   readonly groups: readonly ScanGroup[]
 }): FileScan {
-  const scrubbed = scrub(input.text, isJsx(input.file))
+  const scrubbed = scrub(input.text, hasExtension(input.file, JSX_EXTENSIONS))
   const bindings = bindImports({
     scrubbed,
     outDir: input.outDir,
@@ -111,14 +114,16 @@ function scanText(input: {
     groups: input.groups,
   })
   if (!bindings.importedGenerated) return { sites: [], importedGenerated: false }
+  const component = componentName(input.file)
   const sites = collectSites({
     source: input.text,
     code: scrubbed.codeOnly,
     file: input.file,
     bindings,
     ids: input.ids,
+    elements: hasExtension(input.file, ELEMENT_EXTENSIONS),
+    component: component !== null,
   })
-  const component = componentName(input.file)
   return {
     sites:
       component === null
@@ -167,9 +172,9 @@ async function readText(file: string): Promise<string | null> {
   }
 }
 
-function isJsx(file: string): boolean {
+function hasExtension(file: string, extensions: ReadonlySet<string>): boolean {
   const dot = file.lastIndexOf('.')
-  return dot !== -1 && JSX_EXTENSIONS.has(file.slice(dot).toLowerCase())
+  return dot !== -1 && extensions.has(file.slice(dot).toLowerCase())
 }
 
 function componentName(file: string): string | null {

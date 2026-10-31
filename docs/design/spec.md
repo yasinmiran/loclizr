@@ -3159,17 +3159,29 @@ of `m.nav_home` or the `errors` of `errors[code]`, not the member name. A
 usage at the top level of a module has `scope: null`; a braceless arrow body,
 `const Label = () => m.nav_home()`, names the arrow. That body ends at a `;`,
 a `,` or a line break, so in code written without semicolons the statements
-after it are not named for it. A break that the line before ends in an operator,
-an opening bracket, `=>` or the `>` of a JSX tag, or that the next line opens
-with an operator, a `.`, `(`, `[` or a backtick, continues the body. In a
+after it are not named for it. A line break continues the body when the line
+before ends in an operator, an opening bracket or `=>`, when the next line
+opens with an operator, a `.`, `(`, `[` or a backtick, or when the break falls
+inside a template literal. In a `.js`, `.jsx`, `.mjs`, `.cjs` or `.tsx` file a
+`<` where an operand starts in the body, after `=>` or an operator such as `?`,
+`:`, `&&` or `||`, opens a JSX element, and the body stays open until the tag
+that closes it. Its tags and text are markup, so a line break, a `;` or a word
+such as `with` in them ends nothing, and the `>` of that closing tag ends its
+line as an operand does. A character JSX cannot hold there, such as the `,` of
+a generic arrow's `<T,>`, reads the body as code again, and so does text the
+tokenizer takes for a comment or a string, such as `//` in the text or an
+apostrophe in a `.js` file, since the closing tag may be inside it. In a
 `.svelte`, `.vue` or `.astro` file the component is the file itself, so a usage
 with no enclosing declaration, in the template or at the top of the script or
 frontmatter, takes the file name with its last extension removed:
 `src/components/Cart.vue` gives `Cart`. The name comes from the path alone, so
-it stays deterministic. Optional chaining,
-`m?.nav_home` and `errors?.[code]`, resolves like plain access. A reference in
-type position, `typeof m.nav_home`, is a member access like any other and is
-recorded as a usage, because the tokenizer does not know a type from a value.
+it stays deterministic. In such a file a `<script` or `</script` tag, and a
+line that opens with `---`, end every statement before them, so an arrow
+written last in a script or the frontmatter does not name the markup after it.
+Optional chaining, `m?.nav_home` and `errors?.[code]`, resolves like plain
+access. A reference in type position, `typeof m.nav_home`, is a member access
+like any other and is recorded as a usage, because the tokenizer does not know
+a type from a value.
 The scan follows symbolic links; a path whose target is not a regular file is
 skipped, and the type is checked on the open handle, opened non-blocking where
 the platform allows, so a link to a FIFO or a device can neither block the

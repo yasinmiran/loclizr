@@ -200,6 +200,78 @@ describe('a top-level usage in a single-file component', () => {
     expect(scopesOf(['<p>{m.nav_home()}</p>'], 'src/Cart.page.SVELTE')).toEqual(['Cart.page'])
   })
 
+  test('ends a braceless arrow written last in the script at the closing script tag', () => {
+    expect(
+      scopesOf(
+        ['<script>', 'const greet = () => m.nav_cart()', '</script>', '<p>{m.nav_home()}</p>'],
+        'src/Cart.svelte',
+      ),
+    ).toEqual(['greet', 'Cart'])
+    expect(
+      scopesOf(
+        [
+          '<script setup lang="ts">',
+          "const close = () => emit('close')",
+          '</script>',
+          '',
+          '<template>',
+          '  <p>{{ m.nav_home() }}</p>',
+          '</template>',
+        ],
+        'src/Cart.vue',
+      ),
+    ).toEqual(['Cart'])
+  })
+
+  test('ends a braceless arrow at a closing script tag on the same line', () => {
+    expect(
+      scopesOf(
+        ['<script>const greet = () => m.nav_cart()</script>', '<p>{m.nav_home()}</p>'],
+        'src/Cart.svelte',
+      ),
+    ).toEqual(['greet', 'Cart'])
+  })
+
+  test('ends a braceless arrow in a module script before the instance script', () => {
+    expect(
+      scopesOf(
+        [
+          '<script context="module">',
+          'export const load = () => m.nav_cart()',
+          '</script>',
+          '<script>let x = 1</script>',
+          '<p>{m.nav_home()}</p>',
+        ],
+        'src/Cart.svelte',
+      ),
+    ).toEqual(['load', 'Cart'])
+  })
+
+  test('ends a braceless arrow written last in the frontmatter at the closing fence', () => {
+    expect(
+      scopesOf(
+        ['---', 'const day = (d) => d.toISOString()', '---', '<p>{m.nav_home()}</p>'],
+        'src/pages/Cart.astro',
+      ),
+    ).toEqual(['Cart'])
+  })
+
+  test('keeps a template literal body open to the closing script tag', () => {
+    expect(
+      scopesOf(
+        [
+          '<script setup>',
+          'const view = () => `',
+          '  ${m.nav_cart()}',
+          '`',
+          '</script>',
+          '<template>{{ m.nav_home() }}</template>',
+        ],
+        'src/Cart.vue',
+      ),
+    ).toEqual(['view', 'Cart'])
+  })
+
   test('leaves a top-level usage in a script module unnamed', () => {
     expect(scopesOf(['export const home = m.nav_home()'], 'src/Cart.ts')).toEqual([null])
     expect(scopesOf(['m.nav_home()'], 'src/Cart.tsx')).toEqual([null])
