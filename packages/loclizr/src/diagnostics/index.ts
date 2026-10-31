@@ -287,15 +287,28 @@ function bodyLines(text: string): readonly string[] {
   return text.replaceAll('\r\n', '\n').split('\n').map(sanitize)
 }
 
-// The module that raised a diagnostic quotes its keys inside the message and the
-// hint too, and there a key's newline would survive the split above, breaking a
-// quoted key across two lines or printing what reads as a second diagnostic.
-// Longest first, so a key that contains another is folded whole.
+// The module that raised a diagnostic quotes a key inside the message and the
+// hint too, as "key" or 'key', and quotes a dot segment of one, such as the
+// top-level namespace, the same way. There a line break in the key would survive
+// the split above, breaking the quote across two lines or printing what reads as
+// a second diagnostic. Only a quoted occurrence folds, because a bare search
+// would also find a key such as ":\n" in the rule's own line breaks and join
+// them. Every occurrence is marked before anything folds, so one cannot hide
+// another that overlaps it.
 function keysOnOneLine(text: string, diagnostic: Diagnostic): string {
-  const keys = [diagnostic.key, ...diagnostic.related.map((entry) => entry.key)]
-    .filter((key): key is string => key !== null && /[\r\n]/u.test(key))
-    .sort((a, b) => b.length - a.length)
-  return keys.reduce((folded, key) => folded.replaceAll(key, foldBreaks(key)), text)
+  const quoted = new Set(
+    [diagnostic.key, ...diagnostic.related.map((entry) => entry.key)]
+      .flatMap((key) => (key === null ? [] : [key, ...key.split('.')]))
+      .filter((part) => /[\r\n]/u.test(part))
+      .flatMap((part) => [`"${part}"`, `'${part}'`]),
+  )
+  const inQuote = new Array<boolean>(text.length).fill(false)
+  for (const form of quoted) {
+    for (let at = text.indexOf(form); at !== -1; at = text.indexOf(form, at + 1)) {
+      inQuote.fill(true, at, at + form.length)
+    }
+  }
+  return text.replaceAll(/[\r\n]+/gu, (run, at: number) => (inQuote[at] === true ? ' ' : run))
 }
 
 function renderHeader(diagnostic: Diagnostic, paint: Palette): string {
@@ -364,11 +377,7 @@ function indent(line: string, width: number): string {
 // space rather than one per newline, because two spaces are what separates two
 // header fields.
 function oneLine(text: string): string {
-  return sanitize(foldBreaks(text))
-}
-
-function foldBreaks(text: string): string {
-  return text.replaceAll(/[\r\n]+/gu, ' ')
+  return sanitize(text.replaceAll(/[\r\n]+/gu, ' '))
 }
 
 // Catalog keys, translator-authored source text, descriptions and file paths
