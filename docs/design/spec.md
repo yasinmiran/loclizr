@@ -92,7 +92,7 @@ These are the repo's settings and this spec assumes them everywhere.
   in v0.1. **Element role does not**: the record never says whether a string is
   a button label, a page title or a tooltip, because the scan is a tokenizer and
   cannot read a JSX tree. Surrounding copy and glossary hits do not ship either.
-  Glossary is the cheap deterministic one and is the first candidate for v0.2;
+  Glossary is the cheap deterministic one and is the first candidate for a later minor;
   the number that motivates it is single-vendor and unreproduced, so it does not
   gate v0.1.
 - **SSR covers Web Fetch handlers only** (Vite SSR, Hono, TanStack Start, Bun,
@@ -101,8 +101,8 @@ These are the repo's settings and this spec assumes them everywhere.
   Fastify reach `runWithLocale`. **Next.js is not a first-class SSR target in
   v0.1**, neither the App Router nor Pages Router middleware: there is no test,
   no example and no promise. Middleware runs in a different runtime and cannot
-  wrap a render, and the App Router entry, `enterWith` from a root layout, is a
-  v0.2 question. Nothing in v0.1 emits a `'use client'` directive; an app that
+  wrap a render, and the App Router entry, `enterWith` from a root layout, is an
+  open design question (#13). Nothing in v0.1 emits a `'use client'` directive; an app that
   needs one puts it on its own component file.
 - **URL-prefix locale routing is out of scope.** Section 11's hydration
   agreement assumes the locale comes from a cookie or from `Accept-Language`,
@@ -119,8 +119,8 @@ These are the repo's settings and this spec assumes them everywhere.
   supported patterns and neither is a published package. A watcher is
   a second code path through the compiler with platform-dependent recursive
   `fs.watch` behaviour and a bespoke severity semantic to defend, and nothing
-  else in v0.1 depends on it. It comes back in v0.2 once the build's real cost
-  on a large catalog has been measured.
+  else in v0.1 depends on it. It is reconsidered once the build's real cost on
+  a large catalog has been measured.
 
 ## 2. Catalogs
 
@@ -3010,7 +3010,7 @@ the template.
 ### 11.4 React
 
 `loclizr/react` emits **no `'use client'` directive** in v0.1. The directive
-exists for Next, which section 1 defers to v0.2, and an app that needs one puts
+exists for Next, which section 1 leaves undesigned, and an app that needs one puts
 it on its own component file. Dropping it also lets `Parts`, which is nothing
 but `createElement(Fragment, null, ...)`, be called from a server component
 instead of forcing a client boundary to render a fragment.
@@ -3511,7 +3511,7 @@ and merge-conflict inside a generated JSON file, which this section explicitly
 says we do not do. Precise positions stay where they cost nothing: the JSON
 reporter's diagnostics, and `BuildResult.program.usages`, where `UsageSite`
 keeps all five fields for any tool that wants them. A committed sidecar of
-precise sites is a v0.2 question, not a v0.1 file the user has to remember to
+precise sites is a later question, not a v0.1 file the user has to remember to
 ignore.
 
 Three mappings, stated so M8's owner does not have to invent them. `ArgType`'s
