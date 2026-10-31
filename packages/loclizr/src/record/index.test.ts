@@ -599,6 +599,16 @@ describe('checkDescriptions on placeholder notes', () => {
     expect(diagnostic?.hint).toContain('"nmae"')
   })
 
+  it('quotes the key both times the note message names it', () => {
+    const [diagnostic] = checkDescriptions(
+      program({ messages: [greeting([{ name: 'nmae', note: 'First name of the user' }])] }),
+    )
+
+    expect(diagnostic?.message.split('\n')[0]).toBe(
+      'The placeholder note "nmae" on "cart.greeting" names no argument: "cart.greeting" takes name.',
+    )
+  })
+
   it('says so when the message takes no arguments at all', () => {
     const diagnostics = checkDescriptions(
       program({

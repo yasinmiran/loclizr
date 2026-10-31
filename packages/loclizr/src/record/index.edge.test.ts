@@ -740,12 +740,14 @@ describe('checkDescriptions edge cases', () => {
     },
   )
 
-  it('opens the message with the key and the shape of the arguments', () => {
+  // Quoted, so the human reporter folds a line break in the key the way it does
+  // in every other rule that names one.
+  it('opens the message with the quoted key and the shape of the arguments', () => {
     const diagnostics = checkDescriptions(program({ messages: [withArg(`cart.${SMILE}`, null)] }))
 
-    expect(diagnostics[0]?.message.startsWith(`cart.${SMILE} takes x and has no description.`)).toBe(
-      true,
-    )
+    expect(
+      diagnostics[0]?.message.startsWith(`"cart.${SMILE}" takes x and has no description.`),
+    ).toBe(true)
   })
 
   it('keeps a select argument in the takes list', () => {

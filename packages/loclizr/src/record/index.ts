@@ -236,7 +236,7 @@ function compareScope(a: string | null, b: string | null): number {
 function missingDescription(message: Message, program: Program): Diagnostic {
   const located = message.spans.find((entry) => entry.locale === program.sourceLocale)
   return diag('missing-description', {
-    message: `${message.key} ${shapeOf(message)} and has no description.
+    message: `"${message.key}" ${shapeOf(message)} and has no description.
 A translator receives the string with nothing that says what it holds or where it appears.`,
     hint: descriptionHint(message.key, program),
     key: message.key,
@@ -257,7 +257,7 @@ function orphanNotes(message: Message, program: Program): readonly Diagnostic[] 
     .sort(compareCodepoint)
     .map((name) =>
       diag('meta-placeholder-orphan', {
-        message: `The placeholder note ${JSON.stringify(name)} on ${message.key} names no argument: ${message.key} ${message.args.length === 0 ? 'takes no arguments' : shapeOf(message)}.
+        message: `The placeholder note ${JSON.stringify(name)} on "${message.key}" names no argument: "${message.key}" ${message.args.length === 0 ? 'takes no arguments' : shapeOf(message)}.
 The note is dropped, so a translator never sees it.`,
         hint: `rename ${JSON.stringify(name)} to the argument it describes, or delete it.`,
         key: message.key,
