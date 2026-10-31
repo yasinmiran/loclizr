@@ -2968,6 +2968,14 @@ replacing it breaks no latch. Registration itself can change what `getLocale()`
 returns, for any cookie name, and notifies no listener: a `useLocale()` that
 rendered before the list registered keeps the earlier value until something
 re-renders it.
+A `setLocale` that persists before any generated module has registered writes
+the default name `locale` too, with the default attributes, so an app that never
+imports a message module still keeps the choice. The first registration moves
+that value to the configured cookie, written with the configured attributes,
+and expires the early `locale` cookie while it still holds the value the store
+wrote, so neither a reload nor `localeFromHeaders` with the configured name
+loses the choice. With the default name and no configured attributes there is
+nothing to move. `resetLocale` before registration drops the pending move.
 
 Never `navigator.languages`. Never `localStorage`. The server saw neither, so
 either one guarantees a hydration mismatch.
@@ -5209,14 +5217,14 @@ nobody else:
   entry is reduced to re-exports. The budget is 900 bytes and it is **not
   met**: the shipped runtime, a store, an RFC 4647 matcher, a cookie reader,
   `negotiate` and `localeFromHeaders`, four warning strings, a test reset and
-  four ABI helpers, measures about 3030 bytes in the shape tsdown ships, and
-  about 1850 bundled and minified with `process.env.NODE_ENV` set to
+  four ABI helpers, measures about 3180 bytes in the shape tsdown ships, and
+  about 1940 bundled and minified with `process.env.NODE_ENV` set to
   `"production"`. A tree-shaking bundler drops `negotiate` and
   `localeFromHeaders` from an app that imports neither, as it drops any unused
   function declaration. The test keeps the 900-byte
   assertion verbatim as an expected failure, so the suite turns red the day
   the budget is met and the number can be tightened, and a second, ordinary
-  assertion holds a 3070-byte ceiling so a regression still fails; its message
+  assertion holds a 3220-byte ceiling so a regression still fails; its message
   prints budget, measured and ceiling together. A green suite here therefore
   says the runtime has not grown, not that the budget is met.
 - React tests carry `// @vitest-environment jsdom` as a file docblock, so the

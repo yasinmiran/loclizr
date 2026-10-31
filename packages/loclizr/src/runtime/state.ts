@@ -14,6 +14,9 @@ export interface StoreState {
   // A detected cookie's <html lang> write, held until a locale list registers
   // to resolve it against, since a lazy chunk can register after the first read.
   pendingLang: string | null
+  // A setLocale write made before any list registered could only use the
+  // default cookie name, so registration moves it to the configured one.
+  pendingCookie: string | null
   setup: LocaleSetup | null
   readonly listeners: Set<() => void>
   readonly warned: Set<string>
@@ -37,6 +40,7 @@ export function storeState(): StoreState {
     raw: null,
     detected: null,
     pendingLang: null,
+    pendingCookie: null,
     setup: null,
     listeners: new Set(),
     warned: new Set(),

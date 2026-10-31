@@ -91,6 +91,7 @@ cookie (`path=/`, one year, `SameSite=Lax` unless the `cookie` config sets other
 | Case | Behaviour |
 | --- | --- |
 | `{ persist: false }` | skips the cookie |
+| Before any generated module registered | writes `locale` with the default attributes, then the first registration moves the value to the configured cookie |
 | `file://` page or cookies blocked | updates and notifies, keeps nothing past reload; warns once outside production |
 | No DOM (React Native) | updates and notifies in memory, persists nothing |
 | Inside a request scope | throws `setLocale() cannot run inside a request scope. Pass { locale } per call instead.` |

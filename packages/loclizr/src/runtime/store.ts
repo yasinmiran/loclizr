@@ -1,8 +1,10 @@
-import type { Locale, LocaleListener, SetLocaleOptions } from '../types'
+import type { Locale, LocaleListener, LocaleSetup, SetLocaleOptions } from '../types'
 import { readCookie } from './cookie'
 import { localeScope, scopedLocale, storeState, warnOnce } from './state'
 import type { StoreState } from './state'
 
+// emit leaves cookieAttributes out of $configure1 when the config sets none.
+const DEFAULT_ATTRIBUTES = 'path=/; max-age=31536000; SameSite=Lax'
 const PLAUSIBLE_TAG = /^[A-Za-z]{2,8}(?:-[A-Za-z0-9]{1,8})*$/
 
 export function getLocale(): Locale {
@@ -40,13 +42,8 @@ export function setLocale(locale: Locale, options?: SetLocaleOptions): void {
       // stored one does.
       const stored = locale.replace(/\p{Cs}/gu, '\uFFFD')
       const name = cookieName()
-      const attributes = cookieAttributes()
-      // A host-only cookie left from a config without a domain is a separate
-      // cookie, and every read, the server's included, finds it first.
-      if (attributes.includes('; domain=')) {
-        document.cookie = `${name}=; ${expired(attributes.replace(/; domain=[^;]*/, ''))}`
-      }
-      document.cookie = `${name}=${encodeURIComponent(stored)}; ${attributes}`
+      writeCookie(stored)
+      if (state.setup === null) state.pendingCookie = stored
       // A file:// page keeps no cookie while navigator.cookieEnabled says true.
       try {
         if (
@@ -78,6 +75,7 @@ export function resetLocale(): void {
   state.raw = null
   state.detected = null
   state.pendingLang = null
+  state.pendingCookie = null
   if (typeof document !== 'undefined') {
     document.cookie = `${cookieName()}=; ${expired(cookieAttributes())}`
     // Detection would read a leftover lang back as the locale just reset.
@@ -137,6 +135,7 @@ export function registerDefaults(setup: {
       state.detected = detect()
     }
     declarePendingLang(state)
+    movePendingCookie(state, setup)
     return
   }
   const same =
@@ -197,14 +196,38 @@ function declarePendingLang(state: StoreState): void {
   state.pendingLang = null
 }
 
+// Runs with the new setup in place, so writeCookie() uses the configured name
+// and attributes. An older copy's store has no pendingCookie at all, hence the
+// loose test: a strict one would write the string undefined. Only a setLocale
+// with a document sets it, so a document exists here.
+function movePendingCookie(state: StoreState, setup: LocaleSetup): void {
+  const pending = state.pendingCookie
+  state.pendingCookie = null
+  if (pending == null || (setup.cookie === 'locale' && setup.cookieAttributes === undefined)) return
+  // A default-named cookie rewritten since is not the store's to delete.
+  if (readCookie(document.cookie, 'locale') === pending) {
+    document.cookie = `locale=; ${expired(DEFAULT_ATTRIBUTES)}`
+  }
+  writeCookie(pending)
+}
+
+function writeCookie(value: string): void {
+  const name = cookieName()
+  const attributes = cookieAttributes()
+  // A host-only cookie left from a config without a domain is a separate
+  // cookie, and every read, the server's included, finds it first.
+  if (attributes.includes('; domain=')) {
+    document.cookie = `${name}=; ${expired(attributes.replace(/; domain=[^;]*/, ''))}`
+  }
+  document.cookie = `${name}=${encodeURIComponent(value)}; ${attributes}`
+}
+
 function cookieName(): string {
   return storeState().setup?.cookie ?? 'locale'
 }
 
-// emit leaves cookieAttributes out of $configure1 when the config sets none,
-// so the defaults live here.
 function cookieAttributes(): string {
-  return storeState().setup?.cookieAttributes ?? 'path=/; max-age=31536000; SameSite=Lax'
+  return storeState().setup?.cookieAttributes ?? DEFAULT_ATTRIBUTES
 }
 
 // A browser deletes a cookie only when the path and domain match the ones it
