@@ -666,7 +666,10 @@ reads them, because only the browser writes the cookie. `Config.cookie` is the
 name and `Config.cookieAttributes` holds the attributes the config wrote,
 absent when it wrote none. `secure: true` on a plain `http://` page other than
 `localhost` stores nothing, which is the case `setLocale`'s read-back warning
-in section 11.3 already reports.
+in section 11.3 already reports. When the attributes carry a `domain`,
+`setLocale` first expires a host-only cookie of the same name under the same
+path: a site that adds `domain` leaves one on every returning visitor, and
+every read, the server's included, finds it before the shared one.
 
 `augmentLocale` controls one block in the generated barrel's declarations, the
 `declare module 'loclizr' { interface LocaleRegistry ... }` augmentation. It is

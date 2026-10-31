@@ -201,6 +201,10 @@ export default defineConfig({
 | `sameSite` | `'lax' \| 'strict' \| 'none'` | `'lax'` |
 | `maxAge` | whole seconds, 1 or more | one year |
 
+Adding `domain` to a live site leaves each returning visitor's host-only cookie in place, and every
+read finds that one first. `setLocale` expires the one on its own host before it writes, so a
+sibling host keeps the old choice until the visitor switches there.
+
 `m.cookie` is the name in either form, so server options take it as is. The build prints the
 attributes as one more key of `$configure1` in `_locale.js`, so only the browser sees them:
 

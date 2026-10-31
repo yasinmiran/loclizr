@@ -83,13 +83,29 @@ describe('the cookie setLocale writes', () => {
     captureCookieWrites()
     $configure1({ ...SETUP, cookieAttributes: 'path=/app; max-age=60; domain=example.com; SameSite=None; Secure' })
     setLocale('de')
-    expect(attributesOf(written[0] ?? '')).toEqual([
+    expect(attributesOf(written.at(-1) ?? '')).toEqual([
       'path=/app',
       'max-age=60',
       'domain=example.com',
       'SameSite=None',
       'Secure',
     ])
+  })
+
+  test('expires a host-only cookie of the same name before a write that carries a domain', () => {
+    captureCookieWrites()
+    $configure1({ ...SETUP, cookieAttributes: 'path=/app; max-age=60; domain=example.com; SameSite=None; Secure' })
+    setLocale('de')
+    expect(written).toHaveLength(2)
+    expect(written[0]?.split(';')[0]).toBe('locale=')
+    expect(attributesOf(written[0] ?? '')).toEqual(['path=/app', 'max-age=0', 'SameSite=None', 'Secure'])
+  })
+
+  test('writes once when the attributes carry no domain', () => {
+    captureCookieWrites()
+    $configure1(SETUP)
+    setLocale('de')
+    expect(written).toHaveLength(1)
   })
 
   test('warns when a second generated directory asks for other attributes', () => {

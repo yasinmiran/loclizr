@@ -106,7 +106,8 @@ is the only persistence, since a server reads it back.
 Cookie attributes default to `path=/`, `max-age` one year, `SameSite=Lax`, no `Domain`, no
 `Secure`. No `Domain` means host-scoped: `shop.example.com` and `help.example.com` do not share a
 choice until the config sets `cookie: { name: 'locale', domain: 'example.com' }`
-([Configuration](/reference/configuration/#cookie)).
+([Configuration](/reference/configuration/#cookie)). A visitor's earlier host-scoped cookie still
+wins on each host until `setLocale` runs there and expires it.
 
 `setLocale` never sets `dir`; for an RTL locale set it yourself from `useLocale()` or a `subscribe`
 listener. Values inside a message are not isolated either: see

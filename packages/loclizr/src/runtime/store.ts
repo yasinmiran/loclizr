@@ -40,7 +40,13 @@ export function setLocale(locale: Locale, options?: SetLocaleOptions): void {
       // stored one does.
       const stored = locale.replace(/\p{Cs}/gu, '\uFFFD')
       const name = cookieName()
-      document.cookie = `${name}=${encodeURIComponent(stored)}; ${cookieAttributes()}`
+      const attributes = cookieAttributes()
+      // A host-only cookie left from a config without a domain is a separate
+      // cookie, and every read, the server's included, finds it first.
+      if (attributes.includes('domain=')) {
+        document.cookie = `${name}=; ${expired(attributes.replace(/; domain=[^;]*/, ''))}`
+      }
+      document.cookie = `${name}=${encodeURIComponent(stored)}; ${attributes}`
       // A file:// page keeps no cookie while navigator.cookieEnabled says true.
       try {
         if (
@@ -73,9 +79,7 @@ export function resetLocale(): void {
   state.detected = null
   state.pendingLang = null
   if (typeof document !== 'undefined') {
-    // A browser deletes a cookie only when the path and domain match the ones it
-    // was written with, and drops a SameSite=None write that is not Secure.
-    document.cookie = `${cookieName()}=; ${cookieAttributes().replace(/max-age=\d+/, 'max-age=0')}`
+    document.cookie = `${cookieName()}=; ${expired(cookieAttributes())}`
     // Detection would read a leftover lang back as the locale just reset.
     document.documentElement.removeAttribute('lang')
   }
@@ -201,4 +205,10 @@ function cookieName(): string {
 // so the defaults live here.
 function cookieAttributes(): string {
   return storeState().setup?.cookieAttributes ?? 'path=/; max-age=31536000; SameSite=Lax'
+}
+
+// A browser deletes a cookie only when the path and domain match the ones it
+// was written with, and drops a SameSite=None write that is not Secure.
+function expired(attributes: string): string {
+  return attributes.replace(/max-age=\d+/, 'max-age=0')
 }
