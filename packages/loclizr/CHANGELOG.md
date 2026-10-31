@@ -7,43 +7,29 @@ a minor release may break an invariant, and this file says so when it does.
 
 ## Unreleased
 
+### Behaviour changes
+
+- A usage site in a `.svelte`, `.vue` or `.astro` file that has no enclosing declaration, such as a call in the template, now records the component name taken from the file name (`Cart` for `src/components/Cart.vue`) as its `scope` in the context record, where it used to record `null`. Only the record's `usage` field changes, which the staleness gate ignores, so `check` does not fail on it (#55).
+- A markup message's declaration now binds `<R extends T, T = R>`: a handler is `(chunks: readonly (string | T)[]) => R` and the message returns `readonly (string | R)[]`, so a call stored in a `const` takes its part type from the handler's return (`readonly string[]` for `(chunks) => chunks.join('')`) instead of `readonly unknown[]`. Group types follow as `<Base>Args<R, T = R>` and `<Base>Return<R>`. `m.x<ReactNode>(...)` and inline `<Parts of={...} />` calls compile as before; a JSX handler stored in a `const` still needs the type argument. Code that names `<Base>Return<X>` or passes two type arguments where `R` does not extend `T` sees the new shape (#93).
+
 ### Added
 
 - `negotiate` and `localeFromHeaders` are now exported from `loclizr` as well as `loclizr/server`, one implementation for both, so a static site can pick its first locale from `navigator.languages` in the browser. The first-visit recipe in the language switching guide is now one call that reads the configured cookie name, where the old hand-written one only recognised `locale=`. The main entry and its chunk grow by about 410 bytes gzipped; an app that imports neither function drops them (#7).
 - `cookie` in `loclizr.config.*` also takes `{ name, domain?, path?, secure?, sameSite?, maxAge? }`, so the locale cookie can be shared across subdomains or marked `Secure`. Each attribute left out keeps today's default (`path=/`, one year, `SameSite=Lax`), `m.cookie` stays the name, and a config without attributes generates the same tree as before. `LZ1001` rejects `sameSite: 'none'` without `secure: true`, a `domain` with a scheme, port, path or `;`, a `path` not starting with `/`, a negative or fractional `maxAge` and an unknown attribute (#8).
 - `LZ3015 translation-same-as-source` at `warn`: a target value identical to its source, such as a catalog seeded by copying `en.json`, now raises one warning per locale listing every such key, where it used to pass every rule. Values with no letter outside argument and tag syntax, and locales sharing the source's language subtag (`en-GB` under `en`), are exempt, and `"sameAsSource": true` on a key's meta sidecar entry exempts a brand or proper noun. A catalog that built clean can now print this warning, which fails a build run with `--max-warnings 0` (#9).
 - `resetLocale()` from `loclizr`, for test setup. It returns the store to the unset state a first visit starts in: it clears the stored tag and the latched detection, expires the locale cookie, removes `<html lang>` and notifies subscribers, and keeps the registered locale list, the subscribers and the once-per-process warnings. It throws inside a request scope, as `setLocale` does. Tests of first-visit detection no longer need one file each (#10).
-### Behaviour changes
-
-- A usage site in a `.svelte`, `.vue` or `.astro` file that has no enclosing declaration, such as a call in the template, now records the component name taken from the file name (`Cart` for `src/components/Cart.vue`) as its `scope` in the context record, where it used to record `null`. Only the record's `usage` field changes, which the staleness gate ignores, so `check` does not fail on it (#55).
-### Behaviour changes
-
-- A markup message's declaration now binds `<R extends T, T = R>`: a handler is `(chunks: readonly (string | T)[]) => R` and the message returns `readonly (string | R)[]`, so a call stored in a `const` takes its part type from the handler's return (`readonly string[]` for `(chunks) => chunks.join('')`) instead of `readonly unknown[]`. Group types follow as `<Base>Args<R, T = R>` and `<Base>Return<R>`. `m.x<ReactNode>(...)` and inline `<Parts of={...} />` calls compile as before; a JSX handler stored in a `const` still needs the type argument. Code that names `<Base>Return<X>` or passes two type arguments where `R` does not extend `T` sees the new shape (#93).
-### Fixes
-
-- The language-switching guide now says that generated code inserts placeholder values with no bidi isolation marks, and shows the two ways to isolate a value in a mixed-direction app: wrap the string in U+2068 and U+2069, or put the argument inside a tag whose handler renders `<bdi>` or adds the marks. Generated output is unchanged (#94).
 - `severity` accepts a per-locale value, such as `{ 'missing-translation': { default: 'error', fr: 'warn' } }`, so a rollout locale can run a rule at a different level than the rest. A locale key matches exactly, every other locale and a diagnostic with no locale take `default`, and a key that `locales` does not declare is `LZ1001 config-invalid`. A bare level still applies to every locale (#121).
+
 ### Fixes
 
 - With a `cookie` other than `locale` in the config, a `getLocale()` that ran before the generated tree registered latched a read of the default `locale` cookie, so the configured cookie was never read and the client stayed on the source locale while the server rendered the cookie's locale. The first registration now detects again with the configured name.
-### Fixes
-
 - The Vue example's `useLocale` composable now subscribes in `onMounted` and unsubscribes in `onUnmounted`, as the Vue guide shows, so a server render no longer leaves a listener on the process-wide store; its test file gains a server render test and matches the guide's again; the package is unchanged.
-### Fixes
-
 - A source value that uses one argument in two `select`s, such as `{g, select, male {he} other {they}} saw {g, select, female {her} other {them}}`, now types the argument as the union of both option lists (`'female' | 'male'`), where it kept only the first select's options. Calls that pass an option only the second select names now compile, and a translation that handles it no longer reports `LZ3009 select-option-extra`. The record's `options` for that argument gains the extra names, so the next `loclizr check` on such a project reports `LZ5003` until `loclizr build` rewrites the record.
-### Fixes
-
-- The pipeline diagram on the How it works page now says the check step runs 59 rules, not 56, matching the rule table; a test keeps the two in step.
-### Fixes
-
-- The human reporter now folds a line break in a catalog key to one space wherever the message or the `fix` hint quotes that key, as the header already did. A key such as `"nav\nhome"` used to split its `fix  add "..."` line in two, and a crafted key could print lines that read as a second diagnostic; JSON output is unchanged.
-### Fixes
-
 - An ICU diagnostic such as `LZ2003` or `LZ2004` in a value that spells a character with an escape JSON does not need, such as `\u00e9` or `\/`, now points at the start of the value, where it used to name a column short by the bytes each escape saves (`locales/en.json:2:13` for an error at column 23).
-### Fixes
-
+- The human reporter now folds a line break in a catalog key to one space wherever the message or the `fix` hint quotes that key, as the header already did. A key such as `"nav\nhome"` used to split its `fix  add "..."` line in two, and a crafted key could print lines that read as a second diagnostic; JSON output is unchanged.
 - In code written without semicolons, a usage after an expression-bodied arrow such as `const pick = (x) => x` no longer records that arrow as its `scope` in the context record; it records the enclosing function, or `null` at module level. `usage` is projected out of the record gates, so `loclizr check` results are unchanged.
+- The language-switching guide now says that generated code inserts placeholder values with no bidi isolation marks, and shows the two ways to isolate a value in a mixed-direction app: wrap the string in U+2068 and U+2069, or put the argument inside a tag whose handler renders `<bdi>` or adds the marks. Generated output is unchanged (#94).
+- The pipeline diagram on the How it works page now says the check step runs 60 rules, not 56, matching the rule table; a test keeps the two in step.
 
 ## 0.2.0 - 2026-10-13
 
