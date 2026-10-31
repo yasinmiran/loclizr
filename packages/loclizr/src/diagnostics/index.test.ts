@@ -73,8 +73,8 @@ describe('RULES', () => {
     expect(Object.keys(RULES)).toHaveLength(60)
   })
 
-  // The docs site's pipeline diagram is drawn by hand, so nothing else notices
-  // when a new rule leaves its count behind.
+  // The rule count in the docs pipeline diagram is typed into its spec label,
+  // so nothing else notices when a new rule leaves it behind.
   test('matches the rule count the docs pipeline diagram prints', () => {
     const diagrams = resolve(
       dirname(fileURLToPath(import.meta.url)),
