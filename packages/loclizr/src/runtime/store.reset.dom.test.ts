@@ -39,6 +39,20 @@ describe('resetLocale with a document', () => {
     expect(document.cookie).toBe('locale=de-AT')
   })
 
+  test('expires the cookie with the path setLocale wrote it under', () => {
+    history.pushState(null, '', '/app/cart')
+    try {
+      registerDefaults({ ...SETUP, cookieAttributes: 'path=/app; max-age=31536000; SameSite=Lax' })
+      setLocale('de')
+      expect(document.cookie).toBe('locale=de')
+      resetLocale()
+      expect(document.cookie).toBe('')
+    } finally {
+      document.cookie = 'locale=; path=/app; max-age=0'
+      history.pushState(null, '', '/')
+    }
+  })
+
   test('unlatches detection, so the next read detects again', () => {
     registerDefaults(SETUP)
     expect(getLocale()).toBe('en')

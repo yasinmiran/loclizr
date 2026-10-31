@@ -2729,8 +2729,9 @@ subscribe(listener: () => void): () => void
 **`resetLocale()` returns the store to the unset state a fresh page starts
 in, for test setup.** It clears the stored tag, the latched detection and a
 pending `<html lang>` write, so the next read runs step 3 below again. With a
-`document` it expires the cookie under the registered name and removes the
-`lang` attribute, since detection would otherwise read back the locale
+`document` it expires the cookie under the registered name and attributes,
+since a browser keeps a cookie whose path or domain the expiry does not
+repeat, and removes the `lang` attribute, since detection would otherwise read back the locale
 `setLocale` wrote there. It notifies listeners, so a component left mounted
 across tests does not keep a stale snapshot. It keeps the registration, the
 listeners and the spent once-per-process warnings: the generated module that

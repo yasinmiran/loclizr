@@ -40,10 +40,7 @@ export function setLocale(locale: Locale, options?: SetLocaleOptions): void {
       // stored one does.
       const stored = locale.replace(/\p{Cs}/gu, '\uFFFD')
       const name = cookieName()
-      // The defaults every earlier release wrote, so a tree built without
-      // attributes keeps the cookie the hydration channel was built on.
-      const attributes = state.setup?.cookieAttributes ?? 'path=/; max-age=31536000; SameSite=Lax'
-      document.cookie = `${name}=${encodeURIComponent(stored)}; ${attributes}`
+      document.cookie = `${name}=${encodeURIComponent(stored)}; ${cookieAttributes()}`
       // A file:// page keeps no cookie while navigator.cookieEnabled says true.
       try {
         if (
@@ -76,7 +73,9 @@ export function resetLocale(): void {
   state.detected = null
   state.pendingLang = null
   if (typeof document !== 'undefined') {
-    document.cookie = `${cookieName()}=; path=/; max-age=0; SameSite=Lax`
+    // A browser deletes a cookie only when the path and domain match the ones it
+    // was written with, and drops a SameSite=None write that is not Secure.
+    document.cookie = `${cookieName()}=; ${cookieAttributes().replace(/max-age=\d+/, 'max-age=0')}`
     // Detection would read a leftover lang back as the locale just reset.
     document.documentElement.removeAttribute('lang')
   }
@@ -194,4 +193,10 @@ function declarePendingLang(state: StoreState): void {
 
 function cookieName(): string {
   return storeState().setup?.cookie ?? 'locale'
+}
+
+// The defaults every earlier release wrote, so a tree built without attributes
+// keeps the cookie the hydration channel was built on.
+function cookieAttributes(): string {
+  return storeState().setup?.cookieAttributes ?? 'path=/; max-age=31536000; SameSite=Lax'
 }
