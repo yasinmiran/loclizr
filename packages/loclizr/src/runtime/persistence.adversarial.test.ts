@@ -108,6 +108,19 @@ describe('the cookie setLocale writes', () => {
     expect(written).toHaveLength(1)
   })
 
+  // A path may hold `=`, so only an attribute after its `; ` counts.
+  test('reads domain and max-age as attributes, never inside the path', () => {
+    captureCookieWrites()
+    $configure1({ ...SETUP, cookieAttributes: 'path=/domain=x; max-age=60; SameSite=Lax' })
+    setLocale('de')
+    expect(written).toHaveLength(1)
+    resetRuntime()
+    captureCookieWrites()
+    $configure1({ ...SETUP, cookieAttributes: 'path=/max-age=5; max-age=60; domain=example.com; SameSite=Lax' })
+    setLocale('de')
+    expect(attributesOf(written[0] ?? '')).toEqual(['path=/max-age=5', 'max-age=0', 'SameSite=Lax'])
+  })
+
   test('warns when a second generated directory asks for other attributes', () => {
     const warn = vi.spyOn(console, 'warn').mockImplementation(() => {})
     $configure1(SETUP)

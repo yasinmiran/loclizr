@@ -43,7 +43,7 @@ export function setLocale(locale: Locale, options?: SetLocaleOptions): void {
       const attributes = cookieAttributes()
       // A host-only cookie left from a config without a domain is a separate
       // cookie, and every read, the server's included, finds it first.
-      if (attributes.includes('domain=')) {
+      if (attributes.includes('; domain=')) {
         document.cookie = `${name}=; ${expired(attributes.replace(/; domain=[^;]*/, ''))}`
       }
       document.cookie = `${name}=${encodeURIComponent(stored)}; ${attributes}`
@@ -210,5 +210,5 @@ function cookieAttributes(): string {
 // A browser deletes a cookie only when the path and domain match the ones it
 // was written with, and drops a SameSite=None write that is not Secure.
 function expired(attributes: string): string {
-  return attributes.replace(/max-age=\d+/, 'max-age=0')
+  return attributes.replace(/; max-age=\d+/, '; max-age=0')
 }
