@@ -124,8 +124,10 @@ export function registerDefaults(setup: {
   if (registered === null) {
     state.setup = setup
     // A read before any registration could only look for the default cookie
-    // name. getLocale() has handed out no detected tag yet, so detecting again
-    // with the configured name moves no snapshot.
+    // name. Before this registration getLocale() returned the stored tag or
+    // 'en', never the detected one, so detecting again with the configured name
+    // breaks no latch. Registration itself changes what getLocale() returns, for
+    // any cookie name, and notifies no listener.
     if (state.raw === null && state.detected !== null && setup.cookie !== 'locale') {
       state.pendingLang = null
       state.detected = detect()

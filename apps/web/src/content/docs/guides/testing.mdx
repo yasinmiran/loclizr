@@ -94,7 +94,9 @@ Vitest reads a `vitest.config.ts` in place of `vite.config.ts`, so an app that a
 
 The guard skips files on Node's environment, such as the server test below. Detection reads `lang`
 only when no cookie exists, and there it finds the source locale it would fall back to anyway, so
-no test renders differently. Jest takes the same file under `setupFiles`.
+no test renders differently. Jest takes the same file under `setupFiles`. `resetLocale()` removes
+`lang` again, so a file that resets and renders writes it back after each reset, as in
+[In a file that renders](#in-a-file-that-renders).
 
 ## Detection latches on the first read
 
@@ -147,6 +149,46 @@ locale cookie, removes `<html lang>` and unlatches detection, so the next read d
 keeps the registered locale list and the subscribers, and notifies them. Without it, the second test
 reads the `de` the first one latched. A file that only picks locales needs no reset: the
 `beforeEach` call overwrites the last test's choice.
+
+### In a file that renders
+
+```tsx title="test/visit.test.tsx"
+// @vitest-environment jsdom
+import { cleanup, render, screen } from '@testing-library/react'
+import { resetLocale } from 'loclizr'
+import { afterEach, expect, test } from 'vitest'
+import { Cart } from '../src/Cart'
+import * as m from '../src/loclizr/messages'
+
+afterEach(() => {
+  cleanup()
+  resetLocale()
+  document.documentElement.lang = 'en'
+})
+
+test('a first visit renders the source locale', () => {
+  render(<Cart count={3} />)
+  expect(screen.getByText(m.cart_items({ count: 3 }, { locale: 'en' }), { exact: false })).toBeTruthy()
+})
+
+test('a returning visitor renders the cookie locale', () => {
+  document.cookie = 'locale=de; path=/'
+  render(<Cart count={3} />)
+  expect(screen.getByText(m.cart_items({ count: 3 }, { locale: 'de' }), { exact: false })).toBeTruthy()
+})
+```
+
+A subscriber reads as soon as the reset notifies it, and that read is the next detection: it finds
+the page the reset just cleared, with no cookie and no `lang`, and latches the source locale. Unmount
+first. Without `cleanup()`, the `<Cart>` from the first test is still mounted, it spends that read,
+and the second test renders English with its cookie unread. Call it even with `globals: true`:
+Testing Library registers its automatic cleanup when it is imported, and Vitest runs `afterEach`
+hooks in reverse order of registration, so that cleanup comes after the reset.
+
+The reset also removes the `lang` the [setup file](#quiet-the-html-lang-warning) wrote, and a setup
+file runs once per file, so the next test that renders with no cookie prints that warning again. The
+`lang` line in `afterEach` puts it back. A cookie still wins over it, and without one it names the
+source locale detection falls back to anyway.
 
 ## Node and server rendering
 

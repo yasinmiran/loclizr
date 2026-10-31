@@ -2,7 +2,7 @@
 import { afterEach, describe, expect, test, vi } from 'vitest'
 import { resetRuntime } from './__fixtures__/reset'
 import { storeState } from './state'
-import { getLocale, registerDefaults, resetLocale, setLocale } from './store'
+import { getLocale, registerDefaults, resetLocale, setLocale, subscribe } from './store'
 
 const SETUP = { locales: ['de', 'de-AT', 'en'], sourceLocale: 'en', cookie: 'locale' } as const
 
@@ -60,6 +60,19 @@ describe('resetLocale with a document', () => {
     document.cookie = 'locale=de-AT; path=/'
     expect(getLocale()).toBe('de-AT')
     expect(document.documentElement.lang).toBe('de-AT')
+  })
+
+  // The notification is the first read after the reset, so it detects against
+  // the page the reset just cleared.
+  test('latches the cleared page for a subscriber that reads on the notification', () => {
+    registerDefaults(SETUP)
+    subscribe(() => {
+      getLocale()
+    })
+    setLocale('de')
+    resetLocale()
+    document.cookie = 'locale=de-AT; path=/'
+    expect(getLocale()).toBe('en')
   })
 
   test('drops a detected cookie still waiting for a registration to write <html lang>', () => {

@@ -122,6 +122,16 @@ describe('the detected cookie', () => {
     expect(document.documentElement.lang).toBe('en')
   })
 
+  test('keeps the first read latched when a default-named cookie arrives before the list registers', () => {
+    document.documentElement.lang = 'en'
+    vi.spyOn(console, 'warn').mockImplementation(() => {})
+    getLocale()
+    document.cookie = 'locale=de; path=/'
+    $configure1(SETUP)
+    expect(getLocale()).toBe('en')
+    expect(document.documentElement.lang).toBe('en')
+  })
+
   test('leaves html lang to setLocale when it ran before the list registered', () => {
     document.cookie = 'locale=de; path=/'
     getRawLocale()

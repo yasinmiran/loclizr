@@ -63,7 +63,9 @@ Then it matches by exact tag and subtag truncation, falling back to the source l
 - The first generated `_locale.js` to load registers the list. Called before any message module
   loads, it returns the stored tag or `'en'` and warns once outside production, naming the missing
   import. Such an early read can only look for a cookie named `locale`, so a tree configured with
-  another `cookie` reads its own cookie again when it registers.
+  another `cookie` reads its own cookie again when it registers. Registration notifies no
+  subscriber, so a `useLocale()` component that rendered before a lazy chunk registered the list
+  keeps the earlier value until it re-renders.
 - On a server outside a request scope it returns the source locale, so a prerender gets source
   text, not a 500. Where `loclizr/server` is loaded, it warns once to wrap the whole request in
   `runWithLocale`; a message call outside a scope prints the same warning.
@@ -109,6 +111,10 @@ For test setup ([Testing](/guides/testing/#reset-between-tests)). Clears the sto
 latched detection, so the next read detects again, and notifies subscribers. With a `document` it
 also expires the cookie and removes `<html lang>`. The registered locale list, the subscribers and
 the once-per-process warnings stay. Inside a request scope it throws, as `setLocale` does.
+
+A subscriber that reads `getLocale()` on that notification makes the next read, so detection latches
+on the cleared page: no cookie, no `lang`, the source locale. Unmount components before a reset
+that a cookie-detection test follows ([In a file that renders](/guides/testing/#in-a-file-that-renders)).
 
 ### `subscribe`
 

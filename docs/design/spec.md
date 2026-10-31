@@ -2733,9 +2733,15 @@ pending `<html lang>` write, so the next read runs step 3 below again. With a
 since a browser keeps a cookie whose path or domain the expiry does not
 repeat, and removes the `lang` attribute, since detection would otherwise read back the locale
 `setLocale` wrote there. It notifies listeners, so a component left mounted
-across tests does not keep a stale snapshot. It keeps the registration, the
-listeners and the spent once-per-process warnings: the generated module that
-registered runs `$configure1` once per module cache and is not imported again.
+across tests does not keep a stale snapshot. A listener that reads during that
+notification is step 3's first read: it detects against the cookie and `lang`
+the reset just cleared and latches the miss, so a test that writes a cookie
+after a reset unmounts its subscribers before the reset. The reset does not
+clear the latch a second time after notifying, since a cookie written later
+would then move a snapshot already handed out with no notification. It keeps
+the registration, the listeners and the spent once-per-process warnings: the
+generated module that registered runs `$configure1` once per module cache and
+is not imported again.
 Like `setLocale`, it throws inside a request scope.
 
 `getLocale()` resolves in this order:
@@ -2927,8 +2933,12 @@ no notification; `setLocale` is the way to change the locale afterwards.
 A read before any generated module has registered can look only for the
 default name `locale`. When the first registration names another cookie and
 `setLocale` has not run, detection runs once more with the configured name.
-That moves no snapshot, because `getLocale()` hands out no detected tag until a
-locale list is registered.
+Before registration `getLocale()` returns the stored tag or `'en'`, never a
+detected one, so the first detection's result has reached no caller and
+replacing it breaks no latch. Registration itself can change what `getLocale()`
+returns, for any cookie name, and notifies no listener: a `useLocale()` that
+rendered before the list registered keeps the earlier value until something
+re-renders it.
 
 Never `navigator.languages`. Never `localStorage`. The server saw neither, so
 either one guarantees a hydration mismatch.
