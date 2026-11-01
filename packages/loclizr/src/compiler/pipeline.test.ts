@@ -34,7 +34,7 @@ function options(overrides: Partial<PipelineOptions> = {}): PipelineOptions {
 function stages(overrides: Partial<Stages> = {}, settings: Partial<Config> = {}): Stages {
   const resolved = config({ root, ...settings })
   return fakeStages({
-    loadConfig: () => Promise.resolve({ config: resolved, diagnostics: [] }),
+    loadConfig: () => Promise.resolve({ config: resolved, diagnostics: [], severity: resolved.severity }),
     ...overrides,
   })
 }
@@ -153,6 +153,7 @@ describe('the build sequence', () => {
           Promise.resolve({
             config: null,
             diagnostics: [diag('config-invalid', { message: 'catalogs must be a string' })],
+            severity: {},
           }),
       }),
       options(),
@@ -164,6 +165,35 @@ describe('the build sequence', () => {
     expect(codes(result.diagnostics)).toEqual(['LZ1001'])
   })
 
+  it('levels the diagnostics of a stopped loadConfig with the map it returns', async () => {
+    const result = await runPipeline(
+      stages({
+        loadConfig: () =>
+          Promise.resolve({
+            config: null,
+            diagnostics: [
+              diag('locale-tag-invalid', { message: 'de_AT', locale: 'de_AT' }),
+              diag('locale-tag-invalid', { message: 'en_GB', locale: 'en_GB' }),
+              diag('catalog-undeclared', { message: 'settings', locale: 'settings' }),
+            ],
+            severity: {
+              'locale-tag-invalid': { en_GB: 'warn' },
+              'catalog-undeclared': 'off',
+            },
+          }),
+      }),
+      options(),
+    )
+
+    expect(result.diagnostics.map((d) => [d.locale, d.severity, d.fatal])).toEqual([
+      ['de_AT', 'error', true],
+      ['en_GB', 'warn', true],
+    ])
+    expect(result.summary.errors).toBe(1)
+    expect(result.summary.warnings).toBe(1)
+    expect(result.exitCode).toBe(1)
+  })
+
   it('exits 1, not 2, when the config is fatal but the tool could still run', async () => {
     const result = await runPipeline(
       stages({
@@ -171,6 +201,7 @@ describe('the build sequence', () => {
           Promise.resolve({
             config: null,
             diagnostics: [diag('no-catalogs-found', { message: 'nothing matched' })],
+            severity: {},
           }),
       }),
       options(),
@@ -282,6 +313,7 @@ describe('the build sequence', () => {
           Promise.resolve({
             config: config({ root: input.cwd, severity: { 'no-catalogs-found': 'warn' } }),
             diagnostics: [diag('no-catalogs-found', { message: 'nothing matched' })],
+            severity: { 'no-catalogs-found': 'warn' },
           }),
       }),
       options(),
@@ -726,7 +758,11 @@ describe('the summary', () => {
     const result = await runPipeline(
       stages({
         loadConfig: () =>
-          Promise.resolve({ config: config({ root }), diagnostics: [one('from loadConfig')] }),
+          Promise.resolve({
+            config: config({ root }),
+            diagnostics: [one('from loadConfig')],
+            severity: {},
+          }),
         readCatalogs: () =>
           Promise.resolve({ catalogs: [], meta: null, diagnostics: [one('from readCatalogs')] }),
         analyze: (input) =>

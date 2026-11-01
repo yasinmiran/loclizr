@@ -34,12 +34,12 @@ export async function loadConfig(input: {
 }): Promise<LoadConfigResult> {
   const root = toPosix(resolve(input.cwd))
   const located = await locateConfig(root, input.configPath)
-  if (located.diagnostic !== null) return { config: null, diagnostics: [located.diagnostic] }
+  if (located.diagnostic !== null) return { config: null, diagnostics: [located.diagnostic], severity: {} }
 
   let user: LoclizrConfig = {}
   if (located.file !== null) {
     const loaded = await importConfig(root, located.file)
-    if (loaded.diagnostic !== null) return { config: null, diagnostics: [loaded.diagnostic] }
+    if (loaded.diagnostic !== null) return { config: null, diagnostics: [loaded.diagnostic], severity: {} }
     user = loaded.user
   }
 
@@ -63,9 +63,9 @@ export async function loadConfig(input: {
       ...leftoverRecords(records, resolved.config),
       ...unreachableCatalogs(stray, resolved.config),
     ]
-    return { config: resolved.config, diagnostics }
+    return { config: resolved.config, diagnostics, severity: resolved.severity }
   } catch (error) {
-    return { config: null, diagnostics: [threw(located.file, error, root)] }
+    return { config: null, diagnostics: [threw(located.file, error, root)], severity: {} }
   }
 }
 

@@ -597,6 +597,13 @@ describe('LZ1001 config-invalid', () => {
     )
     expect(result.config).toBeNull()
     expect(codes(result.diagnostics)).toEqual(['LZ1002', 'LZ1002'])
+    expect(result.severity).toEqual({ 'locale-tag-invalid': { en_GB: 'warn' } })
+  })
+
+  it('returns no map when the config itself failed validation', () => {
+    const result = loose({ severity: { 'locale-tag-invalid': 'warn' }, catalogs: 3 }, 'en')
+    expect(result.config).toBeNull()
+    expect(result.severity).toEqual({})
   })
 
   it('calls a level for an invalid sourceLocale undeclared when locales does not list it', () => {

@@ -34,7 +34,7 @@ function options(overrides: Partial<PipelineOptions> = {}): PipelineOptions {
 function stages(overrides: Partial<Stages> = {}, settings: Partial<Config> = {}): Stages {
   const resolved = config({ root, ...settings })
   return fakeStages({
-    loadConfig: () => Promise.resolve({ config: resolved, diagnostics: [] }),
+    loadConfig: () => Promise.resolve({ config: resolved, diagnostics: [], severity: resolved.severity }),
     ...overrides,
   })
 }
@@ -346,7 +346,11 @@ describe('the summary of a run that halted', () => {
     const result = await runPipeline(
       stages({
         loadConfig: () =>
-          Promise.resolve({ config: null, diagnostics: [diag('config-invalid', { message: 'bad' })] }),
+          Promise.resolve({
+            config: null,
+            diagnostics: [diag('config-invalid', { message: 'bad' })],
+            severity: {},
+          }),
       }),
       options(),
     )
@@ -359,7 +363,11 @@ describe('the summary of a run that halted', () => {
       stages({
         icuDataComplete: () => false,
         loadConfig: () =>
-          Promise.resolve({ config: null, diagnostics: [diag('config-invalid', { message: 'bad' })] }),
+          Promise.resolve({
+            config: null,
+            diagnostics: [diag('config-invalid', { message: 'bad' })],
+            severity: {},
+          }),
       }),
       options(),
     )
@@ -378,6 +386,7 @@ describe('the summary of a run that halted', () => {
           Promise.resolve({
             config: config({ root }),
             diagnostics: [diag('locale-tag-invalid', { message: 'en_US is not a tag' })],
+            severity: {},
           }),
       }),
       options(),
