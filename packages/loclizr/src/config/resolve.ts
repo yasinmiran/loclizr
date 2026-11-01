@@ -8,6 +8,9 @@ import { catalogMatcher, literalMatcher, substituteLocale } from './pattern'
 export interface LoadConfigResult {
   readonly config: Config | null
   readonly diagnostics: readonly Diagnostic[]
+  // Handed back on a stopped resolution too, so the compiler levels what it
+  // prints with the same map that decided to stop, without config re-levelling.
+  readonly severity: Config['severity']
 }
 
 export function resolveConfig(input: {
@@ -20,6 +23,7 @@ export function resolveConfig(input: {
   if (issues.length > 0) {
     return {
       config: null,
+      severity: {},
       diagnostics: issues.map((issue) =>
         diag('config-invalid', { message: issue.message, hint: issue.hint ?? undefined }),
       ),
@@ -31,6 +35,7 @@ export function resolveConfig(input: {
   if (outDir === '' || outDir === '..' || outDir.startsWith('../') || isAbsolute(outDir)) {
     return {
       config: null,
+      severity: fields.severity,
       diagnostics: [
         diag('outdir-unsafe', {
           message:
@@ -52,7 +57,7 @@ export function resolveConfig(input: {
   const validSource =
     fields.sourceLocale !== undefined && isLocaleTag(fields.sourceLocale) ? fields.sourceLocale : undefined
   const conflicts = pathConflicts(paths, validSource)
-  if (conflicts.length > 0) return { config: null, diagnostics: conflicts }
+  if (conflicts.length > 0) return { config: null, severity: fields.severity, diagnostics: conflicts }
 
   // A rule the user took out of error stops being fatal (section 9), and M10
   // never gets the chance to apply that override on a null config, so the three
@@ -74,7 +79,7 @@ export function resolveConfig(input: {
         hint: `write locales/${fields.sourceLocale ?? 'en'}.json, or point \`catalogs\` at the layout you already have, such as 'public/locales/{locale}/{ns}.json'.`,
       }),
     )
-    if (blocks('no-catalogs-found')) return { config: null, diagnostics }
+    if (blocks('no-catalogs-found')) return { config: null, severity: fields.severity, diagnostics }
   }
 
   const discoveredLocales = unique(usable.map((catalog) => catalog.locale)).sort(compareCodepoint)
@@ -122,7 +127,7 @@ export function resolveConfig(input: {
     }
     rejected.add(invalidSource)
   }
-  if (rejected.size > 0 && blocks('locale-tag-invalid')) return { config: null, diagnostics }
+  if (rejected.size > 0 && blocks('locale-tag-invalid')) return { config: null, severity: fields.severity, diagnostics }
   const declaredSource = invalidSource === null ? fields.sourceLocale : undefined
 
   // A tag no formatter can be built for is dropped rather than carried, because
@@ -131,11 +136,11 @@ export function resolveConfig(input: {
   const [firstLocale] = locales
   // Nothing is inferable from an empty locale set, and a second fatal stacked on
   // the one the user already saw is noise.
-  if (firstLocale === undefined) return { config: null, diagnostics }
+  if (firstLocale === undefined) return { config: null, severity: fields.severity, diagnostics }
   // Checked against the list as written: a tag LZ1002 dropped is still declared,
   // and a level named for it is how its LZ1002 was re-levelled.
   const unknownLevels = undeclaredSeverityLocales(fields.severity, declared)
-  if (unknownLevels.length > 0) return { config: null, diagnostics: [...diagnostics, ...unknownLevels] }
+  if (unknownLevels.length > 0) return { config: null, severity: fields.severity, diagnostics: [...diagnostics, ...unknownLevels] }
 
   // With nothing on disk, LZ1003 has already said the only thing there is to
   // say, and a source catalog nobody has is the same fact a second time.
@@ -148,12 +153,12 @@ export function resolveConfig(input: {
         hint: pasteableConfig(locales, usable),
       }),
     )
-    if (blocks('source-catalog-missing')) return { config: null, diagnostics }
+    if (blocks('source-catalog-missing')) return { config: null, severity: fields.severity, diagnostics }
   }
   const sourceLocale = inferred ?? firstLocale
   if (declaredSource === undefined) {
     const late = pathConflicts(paths, sourceLocale)
-    if (late.length > 0) return { config: null, diagnostics: [...diagnostics, ...late] }
+    if (late.length > 0) return { config: null, severity: fields.severity, diagnostics: [...diagnostics, ...late] }
   }
 
   // A declared locale list makes an undeclared source a config mistake whatever
@@ -161,7 +166,7 @@ export function resolveConfig(input: {
   // which LZ1004 names.
   const undeclaredSource = !locales.includes(sourceLocale)
   if (undeclaredSource && fields.locales !== undefined) {
-    return { config: null, diagnostics: [...diagnostics, sourceNotDeclared(sourceLocale)] }
+    return { config: null, severity: fields.severity, diagnostics: [...diagnostics, sourceNotDeclared(sourceLocale)] }
   }
 
   const localesWithCatalog = new Set(usable.map((catalog) => catalog.locale))
@@ -174,10 +179,10 @@ export function resolveConfig(input: {
         locale: sourceLocale,
       }),
     )
-    if (blocks('source-catalog-missing')) return { config: null, diagnostics }
+    if (blocks('source-catalog-missing')) return { config: null, severity: fields.severity, diagnostics }
   }
   if (undeclaredSource) {
-    return { config: null, diagnostics: [...diagnostics, sourceNotDeclared(sourceLocale)] }
+    return { config: null, severity: fields.severity, diagnostics: [...diagnostics, sourceNotDeclared(sourceLocale)] }
   }
 
   for (const locale of locales) {
@@ -240,6 +245,7 @@ export function resolveConfig(input: {
       severity: fields.severity,
     },
     diagnostics,
+    severity: fields.severity,
   }
 }
 

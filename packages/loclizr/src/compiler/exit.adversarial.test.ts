@@ -37,7 +37,7 @@ function options(overrides: Partial<PipelineOptions> = {}): PipelineOptions {
 function stages(overrides: Partial<Stages> = {}, settings: Partial<Config> = {}): Stages {
   const resolved = config({ root, ...settings })
   return fakeStages({
-    loadConfig: () => Promise.resolve({ config: resolved, diagnostics: [] }),
+    loadConfig: () => Promise.resolve({ config: resolved, diagnostics: [], severity: resolved.severity }),
     ...overrides,
   })
 }

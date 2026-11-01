@@ -4,7 +4,7 @@ import { config, program } from './program'
 export function fakeStages(overrides: Partial<Stages> = {}): Stages {
   const defaults: Stages = {
     icuDataComplete: () => true,
-    loadConfig: () => Promise.resolve({ config: config(), diagnostics: [] }),
+    loadConfig: () => Promise.resolve({ config: config(), diagnostics: [], severity: {} }),
     readCatalogs: () => Promise.resolve({ catalogs: [], meta: null, diagnostics: [] }),
     analyze: (input) => program({ config: input.config }),
     runChecks: () => [],

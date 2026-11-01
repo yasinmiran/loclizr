@@ -4860,6 +4860,7 @@ import type { Config, Diagnostic, DiscoveredCatalog, LoclizrConfig } from '../ty
 export interface LoadConfigResult {
   readonly config: Config | null
   readonly diagnostics: readonly Diagnostic[]
+  readonly severity: Config['severity']
 }
 
 export declare function loadConfig(input: {
@@ -4956,6 +4957,10 @@ decided. Sequence:
 1. `loadConfig` (M9). A fatal diagnostic stops here, and the exit code is
    `exitCodeFor`'s: 2 for `LZ1001` and `LZ1007`, which carry `exitTwo`, and 1
    for `LZ1002`, `LZ1003` and `LZ1004`, which do not (section 10).
+   The diagnostics of a stopped `loadConfig` are levelled with the `severity`
+   map M9 returns alongside the null config, exactly as a run that carries on
+   levels them with `config.severity`; the map is `{}` only when the config
+   failed validation and no map was read.
 2. `readCatalogs` (M2). A fatal diagnostic that survives, an unreadable or
    malformed source catalog, stops here too: analyzing with no source catalog
    would turn every target key into an extra and bury the real error under

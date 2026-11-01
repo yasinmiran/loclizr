@@ -64,7 +64,7 @@ export async function runPipeline(
   const loaded = await stages.loadConfig({ cwd: options.cwd, configPath: options.configPath })
   collected.push(...loaded.diagnostics)
   const config = loaded.config
-  if (config === null) return halt(collected, {}, options, 0)
+  if (config === null) return halt(collected, loaded.severity, options, 0)
 
   const overrides = severityOverrides(config, icuComplete)
   if (blocksOutput(collected)) {
