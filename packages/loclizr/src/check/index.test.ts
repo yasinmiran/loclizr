@@ -933,6 +933,38 @@ describe('ambiguous source text', () => {
     expect(diagnostics.map((entry) => entry.key)).toEqual([null, null])
   })
 
+  it('says to describe a key inside the sidecar entry it already has', () => {
+    const diagnostics = runChecks(
+      program({
+        messages: [
+          message({ key: 'dialog.open', source: 'Open', bodies: [body('en')] }),
+          message({
+            key: 'file.open',
+            source: 'Open',
+            placeholders: [{ name: 'name', note: 'The file name' }],
+            bodies: [body('en')],
+          }),
+          message({ key: 'nav.open', source: 'Open', sameAsSource: true, bodies: [body('en')] }),
+          message({ key: 'tab.open', source: 'Open', description: '', bodies: [body('en')] }),
+        ],
+      }),
+    )
+
+    expect(only(diagnostics, 'LZ3012').hint).toBe(
+      [
+        'add descriptions in locales/en.meta.json:',
+        '       "dialog.open": { "description": "" }',
+        '     "file.open" already has an entry there; set this field in it:',
+        '       "description": ""',
+        '     "nav.open" already has an entry there; set this field in it:',
+        '       "description": ""',
+        '     "tab.open" already has an entry there; fill in its "description".',
+        "or   make this a hard gate in loclizr.config.ts:",
+        "       severity: { 'ambiguous-source': 'error' }",
+      ].join('\n'),
+    )
+  })
+
   it('points at the config when the meta sidecar is switched off', () => {
     const diagnostics = runChecks(
       program({
@@ -1126,6 +1158,29 @@ describe('LZ3015 translation-same-as-source', () => {
     const diagnostics = runChecks(program({ messages: [copied('cart.items', 'de', nodes)] }))
 
     expect(only(diagnostics, 'LZ3015').related?.map((one) => one.key)).toEqual(['cart.items'])
+  })
+
+  it('says to add the flag to a sidecar entry the key already has', () => {
+    const diagnostics = runChecks(
+      program({
+        messages: [
+          message({
+            key: 'nav.cart',
+            source: 'Cart',
+            description: 'Top navigation link that opens the cart page.',
+            bodies: [body('en', { nodes: [text('Cart')] }), body('de', { nodes: [text('Cart')] })],
+          }),
+        ],
+      }),
+    )
+
+    expect(only(diagnostics, 'LZ3015').hint).toBe(
+      [
+        'translate each listed value, or mark one that is meant to match, such as a brand name, in locales/en.meta.json.',
+        '     "nav.cart" already has an entry there; set this field in it:',
+        '       "sameAsSource": true',
+      ].join('\n'),
+    )
   })
 
   it('skips a key marked sameAsSource in the meta sidecar', () => {

@@ -321,6 +321,45 @@ describe('readCatalogs description sidecar shapes', () => {
     expect(result.diagnostics[0]?.span).toMatchObject({ line: 4, column: 12, length: 1 })
   })
 
+  it('reports a key written twice in the sidecar, as in a catalog', async () => {
+    const text = '{\n  "a": { "description": "d" },\n  "b": {},\n  "a": { "sameAsSource": true }\n}'
+    const result = await read({ 'locales/en.json': EN, 'locales/en.meta.json': text })
+    expect(result.diagnostics).toHaveLength(1)
+    expect(result.diagnostics[0]).toMatchObject({
+      code: 'LZ1011',
+      rule: 'duplicate-key',
+      severity: 'error',
+      fatal: false,
+      file: 'locales/en.meta.json',
+      locale: null,
+      key: 'a',
+      span: { line: 4, column: 8 },
+    })
+    expect(result.diagnostics[0]?.message).toBe(
+      '"a" is defined twice in the description sidecar. JSON keeps the last one, so the earlier entry is lost.',
+    )
+    expect(result.meta?.entries).toHaveLength(2)
+  })
+
+  it('reports a field written twice inside one sidecar entry', async () => {
+    const result = await read({
+      'locales/en.json': EN,
+      'locales/en.meta.json': '{"a": {"description": "d", "description": "e"}}',
+    })
+    expect(result.diagnostics.map((one) => [one.code, one.key])).toEqual([['LZ1011', null]])
+    expect(result.diagnostics[0]?.message).toContain('"a.description" is defined twice')
+  })
+
+  it('keeps a dotted entry key apart from a nested field of the same path', async () => {
+    const result = await read({
+      'locales/en.json': '{"a": "Hi {description}", "a.placeholders": "y"}',
+      'locales/en.meta.json':
+        '{"a": {"placeholders": {"description": "Argument note"}}, "a.placeholders": {"description": "Message note"}}',
+    })
+    expect(result.diagnostics).toEqual([])
+    expect(result.meta?.entries.map((entry) => entry.key)).toEqual(['a', 'a.placeholders'])
+  })
+
   it('keeps sidecar entries in the order the file wrote them', async () => {
     const result = await read({
       'locales/en.json': EN,
