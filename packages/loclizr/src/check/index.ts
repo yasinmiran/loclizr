@@ -553,7 +553,7 @@ function sameAsSourceHint(program: Program, first: Message): string {
   if (hasMetaEntry(first)) {
     return [
       `translate each listed value, or mark one that is meant to match, such as a brand name, in ${meta}.`,
-      `     ${JSON.stringify(first.key)} already has an entry there; add to it:`,
+      `     ${JSON.stringify(first.key)} already has an entry there; set this field in it:`,
       '       "sameAsSource": true',
     ].join('\n')
   }
@@ -605,7 +605,7 @@ function describeHint(program: Program, undescribed: readonly Message[]): string
     ...existing.flatMap((message) =>
       message.description === null
         ? [
-            `     ${JSON.stringify(message.key)} already has an entry there; add to it:`,
+            `     ${JSON.stringify(message.key)} already has an entry there; set this field in it:`,
             '       "description": ""',
           ]
         : [`     ${JSON.stringify(message.key)} already has an entry there; fill in its "description".`],

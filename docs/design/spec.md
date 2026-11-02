@@ -2645,13 +2645,15 @@ A key that already has a sidecar entry, one with placeholder notes,
 `"sameAsSource": true` or a blank description, is not given a paste line,
 because a second entry for the key is `LZ1011` and the sidecar keeps only one
 of the two. It is listed after the paste lines, in code point order, as
-`"<key>" already has an entry there; add to it:` followed by `"description": ""`,
+`"<key>" already has an entry there; set this field in it:` followed by `"description": ""`,
 or, when its description is present but blank, as
 `"<key>" already has an entry there; fill in its "description".` The
 `LZ3015` fix line does the same: when its first key has an entry, the line ends
-in a full stop and is followed by `"<key>" already has an entry there; add to
-it:` and `"sameAsSource": true`. An entry that sets none of the three fields
-reads as no entry, and replacing it loses nothing.
+in a full stop and is followed by `"<key>" already has an entry there; set this
+field in it:` and `"sameAsSource": true`. "Set" rather than "add", because the
+entry may already hold the field as `false` or `null`, and a second copy of it
+is `LZ1011` too. An entry that sets none of the three fields reads as no entry,
+and replacing it loses nothing.
 
 **The `or` pair is chosen by M5, when it builds the hint.** It is the one place
 an analysis module looks at `config.severity`, and it looks at exactly one key,

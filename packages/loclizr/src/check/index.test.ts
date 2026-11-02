@@ -954,9 +954,9 @@ describe('ambiguous source text', () => {
       [
         'add descriptions in locales/en.meta.json:',
         '       "dialog.open": { "description": "" }',
-        '     "file.open" already has an entry there; add to it:',
+        '     "file.open" already has an entry there; set this field in it:',
         '       "description": ""',
-        '     "nav.open" already has an entry there; add to it:',
+        '     "nav.open" already has an entry there; set this field in it:',
         '       "description": ""',
         '     "tab.open" already has an entry there; fill in its "description".',
         "or   make this a hard gate in loclizr.config.ts:",
@@ -1177,7 +1177,7 @@ describe('LZ3015 translation-same-as-source', () => {
     expect(only(diagnostics, 'LZ3015').hint).toBe(
       [
         'translate each listed value, or mark one that is meant to match, such as a brand name, in locales/en.meta.json.',
-        '     "nav.cart" already has an entry there; add to it:',
+        '     "nav.cart" already has an entry there; set this field in it:',
         '       "sameAsSource": true',
       ].join('\n'),
     )
