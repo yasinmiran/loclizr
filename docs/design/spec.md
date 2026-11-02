@@ -474,7 +474,11 @@ A sidecar that does not exist is not an error: `meta` is `null` and nothing is
 raised. One that exists but cannot be read or parsed is `LZ1008` or `LZ1009`,
 never fatal, because it is not a catalog. A root, an entry, a `description`, a
 `placeholders` map, a note or a `sameAsSource` that is not a boolean is
-`LZ1010`. Two `placeholders`
+`LZ1010`. A JSON key written twice in the sidecar, an entry or a field inside
+one, is `LZ1011 duplicate-key` with the sidecar as its `file`, the second
+copy's span and `key` set when the path is a source key: the sidecar keeps the
+last copy, so an entry pasted below one the key already has drops its
+description or notes. Two `placeholders`
 keys that normalize to one argument name, an NFC and an NFD spelling, keep one
 note: the spelling that matches the argument's own NFC name, then the lower
 code point of the name, then of the note. No diagnostic names the loser.
@@ -3268,7 +3272,7 @@ claim one. Ranges are thematic and a range may span two owners.
 | LZ1008 | `catalog-unreadable` | error | ifSource | M2 | the file exists and could not be read. A missing file is `LZ1005`. Never fatal for the meta sidecar |
 | LZ1009 | `catalog-json-syntax` | error | ifSource | M2 | the JSON scan failed, or the file nests more than 256 levels deep. Never fatal for the meta sidecar |
 | LZ1010 | `catalog-shape-invalid` | error | never | M2 | non-object root, or an array, number or boolean leaf, in a catalog; a root, entry, `description`, `placeholders` map, note or `sameAsSource` of the wrong shape in the meta sidecar. A `null` leaf in a target catalog is a missing translation, not this; in the source catalog it is this, unless another route to the same key ends in a message string |
-| LZ1011 | `duplicate-key` | error | never | M2 | the same flat key path from a nested and a dotted form where both end in a message string, from a JSON key written twice in one object whatever the values, from a bare `X` beside a group that folds to `X`, or from two namespace files of one locale. `JSON.parse` silently keeps the last one, which is how a translation disappears with no diff |
+| LZ1011 | `duplicate-key` | error | never | M2 | the same flat key path from a nested and a dotted form where both end in a message string, from a JSON key written twice in one object whatever the values, from a bare `X` beside a group that folds to `X`, from two namespace files of one locale, or from a JSON key written twice in the meta sidecar (section 2.2). `JSON.parse` silently keeps the last one, which is how a translation disappears with no diff |
 | LZ1012 | `i18next-nesting-unsupported` | error | never | M2 | a value contains `$t(` |
 | LZ1013 | `i18next-format-unsupported` | error | never | M2 | a placeholder carries an inline formatter, `{{val, fmt}}`, or a name ICU cannot read as an argument, `{{user.name}}` |
 | LZ1014 | `plural-suffix-orphan` | warn | never | M2 | a CLDR-suffixed key with no `_other` sibling, or an `X_plural` beside a bare `X` (i18next JSON v3). A lone `X_other` is not this: it folds, or stays a key beside a sibling that says it is not a plural (section 2.1 step 4) |

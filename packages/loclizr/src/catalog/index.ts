@@ -232,6 +232,20 @@ async function readMeta(
     return null
   }
 
+  // JSON keeps the last copy, so an entry pasted below one the key already has
+  // drops its description or notes with nothing else to say so.
+  for (const path of parsed.duplicates) {
+    diagnostics.push(
+      diag('duplicate-key', {
+        message: `"${path}" is defined twice in the description sidecar. JSON keeps the last one, so the earlier entry is lost.`,
+        hint: 'merge the two into one entry.',
+        file,
+        ...(sourceKeys.has(path) ? { key: path } : {}),
+        span: parsed.spans.get(path),
+      }),
+    )
+  }
+
   const entries: MetaEntry[] = []
   for (const key of Object.keys(parsed.value)) {
     const span = parsed.spans.get(key) ?? ROOT_SPAN
