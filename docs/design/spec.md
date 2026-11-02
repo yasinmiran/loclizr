@@ -474,8 +474,8 @@ A sidecar that does not exist is not an error: `meta` is `null` and nothing is
 raised. One that exists but cannot be read or parsed is `LZ1008` or `LZ1009`,
 never fatal, because it is not a catalog. A root, an entry, a `description`, a
 `placeholders` map, a note or a `sameAsSource` that is not a boolean is
-`LZ1010`. A JSON key written twice in the sidecar, an entry or a field inside
-one, is `LZ1011 duplicate-key` with the sidecar as its `file`, the second
+`LZ1010`. A JSON key written twice in one object of the sidecar, an entry or a field
+inside one, is `LZ1011 duplicate-key` with the sidecar as its `file`, the second
 copy's span and `key` set when the path is a source key: the sidecar keeps the
 last copy, so an entry pasted below one the key already has drops its
 description or notes. Two `placeholders`
@@ -4467,6 +4467,7 @@ export declare function parseJsonWithSpans(
   readonly value: unknown
   readonly spans: ReadonlyMap<string, Span>
   readonly duplicates: readonly string[]
+  readonly repeated: readonly string[]
   readonly diagnostics: readonly Diagnostic[]
 }
 
@@ -4506,8 +4507,9 @@ export declare function classifyFormat(entries: readonly RawEntry[]): {
 `parseJsonWithSpans` is a hand-rolled JSON scanner, not `JSON.parse`, because
 positions and duplicate-key detection both need the token stream. It records
 every leaf path, so `duplicates` covers both a key written twice in one object
-and a dotted key beside a nested one that end in the same message string, and
-it caps nesting at 256 levels, reporting `LZ1009` with a span rather than
+and a dotted key beside a nested one that end in the same message string;
+`repeated` holds only the first kind, which is what the meta sidecar reports. It
+caps nesting at 256 levels, reporting `LZ1009` with a span rather than
 letting a `RangeError` escape. It takes no locale, so `readCatalogs` re-stamps
 `fatal` on its `LZ1009` from the locale it is reading. `flatten` prefixes every
 key with `ns` when it is not null and keeps the last value of a collision. A

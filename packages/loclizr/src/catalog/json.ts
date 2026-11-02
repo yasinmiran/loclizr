@@ -5,6 +5,9 @@ export interface ParsedJson {
   readonly value: unknown
   readonly spans: ReadonlyMap<string, Span>
   readonly duplicates: readonly string[]
+  // Only the keys written twice inside one object, without the dotted and
+  // nested collisions, for the meta sidecar whose keys are dotted flat paths.
+  readonly repeated: readonly string[]
   readonly diagnostics: readonly Diagnostic[]
 }
 
@@ -17,6 +20,7 @@ interface Cursor {
 interface Paths {
   readonly spans: Map<string, Span>
   readonly duplicates: string[]
+  readonly repeated: string[]
   readonly reported: Set<string>
   readonly leaves: Set<string>
 }
@@ -65,7 +69,7 @@ export function keysInFileOrder(node: Record<string, unknown>): readonly string[
 
 export function parseJsonWithSpans(text: string, file: string): ParsedJson {
   const cursor: Cursor = { text, lineStarts: lineStartsOf(text), index: 0 }
-  const paths: Paths = { spans: new Map(), duplicates: [], reported: new Set(), leaves: new Set() }
+  const paths: Paths = { spans: new Map(), duplicates: [], repeated: [], reported: new Set(), leaves: new Set() }
   try {
     // JSON.parse rejects a byte order mark too, and printed raw the character is
     // invisible, so the message names it.
@@ -82,13 +86,20 @@ export function parseJsonWithSpans(text: string, file: string): ParsedJson {
     if (cursor.index < text.length) {
       throw new JsonSyntaxError(`Unexpected ${describeAt(cursor)} after the top-level value.`, cursor.index)
     }
-    return { value, spans: paths.spans, duplicates: paths.duplicates, diagnostics: [] }
+    return {
+      value,
+      spans: paths.spans,
+      duplicates: paths.duplicates,
+      repeated: paths.repeated,
+      diagnostics: [],
+    }
   } catch (failure) {
     if (!(failure instanceof JsonSyntaxError)) throw failure
     return {
       value: undefined,
       spans: new Map(),
       duplicates: [],
+      repeated: [],
       diagnostics: [
         diag('catalog-json-syntax', {
           message: failure.message,
@@ -160,7 +171,10 @@ function parseObject(
     if (child !== null) {
       // One object writing a key twice loses the first value whole, whatever
       // shape either of them has.
-      if (written.has(key)) recordDuplicate(paths, child)
+      if (written.has(key)) {
+        recordDuplicate(paths, child)
+        if (!paths.repeated.includes(child)) paths.repeated.push(child)
+      }
       written.add(key)
     }
     skipSpace(cursor)

@@ -233,8 +233,10 @@ async function readMeta(
   }
 
   // JSON keeps the last copy, so an entry pasted below one the key already has
-  // drops its description or notes with nothing else to say so.
-  for (const path of parsed.duplicates) {
+  // drops its description or notes with nothing else to say so. Only a key
+  // repeated in one object counts: a dotted entry key beside a nested field of
+  // the same path is two separate entries here, not a catalog collision.
+  for (const path of parsed.repeated) {
     diagnostics.push(
       diag('duplicate-key', {
         message: `"${path}" is defined twice in the description sidecar. JSON keeps the last one, so the earlier entry is lost.`,

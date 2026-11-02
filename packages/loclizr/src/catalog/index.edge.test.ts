@@ -350,6 +350,16 @@ describe('readCatalogs description sidecar shapes', () => {
     expect(result.diagnostics[0]?.message).toContain('"a.description" is defined twice')
   })
 
+  it('keeps a dotted entry key apart from a nested field of the same path', async () => {
+    const result = await read({
+      'locales/en.json': '{"a": "Hi {description}", "a.placeholders": "y"}',
+      'locales/en.meta.json':
+        '{"a": {"placeholders": {"description": "Argument note"}}, "a.placeholders": {"description": "Message note"}}',
+    })
+    expect(result.diagnostics).toEqual([])
+    expect(result.meta?.entries.map((entry) => entry.key)).toEqual(['a', 'a.placeholders'])
+  })
+
   it('keeps sidecar entries in the order the file wrote them', async () => {
     const result = await read({
       'locales/en.json': EN,
