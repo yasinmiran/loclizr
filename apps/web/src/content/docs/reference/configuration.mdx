@@ -143,6 +143,9 @@ Flat-key JSON, per key a `description` and `placeholders` map. The path takes `{
 - A `placeholders` key that names no argument of its message: `LZ1022 meta-placeholder-orphan`.
 - `"sameAsSource": true` on an entry exempts that key from `LZ3015 translation-same-as-source`; a
   value that is not a boolean is `LZ1010`.
+- A key written twice is `LZ1011 duplicate-key`: JSON keeps the last copy, so the earlier entry's
+  fields are lost. The `LZ3012` and `LZ3015` fix lines tell a key that already has an entry to add
+  to it rather than paste a second one.
 - `false` switches descriptions off; `LZ3012`, `LZ3015` and `LZ5006` then hint at setting `meta`.
 - The default stays under `locales/` whatever `catalogs` says. `loclizr init` sets it beside
   catalogs that live elsewhere; a hand-written config moves it the same way:

@@ -9,6 +9,7 @@ import type {
   LocaleSpan,
   Message,
   Node,
+  PlaceholderNote,
   PluralBranch,
   Program,
   SelectBranch,
@@ -69,6 +70,7 @@ export interface MessageInput {
   readonly spans?: readonly LocaleSpan[]
   readonly source?: string
   readonly description?: string | null
+  readonly placeholders?: readonly PlaceholderNote[]
   readonly sameAsSource?: boolean
   readonly kind?: 'text' | 'markup'
 }
@@ -87,7 +89,7 @@ export function message(input: MessageInput): Message {
     args: input.args ?? [],
     markupTags: input.markupTags ?? [],
     description: input.description ?? null,
-    placeholders: [],
+    placeholders: input.placeholders ?? [],
     sameAsSource: input.sameAsSource ?? false,
     bodies: input.bodies,
     origins: input.origins ?? input.bodies.map((each) => translated(each.locale)),

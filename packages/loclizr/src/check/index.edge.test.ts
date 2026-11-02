@@ -52,6 +52,12 @@ function pasteLines(diagnostic: Diagnostic): readonly string[] {
   return hintLines(diagnostic).filter((line) => line.endsWith('{ "description": "" }'))
 }
 
+function fillLines(diagnostic: Diagnostic): readonly string[] {
+  return hintLines(diagnostic)
+    .filter((line) => line.endsWith(' already has an entry there; fill in its "description".'))
+    .map((line) => line.trim().replace(/ already has .*$/u, ''))
+}
+
 function pastedKey(line: string): unknown {
   const label = line.trim().replace(/:\s+\{ "description": "" \}$/u, '')
   return JSON.parse(label)
@@ -697,8 +703,10 @@ describe('keys and descriptions at the edge of the character set', () => {
       }),
     )
 
+    // The blank description is an entry already, so the key is told to fill it in.
     const ambiguous = only(diagnostics, 'LZ3012')
-    expect(pasteLines(ambiguous).map(pastedKey)).toEqual(['a.open'])
+    expect(pasteLines(ambiguous)).toEqual([])
+    expect(fillLines(ambiguous)).toEqual(['"a.open"'])
   })
 
   it('treats an ideographic space description as no description', () => {
@@ -708,7 +716,7 @@ describe('keys and descriptions at the edge of the character set', () => {
       }),
     )
 
-    expect(pasteLines(only(diagnostics, 'LZ3012'))).toHaveLength(2)
+    expect(fillLines(only(diagnostics, 'LZ3012'))).toEqual(['"a.open"', '"b.open"'])
   })
 
   it('buckets emoji and RTL source text by bytes like any other string', () => {

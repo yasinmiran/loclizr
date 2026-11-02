@@ -542,12 +542,31 @@ function sameAsSourceHint(program: Program, first: Message): string {
     program.config.meta === false
       ? null
       : program.config.meta.replaceAll('{sourceLocale}', program.sourceLocale)
+  if (meta === null) {
+    return [
+      'translate each listed value, or set meta in loclizr.config.ts, then mark one that is meant to match:',
+      `       ${JSON.stringify(first.key)}: { "sameAsSource": true }`,
+    ].join('\n')
+  }
+  // A second entry for the key would be pasted into the same JSON object, and
+  // the sidecar keeps only the last copy, so the flag or the notes would go.
+  if (hasMetaEntry(first)) {
+    return [
+      `translate each listed value, or mark one that is meant to match, such as a brand name, in ${meta}.`,
+      `     ${JSON.stringify(first.key)} already has an entry there; add to it:`,
+      '       "sameAsSource": true',
+    ].join('\n')
+  }
   return [
-    meta === null
-      ? 'translate each listed value, or set meta in loclizr.config.ts, then mark one that is meant to match:'
-      : `translate each listed value, or mark one that is meant to match, such as a brand name, in ${meta}:`,
+    `translate each listed value, or mark one that is meant to match, such as a brand name, in ${meta}:`,
     `       ${JSON.stringify(first.key)}: { "sameAsSource": true }`,
   ].join('\n')
+}
+
+// A sidecar entry that sets nothing reads the same as no entry, and replacing
+// one loses nothing.
+function hasMetaEntry(message: Message): boolean {
+  return message.description !== null || message.placeholders.length > 0 || message.sameAsSource
 }
 
 // Only literal text counts: a value of arguments, tags and punctuation reads
@@ -571,7 +590,11 @@ function describeHint(program: Program, undescribed: readonly Message[]): string
       : program.config.meta.replaceAll('{sourceLocale}', program.sourceLocale)
   // The block is pasted into a JSON file and a key may hold a quote, a backslash
   // or a line break, so the quoting is JSON.stringify's rather than ours.
-  const labels = undescribed.map((message) => `${JSON.stringify(message.key)}:`)
+  // A key that already has an entry is told to edit it: a second entry for the
+  // same key would make the sidecar keep only one of the two.
+  const existing = meta === null ? [] : undescribed.filter(hasMetaEntry)
+  const fresh = undescribed.filter((message) => !existing.includes(message))
+  const labels = fresh.map((message) => `${JSON.stringify(message.key)}:`)
   const width = Math.max(...labels.map((label) => label.length))
   // The alternative has to name the severity the rule is not already running at,
   // or it offers the setting the project already has.
@@ -579,6 +602,14 @@ function describeHint(program: Program, undescribed: readonly Message[]): string
   return [
     meta === null ? 'set meta in loclizr.config.ts, then describe:' : `add descriptions in ${meta}:`,
     ...labels.map((label) => `       ${label.padEnd(width + 1)}{ "description": "" }`),
+    ...existing.flatMap((message) =>
+      message.description === null
+        ? [
+            `     ${JSON.stringify(message.key)} already has an entry there; add to it:`,
+            '       "description": ""',
+          ]
+        : [`     ${JSON.stringify(message.key)} already has an entry there; fill in its "description".`],
+    ),
     gated
       ? 'or   turn the rule down in loclizr.config.ts:'
       : 'or   make this a hard gate in loclizr.config.ts:',
