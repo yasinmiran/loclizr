@@ -206,6 +206,64 @@ describe('an expression-bodied arrow whose body is a template literal', () => {
   it('ends a body whose one-line template closes before the break', () => {
     expect(scopesOf(['const view = () => `x`', 'const title = m.nav_home()'])).toEqual([null])
   })
+
+  // JSX lexing reads no regular expression and no string after an operator, so
+  // the backtick in each of these lines reaches the site pass as code.
+  it.each([
+    ['a regular expression', 'const tick = /`/g'],
+    ['a fenced regular expression', 'const fence = /^```/'],
+    ['a string after an operator', "const code = (s) => '`' + s + '`'"],
+    ['a regular expression with two backticks', 'const inline = /`([^`]+)`/g'],
+  ])('keeps a template body open after a stray backtick in %s in a .tsx file', (_, stray) => {
+    expect(
+      scopesOf(
+        [stray, 'export const banner = () => `${m.nav_home()}', '${m.nav_cart()}`'],
+        'src/banner.tsx',
+      ),
+    ).toEqual(['banner', 'banner'])
+  })
+
+  it('ends a one-line arrow body after a stray backtick in a .tsx file', () => {
+    expect(
+      scopesOf(
+        ['const tick = /`/g', 'export const label = () => m.nav_home()', 'document.title = m.nav_cart()'],
+        'src/label.tsx',
+      ),
+    ).toEqual(['label', null])
+  })
+
+  it('ends a one-line arrow body whose stray backtick follows the usage in a .tsx file', () => {
+    expect(
+      scopesOf(
+        ["const code = (s) => m.nav_home() + '`'", 'document.title = m.nav_cart()'],
+        'src/code.tsx',
+      ),
+    ).toEqual(['code', null])
+  })
+
+  it('keeps a template open past an arrow written as prose in its text in a .tsx file', () => {
+    expect(
+      scopesOf(
+        ['const doc = () => `', '  x => y', '  ${m.nav_home()}', '`', 'document.title = m.nav_cart()'],
+        'src/doc.tsx',
+      ),
+    ).toEqual(['doc', null])
+  })
+
+  it('names the template body in a component file after a stray backtick', () => {
+    expect(
+      scopesOf(
+        [
+          '<script>',
+          '  const tick = /`/g',
+          '  const banner = () => `${m.nav_home()}',
+          '${m.nav_cart()}`',
+          '</script>',
+        ],
+        'src/Banner.svelte',
+      ),
+    ).toEqual(['banner', 'banner'])
+  })
 })
 
 describe('an expression-bodied arrow whose body is a jsx element', () => {

@@ -3184,7 +3184,11 @@ a `,` or a line break, so in code written without semicolons the statements
 after it are not named for it. A line break continues the body when the line
 before ends in an operator, an opening bracket or `=>`, when the next line
 opens with an operator, a `.`, `(`, `[` or a backtick, or when the break falls
-inside a template literal. In a `.js`, `.jsx`, `.mjs`, `.cjs` or `.tsx` file a
+inside a template literal. Where no regular expression is lexed, a backtick
+straight after a `/`, a quote or another backtick sits in a pattern or a string
+the tokenizer kept and opens no template, and an arrow that names a declaration
+drops any template still open at its depth, since a declaration is code; an
+unnamed `=>` drops nothing, as it may be text inside a template. In a `.js`, `.jsx`, `.mjs`, `.cjs` or `.tsx` file a
 `<` where an operand starts in the body, after `=>` or an operator such as `?`,
 `:`, `&&` or `||`, opens a JSX element, and the body stays open until the tag
 that closes it. Its tags and text are markup, so a line break, a `;` or a word
