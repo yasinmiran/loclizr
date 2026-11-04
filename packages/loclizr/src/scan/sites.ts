@@ -460,10 +460,13 @@ export function collectSites(input: {
     // A backtick left after scrubbing delimits a template, unless it is escaped
     // in the multiline template text that JSX lexing keeps. One at the depth the
     // innermost template opened at closes it, and any other opens one, since `${`
-    // opens a frame of its own.
+    // opens a frame of its own. JSX lexing keeps the source of a regular
+    // expression and a string after an operator, so a backtick straight after
+    // an unread `/`, a quote or another backtick sits inside one of those and
+    // opens nothing.
     if (char === '`' && !isEscaped(code, index)) {
       if (inTemplateText()) templates.pop()
-      else templates.push(frames.length)
+      else if (opensTemplate(code, index)) templates.push(frames.length)
     }
 
     if (input.component && bordersScript(code, index)) endBlock()
@@ -561,6 +564,10 @@ export function collectSites(input: {
     if (enclosing !== null && scopeNameOf(enclosing.callee) === null) return
     const name = takeName()
     if (name === null) return
+    // A declaration is code, so a template still open at its depth was opened by
+    // a backtick that JSX lexing kept inside a regular expression or a string.
+    // This waits for the name: an unnamed `=>` can be prose in template text.
+    while ((templates[templates.length - 1] ?? -1) >= frames.length) templates.pop()
     const start = skipSpace(code, at + 2)
     const char = code.charAt(start)
     if (char === '{' || char === '(') {
@@ -575,6 +582,13 @@ export function collectSites(input: {
   function innermostCall(): Frame | null {
     return frames[frames[frames.length - 1]?.callAt ?? -1] ?? null
   }
+}
+
+// A template divided into, as in `a / `x``, is read wrong too, until the next
+// named arrow drops it; that shape is far rarer than a backtick in a pattern.
+function opensTemplate(code: string, at: number): boolean {
+  const before = code.charAt(previousSignificant(code, at))
+  return before !== '/' && before !== "'" && before !== '"' && before !== '`'
 }
 
 function followsMarkup(code: string, at: number): boolean {
