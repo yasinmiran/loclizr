@@ -12,7 +12,7 @@ import type {
   Related,
   Span,
 } from '../types'
-import { compareCodepoint, requiredCategories } from '../util'
+import { compareCodepoint, keyOnOneLine, requiredCategories } from '../util'
 
 const CLDR_ORDER: readonly string[] = ['zero', 'one', 'two', 'few', 'many', 'other']
 
@@ -92,8 +92,8 @@ function checkOrigins(program: Program, message: Message, out: Diagnostic[]): vo
           ? `The ${entry.locale} value is empty, so this message renders ${program.sourceLocale} text.`
           : `The ${entry.locale} catalog has no value for this key, so this message renders ${program.sourceLocale} text.`,
         hint: blank
-          ? `write a ${entry.locale} value for "${message.key}" in ${file}`
-          : `add "${message.key}" to ${file}`,
+          ? `write a ${entry.locale} value for "${keyOnOneLine(message.key)}" in ${file}`
+          : `add "${keyOnOneLine(message.key)}" to ${file}`,
         file,
         locale: entry.locale,
         key: message.key,
@@ -139,7 +139,7 @@ function checkArgs(comparison: Comparison, folded: Map<string, FoldState>, out: 
       out.push(
         diag('arg-missing', {
           message: `The ${program.sourceLocale} text uses ${argRef(source.format, arg.name)} and the ${body.locale} translation does not.`,
-          hint: `add ${argRef(body.format, arg.name)} to "${message.key}" in ${file}`,
+          hint: `add ${argRef(body.format, arg.name)} to "${keyOnOneLine(message.key)}" in ${file}`,
           file,
           locale: body.locale,
           key: message.key,
@@ -159,7 +159,7 @@ function checkArgs(comparison: Comparison, folded: Map<string, FoldState>, out: 
           ? `The ${body.locale} translation uses the tag <${arg.name}>, which the ${program.sourceLocale} text does not have, so this locale renders ${program.sourceLocale} text instead.`
           : `The ${body.locale} translation uses ${argRef(body.format, arg.name)}, which the ${program.sourceLocale} text does not have, so this locale renders ${program.sourceLocale} text instead.`,
         hint: tag
-          ? `remove <${arg.name}> from "${message.key}" in ${file}, or add it to the ${program.sourceLocale} text`
+          ? `remove <${arg.name}> from "${keyOnOneLine(message.key)}" in ${file}, or add it to the ${program.sourceLocale} text`
           : `check the spelling of ${argRef(body.format, arg.name)} in ${file}, or add it to the ${program.sourceLocale} text`,
         file,
         locale: body.locale,
@@ -258,7 +258,7 @@ function checkMarkup(comparison: Comparison, out: Diagnostic[]): void {
   out.push(
     diag('markup-mismatch', {
       message: `The ${program.sourceLocale} text uses ${list} and the ${body.locale} translation does not.`,
-      hint: `wrap the matching words of "${message.key}" in ${list} in ${file}`,
+      hint: `wrap the matching words of "${keyOnOneLine(message.key)}" in ${list} in ${file}`,
       file,
       locale: body.locale,
       key: message.key,
@@ -341,7 +341,7 @@ function i18nextPluralKey(
     (program.messages.some((other) => other.key === base && bodyOf(other, locale) !== undefined) ||
       program.extras.some((extra) => extra.key === base && extra.locale === locale))
   const stem = ordinal && !besideCardinal ? `${key}_ordinal` : key
-  return `"${stem}_${category}"`
+  return `"${keyOnOneLine(stem)}_${category}"`
 }
 
 function checkTimeZone(program: Program, message: Message, out: Diagnostic[]): void {
@@ -380,8 +380,8 @@ function checkBidiControls(program: Program, message: Message, out: Diagnostic[]
             ? `The ${body.locale} value has ${label} with nothing open for it to close, so the pair it was meant to end is split or missing.`
             : `The ${body.locale} value opens ${label} and never closes it, so the direction it sets runs on into the text after this message.`,
           hint: closer
-            ? `delete it from "${message.key}" in ${file}, or open its pair in the same branch`
-            : `close it with ${codepoint(ISOLATE_OPENERS.has(control) ? POP_ISOLATE : POP_EMBEDDING)} in "${message.key}" in ${file}, or delete it`,
+            ? `delete it from "${keyOnOneLine(message.key)}" in ${file}, or open its pair in the same branch`
+            : `close it with ${codepoint(ISOLATE_OPENERS.has(control) ? POP_ISOLATE : POP_EMBEDDING)} in "${keyOnOneLine(message.key)}" in ${file}, or delete it`,
           file,
           locale: body.locale,
           key: message.key,
@@ -441,8 +441,8 @@ function checkExtras(program: Program, out: Diagnostic[]): void {
   for (const extra of byLocaleAndKey(program.extras)) {
     out.push(
       diag('extra-translation', {
-        message: `"${extra.key}" is in the ${extra.locale} catalog and not in ${program.sourceLocale}, so no message is generated for it.`,
-        hint: `add "${extra.key}" to the ${program.sourceLocale} catalog, or delete it from ${extra.file}`,
+        message: `"${keyOnOneLine(extra.key)}" is in the ${extra.locale} catalog and not in ${program.sourceLocale}, so no message is generated for it.`,
+        hint: `add "${keyOnOneLine(extra.key)}" to the ${program.sourceLocale} catalog, or delete it from ${extra.file}`,
         file: extra.file,
         locale: extra.locale,
         key: extra.key,

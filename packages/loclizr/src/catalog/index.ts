@@ -12,7 +12,7 @@ import type {
   RawEntry,
   Span,
 } from '../types'
-import { compareCodepoint, toPosix } from '../util'
+import { compareCodepoint, keyOnOneLine, toPosix } from '../util'
 import { flattenWithNulls } from './flatten'
 import { classifyFormat, findTypedArgument, foldPluralSuffixes, toIcu } from './i18next'
 import { parseJsonWithSpans } from './json'
@@ -65,7 +65,7 @@ export async function readCatalogs(config: Config): Promise<CatalogReadResult> {
         }
         diagnostics.push(
           diag('duplicate-key', {
-            message: `"${entry.key}" is defined by two catalog files of locale ${locale}.`,
+            message: `"${keyOnOneLine(entry.key)}" is defined by two catalog files of locale ${locale}.`,
             hint: 'one namespace file per key: rename the key in one of the two files.',
             file: catalog.file,
             locale,
@@ -132,7 +132,7 @@ async function readOne(
       if (keys.has(key)) continue
       diagnostics.push(
         diag('catalog-shape-invalid', {
-          message: `"${key}" is null in the source catalog, so the message has no text and is left out.`,
+          message: `"${keyOnOneLine(key)}" is null in the source catalog, so the message has no text and is left out.`,
           hint: 'write the source text, or delete the key from every catalog.',
           file: found.file,
           locale,
@@ -146,7 +146,7 @@ async function readOne(
     const key = found.ns === null ? path : `${found.ns}.${path}`
     diagnostics.push(
       diag('duplicate-key', {
-        message: `"${key}" is defined twice in this file. JSON keeps the last one, so the earlier translation is unreachable.`,
+        message: `"${keyOnOneLine(key)}" is defined twice in this file. JSON keeps the last one, so the earlier translation is unreachable.`,
         hint: 'delete one of the two. A dotted key and a nested object flatten to the same key.',
         file: found.file,
         locale,
@@ -238,7 +238,7 @@ async function readMeta(
     if (!sourceKeys.has(key)) {
       diagnostics.push(
         diag('meta-orphan', {
-          message: `"${key}" has no message in the source catalog.`,
+          message: `"${keyOnOneLine(key)}" has no message in the source catalog.`,
           hint: 'entries are addressed by the post-fold, post-prefix key, the same one every diagnostic prints.',
           file,
           key,
@@ -251,7 +251,7 @@ async function readMeta(
     if (!isObject(value)) {
       diagnostics.push(
         diag('catalog-shape-invalid', {
-          message: `The description of "${key}" is not an object.`,
+          message: `The description of "${keyOnOneLine(key)}" is not an object.`,
           hint: 'write { "description": "...", "placeholders": { "count": "..." } }.',
           file,
           key,
@@ -284,7 +284,7 @@ function descriptionOf(
   if (description === undefined || description === null) return null
   diagnostics.push(
     diag('catalog-shape-invalid', {
-      message: `The description of "${key}" is not a string.`,
+      message: `The description of "${keyOnOneLine(key)}" is not a string.`,
       hint: 'a description is one sentence of prose for the translator.',
       file,
       key,
@@ -307,7 +307,7 @@ function sameAsSourceOf(
   if (flag === undefined || flag === null) return false
   diagnostics.push(
     diag('catalog-shape-invalid', {
-      message: `The sameAsSource of "${key}" is not a boolean.`,
+      message: `The sameAsSource of "${keyOnOneLine(key)}" is not a boolean.`,
       hint: 'write "sameAsSource": true where a translation is meant to match its source, such as a brand name.',
       file,
       key,
@@ -331,7 +331,7 @@ function placeholdersOf(
   if (!isObject(placeholders)) {
     diagnostics.push(
       diag('catalog-shape-invalid', {
-        message: `The placeholders of "${key}" are not an object.`,
+        message: `The placeholders of "${keyOnOneLine(key)}" are not an object.`,
         hint: 'map each argument name to a note about what it holds.',
         file,
         key,
@@ -349,7 +349,7 @@ function placeholdersOf(
     }
     diagnostics.push(
       diag('catalog-shape-invalid', {
-        message: `The note for "${name}" on "${key}" is not a string.`,
+        message: `The note for "${name}" on "${keyOnOneLine(key)}" is not a string.`,
         hint: 'a placeholder note is prose, for example "Number of line items, not quantity".',
         file,
         key,

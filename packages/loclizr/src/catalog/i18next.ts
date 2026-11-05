@@ -1,6 +1,6 @@
 import { diag } from '../diagnostics'
 import type { Diagnostic, RawEntry, Span } from '../types'
-import { escapeIcuLiteral, requiredCategories } from '../util'
+import { escapeIcuLiteral, keyOnOneLine, requiredCategories } from '../util'
 
 export interface ToIcuContext {
   readonly key: string
@@ -196,7 +196,7 @@ export function foldPluralSuffixes(
     if (foldedKeys.has(entry.key)) {
       diagnostics.push(
         diag('duplicate-key', {
-          message: `"${entry.key}" is written directly and is also what the plural suffixes of "${entry.key}_*" fold to. The folded plural wins.`,
+          message: `"${keyOnOneLine(entry.key)}" is written directly and is also what the plural suffixes of "${keyOnOneLine(entry.key)}_*" fold to. The folded plural wins.`,
           hint: 'delete the bare key, or rename it: i18next reached it only for a call with no count.',
           file,
           locale,
@@ -245,8 +245,8 @@ function orphanOf(
   if (base !== null && present.has(base)) {
     return [
       diag('plural-suffix-orphan', {
-        message: `"${entry.key}" is the i18next JSON v3 plural of "${base}". Both stay ordinary keys, each rendering one grammatical number.`,
-        hint: `run i18next's JSON v3 to v4 converter over this catalog, so ${base}_one and ${base}_other fold into one plural message.`,
+        message: `"${keyOnOneLine(entry.key)}" is the i18next JSON v3 plural of "${keyOnOneLine(base)}". Both stay ordinary keys, each rendering one grammatical number.`,
+        hint: `run i18next's JSON v3 to v4 converter over this catalog, so "${keyOnOneLine(base)}_one" and "${keyOnOneLine(base)}_other" fold into one plural message.`,
         file,
         locale,
         key: entry.key,
@@ -261,8 +261,8 @@ function orphanOf(
   const sibling = suffix.ordinal ? `${suffix.base}_ordinal_other` : `${suffix.base}_other`
   return [
     diag('plural-suffix-orphan', {
-      message: `"${entry.key}" carries a plural suffix with no "${sibling}" sibling, so it stays an ordinary key that i18next would never have selected either.`,
-      hint: `add ${sibling} to fold the group, or rename the key if "_${suffix.category}" was never a plural.`,
+      message: `"${keyOnOneLine(entry.key)}" carries a plural suffix with no "${keyOnOneLine(sibling)}" sibling, so it stays an ordinary key that i18next would never have selected either.`,
+      hint: `add ${keyOnOneLine(sibling)} to fold the group, or rename the key if "_${suffix.category}" was never a plural.`,
       file,
       locale,
       key: entry.key,
@@ -295,8 +295,8 @@ function contextsOf(
     const rewrite = suffixes.map((suffix) => `${suffix} {...}`).join(' ')
     diagnostics.push(
       diag('i18next-context-detected', {
-        message: `"${base}" carries ${members.length === 1 ? 'a context suffix' : `${members.length} context suffixes`}. i18next picks between them with t('${base}', { context }); after import each is its own message and no selector picks between them.`,
-        hint: `convert this file to ICU first, then replace them with one message:\n  "${base}": "{context, select, ${rewrite} other {...}}"`,
+        message: `"${keyOnOneLine(base)}" carries ${members.length === 1 ? 'a context suffix' : `${members.length} context suffixes`}. i18next picks between them with t('${keyOnOneLine(base)}', { context }); after import each is its own message and no selector picks between them.`,
+        hint: `convert this file to ICU first, then replace them with one message:\n  "${keyOnOneLine(base)}": "{context, select, ${rewrite} other {...}}"`,
         file,
         locale,
         key: base,

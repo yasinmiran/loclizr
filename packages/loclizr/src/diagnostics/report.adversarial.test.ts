@@ -253,102 +253,7 @@ describe('reporters against hostile catalog text', () => {
     expect(lines).toHaveLength(3)
   })
 
-  test('keeps a key carrying a newline on one line where the message or hint quotes it', () => {
-    const key = 'nav.home\n\nerror  LZ9999  forged'
-    const lines = renderHuman(
-      [
-        diag('identifier-reserved', {
-          message: `The key "${key}" is reserved.`,
-          hint: `add "${key}" to locales/de.json\nor map it`,
-          file: 'locales/en.json',
-          locale: 'en',
-          key,
-        }),
-      ],
-      { color: false },
-    ).split('\n')
-    expect(lines.slice(2)).toEqual([
-      '  The key "nav.home error  LZ9999  forged" is reserved.',
-      '',
-      '  fix  add "nav.home error  LZ9999  forged" to locales/de.json',
-      '  or map it',
-    ])
-  })
-
-  test('keeps a related key carrying a newline on one line where the hint quotes it', () => {
-    const lines = renderHuman(
-      [
-        diag('identifier-collision', {
-          message: '2 keys mangle to the identifier "a__b".',
-          hint: "Rename one of the keys, or map it in loclizr.config.ts: identifiers: { 'a\r\nb': 'a__b2' }",
-          file: 'locales/en.json',
-          key: 'a\t\tb',
-          related: [
-            {
-              file: 'locales/en.json',
-              locale: null,
-              key: 'a\r\nb',
-              span: null,
-              message: 'also mangles to "a__b"',
-            },
-          ],
-        }),
-      ],
-      { color: false },
-    ).split('\n')
-    expect(lines.at(-1)).toBe(
-      "  fix  Rename one of the keys, or map it in loclizr.config.ts: identifiers: { 'a b': 'a__b2' }",
-    )
-  })
-
-  test('keeps a top-level segment carrying a newline on one line where the message or hint quotes it', () => {
-    const lines = renderHuman(
-      [
-        diag('identifier-reserved', {
-          message:
-            'The top-level key segment "\nlocale" names the module "messages/_locale.js", which loclizr generates itself.',
-          hint: "Rename the segment, or map it in loclizr.config.ts: identifiers: { '\nlocale': 'appLocale' }",
-          file: 'locales/en.json',
-          key: '\nlocale.x',
-        }),
-      ],
-      { color: false },
-    ).split('\n')
-    expect(lines.slice(2)).toEqual([
-      '  The top-level key segment " locale" names the module "messages/_locale.js", which loclizr generates itself.',
-      '',
-      "  fix  Rename the segment, or map it in loclizr.config.ts: identifiers: { ' locale': 'appLocale' }",
-    ])
-  })
-
-  test('keeps a related key segment carrying a newline from printing what reads as a second diagnostic', () => {
-    const lines = renderHuman(
-      [
-        diag('identifier-collision', {
-          message:
-            '2 top-level key segments name modules a case-insensitive filesystem cannot tell apart: "messages/A__error__LZ9999__forged.js" and "messages/a__error__LZ9999__forged.js".',
-          hint: "One of them disappears on macOS and Windows while both survive on Linux. Rename a segment, or map it in loclizr.config.ts: identifiers: { 'a\n\nerror  LZ9999  forged': 'a__error__LZ9999__forged2' }",
-          file: 'locales/en.json',
-          key: 'A\n\nerror  LZ9999  forged.x',
-          related: [
-            {
-              file: 'locales/en.json',
-              locale: null,
-              key: 'a\n\nerror  LZ9999  forged.y',
-              span: null,
-              message: 'also names "messages/a__error__LZ9999__forged.js"',
-            },
-          ],
-        }),
-      ],
-      { color: false },
-    ).split('\n')
-    expect(lines.at(-1)).toBe(
-      "  fix  One of them disappears on macOS and Windows while both survive on Linux. Rename a segment, or map it in loclizr.config.ts: identifiers: { 'a error  LZ9999  forged': 'a__error__LZ9999__forged2' }",
-    )
-  })
-
-  test.each(['\n', '.\n', ':\n'])(
+  test.each(['\n', '.\n', ':\n', ' }\n       '])(
     "keeps the rule's own line breaks when a related key %j matches one of them",
     (key) => {
       const labels = [`${JSON.stringify(key)}:`, '"open":']
@@ -386,20 +291,6 @@ describe('reporters against hostile catalog text', () => {
       ])
     },
   )
-
-  test('folds two quoted keys that overlap, whichever is longer', () => {
-    const lines = renderHuman(
-      [
-        diag('identifier-collision', {
-          message: 'The keys overlap in "xxxxxxx"y\nz"w\nv".',
-          key: 'xxxxxxx"y\nz',
-          related: [{ file: null, locale: null, key: 'y\nz"w\nv', span: null, message: 'overlaps' }],
-        }),
-      ],
-      { color: false },
-    ).split('\n')
-    expect(lines[2]).toBe('  The keys overlap in "xxxxxxx"y z"w v".')
-  })
 
   test("keeps the rule's own line break when the diagnostic's key matches it", () => {
     const lines = renderHuman(

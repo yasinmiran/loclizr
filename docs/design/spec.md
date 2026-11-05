@@ -2675,6 +2675,17 @@ rows keeps its own report, because two tables under one header would not say
 which rows belong to which file. The JSON reporter and the summary counts are
 untouched: they still hold one diagnostic per file.
 
+A message and a hint keep their own line breaks, so a line break inside a key
+they quote would split the quote or print what reads as a second diagnostic.
+The module that writes the text folds it: each key or key segment quoted in a
+`message` or `hint` goes through `keyOnOneLine` from `src/util`, which turns
+each run of CR and LF into one space, the fold the header applies to `key`.
+The reporter searches no finished text for keys, since it cannot tell a quoted
+key from rule text shaped like one. Both reporters therefore print the folded
+form in `message` and `hint`, while `key` and `related[].key` stay exact. A
+paste row written into a JSON file, such as the `LZ3012` sidecar block, writes
+the key with `JSON.stringify` instead and needs no fold.
+
 The human summary closes the report on every run except one that exits 2
 having built no program (section 9); a run blocked before analysis prints it
 without a source locale. Its lines come in
