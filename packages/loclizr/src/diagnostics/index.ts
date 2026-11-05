@@ -262,7 +262,7 @@ function renderOne(group: readonly [Diagnostic, ...Diagnostic[]], paint: Palette
     repeated ? renderGroupHeader(group, paint) : renderHeader(diagnostic, paint),
     '',
   ]
-  for (const line of bodyLines(keysOnOneLine(diagnostic.message, diagnostic))) {
+  for (const line of bodyLines(diagnostic.message)) {
     lines.push(indent(line, 2))
   }
   if (repeated) {
@@ -275,7 +275,7 @@ function renderOne(group: readonly [Diagnostic, ...Diagnostic[]], paint: Palette
   }
   if (diagnostic.hint !== null) {
     lines.push('')
-    for (const line of renderHint(keysOnOneLine(diagnostic.hint, diagnostic))) lines.push(line)
+    for (const line of renderHint(diagnostic.hint)) lines.push(line)
   }
   return lines.join('\n')
 }
@@ -285,30 +285,6 @@ function renderOne(group: readonly [Diagnostic, ...Diagnostic[]], paint: Palette
 // neutralized inside each line.
 function bodyLines(text: string): readonly string[] {
   return text.replaceAll('\r\n', '\n').split('\n').map(sanitize)
-}
-
-// The module that raised a diagnostic quotes a key inside the message and the
-// hint too, as "key" or 'key', and quotes a dot segment of one, such as the
-// top-level namespace, the same way. There a line break in the key would survive
-// the split above, breaking the quote across two lines or printing what reads as
-// a second diagnostic. Only a quoted occurrence folds, because a bare search
-// would also find a key such as ":\n" in the rule's own line breaks and join
-// them. Every occurrence is marked before anything folds, so one cannot hide
-// another that overlaps it.
-function keysOnOneLine(text: string, diagnostic: Diagnostic): string {
-  const quoted = new Set(
-    [diagnostic.key, ...diagnostic.related.map((entry) => entry.key)]
-      .flatMap((key) => (key === null ? [] : [key, ...key.split('.')]))
-      .filter((part) => /[\r\n]/u.test(part))
-      .flatMap((part) => [`"${part}"`, `'${part}'`]),
-  )
-  const inQuote = new Array<boolean>(text.length).fill(false)
-  for (const form of quoted) {
-    for (let at = text.indexOf(form); at !== -1; at = text.indexOf(form, at + 1)) {
-      inQuote.fill(true, at, at + form.length)
-    }
-  }
-  return text.replaceAll(/[\r\n]+/gu, (run, at: number) => (inQuote[at] === true ? ' ' : run))
 }
 
 function renderHeader(diagnostic: Diagnostic, paint: Palette): string {
