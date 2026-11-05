@@ -198,7 +198,7 @@ warn  LZ1014  plural-suffix-orphan  locales/en.json:5:21  en  cart.item_plural
 
   "cart.item_plural" is the i18next JSON v3 plural of "cart.item". Both stay ordinary keys, each rendering one grammatical number.
 
-  fix  run i18next's JSON v3 to v4 converter over this catalog, so cart.item_one and cart.item_other fold into one plural message.
+  fix  run i18next's JSON v3 to v4 converter over this catalog, so "cart.item_one" and "cart.item_other" fold into one plural message.
 ```
 
 The build stays green, and `m.cart_item({ count: 5 })` renders `5 item` in every locale until the

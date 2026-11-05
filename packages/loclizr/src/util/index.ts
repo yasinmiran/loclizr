@@ -41,6 +41,16 @@ export function toPosix(path: string): string {
   return path.replaceAll('\\', '/')
 }
 
+// A diagnostic quotes a catalog key or one of its segments inside a message or
+// hint, whose own line breaks are deliberate and survive to the terminal, so a
+// line break inside the key would split the quote or print what reads as a
+// second diagnostic. Only the module that writes the text knows where the key
+// sits in it, so the fold happens there and not in the reporter. A run becomes
+// one space, matching the header. The caller adds the quotes.
+export function keyOnOneLine(key: string): string {
+  return key.replaceAll(/[\r\n]+/gu, ' ')
+}
+
 // One quoted run per maximal stretch of special and apostrophe characters that
 // holds at least one special, with every apostrophe doubled. Both halves are
 // load bearing. A closing quote followed by an apostrophe reads as still inside

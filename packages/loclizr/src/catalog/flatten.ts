@@ -1,5 +1,6 @@
 import { diag } from '../diagnostics'
 import type { Diagnostic, RawEntry, Span } from '../types'
+import { keyOnOneLine } from '../util'
 import { keysInFileOrder } from './json'
 
 export interface FlattenInput {
@@ -71,7 +72,7 @@ function descend(walk: Walk, node: Record<string, unknown>, prefix: string | nul
     if (isObject(value) && isExtractRecord(value)) {
       walk.diagnostics.push(
         diag('catalog-shape-invalid', {
-          message: `"${keyOf(walk, path)}" is a formatjs extract record, not a message string.`,
+          message: `"${keyOnOneLine(keyOf(walk, path))}" is a formatjs extract record, not a message string.`,
           hint: 'run formatjs compile on the extract file and point catalogs at its output; carry each description into the meta sidecar.',
           file: walk.input.file,
           locale: walk.input.locale,
@@ -87,7 +88,7 @@ function descend(walk: Walk, node: Record<string, unknown>, prefix: string | nul
     }
     walk.diagnostics.push(
       diag('catalog-shape-invalid', {
-        message: `"${keyOf(walk, path)}" is ${describe(value)}, not a message string.`,
+        message: `"${keyOnOneLine(keyOf(walk, path))}" is ${describe(value)}, not a message string.`,
         hint: hintFor(value),
         file: walk.input.file,
         locale: walk.input.locale,

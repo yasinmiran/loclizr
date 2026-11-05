@@ -9,6 +9,7 @@ import {
   compareCodepoint,
   escapeIcuLiteral,
   hash16,
+  keyOnOneLine,
   requiredCategories,
   stableStringify,
   toPosix,
@@ -139,6 +140,19 @@ describe('toPosix', () => {
   test('rewrites separators and leaves a posix path alone', () => {
     expect(toPosix('locales\\en.json')).toBe('locales/en.json')
     expect(toPosix('src/loclizr/messages.js')).toBe('src/loclizr/messages.js')
+  })
+})
+
+describe('keyOnOneLine', () => {
+  test('folds each run of line breaks in a key to one space', () => {
+    expect(keyOnOneLine('a\nb')).toBe('a b')
+    expect(keyOnOneLine('a\r\n\nb\rc')).toBe('a b c')
+    expect(keyOnOneLine(' }\n       ')).toBe(' }        ')
+  })
+
+  test('returns a key with no line break as it is', () => {
+    expect(keyOnOneLine('nav.home')).toBe('nav.home')
+    expect(keyOnOneLine('a\tb')).toBe('a\tb')
   })
 })
 

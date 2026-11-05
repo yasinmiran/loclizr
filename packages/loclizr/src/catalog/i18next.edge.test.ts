@@ -327,6 +327,20 @@ describe('foldPluralSuffixes v3 plural shape', () => {
   })
 })
 
+describe('foldPluralSuffixes keys with a line break', () => {
+  it('keeps every key named in a v3 pair warning on one line', () => {
+    const [orphan] = fold({ 'a\nb': 'x', 'a\nb_plural': 'y' }).diagnostics
+    expect(orphan?.code).toBe('LZ1014')
+    expect(orphan?.key).toBe('a\nb_plural')
+    expect(orphan?.message).toBe(
+      '"a b_plural" is the i18next JSON v3 plural of "a b". Both stay ordinary keys, each rendering one grammatical number.',
+    )
+    expect(orphan?.hint).toBe(
+      'run i18next\'s JSON v3 to v4 converter over this catalog, so "a b_one" and "a b_other" fold into one plural message.',
+    )
+  })
+})
+
 describe('foldPluralSuffixes determinism', () => {
   it('returns equal entries and diagnostics on two runs', () => {
     const values = {
