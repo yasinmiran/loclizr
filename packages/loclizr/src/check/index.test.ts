@@ -80,6 +80,25 @@ describe('missing and blank translations', () => {
     })
   })
 
+  it('keeps a key carrying a line break on one line where the hint quotes it', () => {
+    const diagnostics = runChecks(
+      program({
+        messages: [
+          message({
+            key: 'nav.home\n\nerror  LZ9999  forged',
+            bodies: [body('en')],
+            origins: [translated('en'), fellBack('de', 'en', 'missing')],
+            spans: [at('en', 1, 1)],
+          }),
+        ],
+      }),
+    )
+
+    const missing = only(diagnostics, 'LZ3001')
+    expect(missing.key).toBe('nav.home\n\nerror  LZ9999  forged')
+    expect(missing.hint).toBe('add "nav.home error  LZ9999  forged" to locales/de.json')
+  })
+
   it('fills both tokens of a split-catalog pattern from the key namespace', () => {
     const diagnostics = runChecks(
       program({
