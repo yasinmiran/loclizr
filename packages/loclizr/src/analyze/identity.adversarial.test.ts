@@ -56,6 +56,51 @@ describe('keys that try to leave the output directory', () => {
   })
 })
 
+describe('keys carrying a line break where a message or hint quotes them', () => {
+  it('folds the related key the collision hint maps', () => {
+    const program = run({
+      config: config({ locales: ['en'] }),
+      catalogs: [catalog({ locale: 'en', entries: { 'a\t\tb': 'Tab', 'a\r\nb': 'Break' } })],
+    })
+    const [collision] = forRule(program, 'identifier-collision')
+    expect(collision?.related.map((related) => related.key)).toEqual(['a\r\nb'])
+    expect(collision?.hint).toBe(
+      "Rename one of the keys, or map it in loclizr.config.ts: identifiers: { 'a b': 'a__b2' }",
+    )
+  })
+
+  it('folds a top-level segment named in a reserved module warning', () => {
+    const program = run({
+      config: config({ locales: ['en'] }),
+      catalogs: [catalog({ locale: 'en', entries: { '\nlocale.x': 'X' } })],
+    })
+    const [reserved] = forRule(program, 'identifier-reserved')
+    expect(reserved?.key).toBe('\nlocale.x')
+    expect(reserved?.message).toBe(
+      'The top-level key segment " locale" names the module "messages/_locale.js", which loclizr generates itself.',
+    )
+    expect(reserved?.hint).toBe(
+      "Rename the segment, or map it in loclizr.config.ts: identifiers: { ' locale': 'appLocale' }",
+    )
+  })
+
+  it('folds a related segment so it cannot print what reads as a second diagnostic', () => {
+    const program = run({
+      config: config({ locales: ['en'] }),
+      catalogs: [
+        catalog({
+          locale: 'en',
+          entries: { 'A\n\nerror  LZ9999  forged.x': 'X', 'a\n\nerror  LZ9999  forged.y': 'Y' },
+        }),
+      ],
+    })
+    const [collision] = forRule(program, 'identifier-collision')
+    expect(collision?.hint).toBe(
+      "One of them disappears on macOS and Windows while both survive on Linux. Rename a segment, or map it in loclizr.config.ts: identifiers: { 'a error  LZ9999  forged': 'a__error__LZ9999__forged2' }",
+    )
+  })
+})
+
 describe('identifiers the generated tree already owns', () => {
   it('rejects an override that lands on a barrel export', () => {
     const program = run({

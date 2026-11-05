@@ -21,7 +21,7 @@ import type {
   Related,
   Span,
 } from '../types'
-import { compareCodepoint, hash16 } from '../util'
+import { compareCodepoint, hash16, keyOnOneLine } from '../util'
 
 const IDENTIFIER_START = /[\p{ID_Start}$_]/u
 const IDENTIFIER_PART = /[\p{ID_Continue}$_]/u
@@ -598,7 +598,7 @@ function checkIdentifierCollisions(
     diagnostics.push(
       diag('identifier-collision', {
         message: `${bucket.length} keys mangle to the identifier "${identifier}".`,
-        hint: `Rename one of the keys, or map it in loclizr.config.ts: identifiers: { '${rest[0]?.key ?? first.key}': '${identifier}2' }`,
+        hint: `Rename one of the keys, or map it in loclizr.config.ts: identifiers: { '${keyOnOneLine(rest[0]?.key ?? first.key)}': '${identifier}2' }`,
         key: first.key,
         ...locationOf(first.key, sourceEntries),
         related: rest.map((message) =>
@@ -644,7 +644,7 @@ function checkNamespaceCollisions(
     diagnostics.push(
       diag('identifier-collision', {
         message: `${namespaces.size} top-level key segments name modules a case-insensitive filesystem cannot tell apart: ${modules}.`,
-        hint: `One of them disappears on macOS and Windows while both survive on Linux. Rename a segment, or map it in loclizr.config.ts: identifiers: { '${namespaceOf(lastKey)}': '${lastNamespace}2' }`,
+        hint: `One of them disappears on macOS and Windows while both survive on Linux. Rename a segment, or map it in loclizr.config.ts: identifiers: { '${keyOnOneLine(namespaceOf(lastKey))}': '${lastNamespace}2' }`,
         key: anchorKey,
         ...locationOf(anchorKey, sourceEntries),
         related: rest.map(([namespace, key]) =>
@@ -671,8 +671,8 @@ function checkReservedIdentifiers(
     if (INTERNAL_NAMESPACE.test(raw)) {
       diagnostics.push(
         diag('identifier-reserved', {
-          message: `The key "${message.key}" produces the identifier "${message.id}", which is reserved for loclizr internals.`,
-          hint: `Rename the key, or map it in loclizr.config.ts: identifiers: { '${message.key}': 'message' }`,
+          message: `The key "${keyOnOneLine(message.key)}" produces the identifier "${message.id}", which is reserved for loclizr internals.`,
+          hint: `Rename the key, or map it in loclizr.config.ts: identifiers: { '${keyOnOneLine(message.key)}': 'message' }`,
           key: message.key,
           ...locationOf(message.key, sourceEntries),
         }),
@@ -683,8 +683,8 @@ function checkReservedIdentifiers(
         : 'The generated barrel already exports that name, and a star export loses to it silently.'
       diagnostics.push(
         diag('identifier-reserved', {
-          message: `The key "${message.key}" produces the reserved identifier "${message.id}".`,
-          hint: `${reason} Map the key in loclizr.config.ts: identifiers: { '${message.key}': '${message.id}Message' }`,
+          message: `The key "${keyOnOneLine(message.key)}" produces the reserved identifier "${message.id}".`,
+          hint: `${reason} Map the key in loclizr.config.ts: identifiers: { '${keyOnOneLine(message.key)}': '${message.id}Message' }`,
           key: message.key,
           ...locationOf(message.key, sourceEntries),
         }),
@@ -695,8 +695,8 @@ function checkReservedIdentifiers(
     ) {
       diagnostics.push(
         diag('identifier-reserved', {
-          message: `The key "${message.key}" produces the identifier "${message.id}", which the generated groups module imports and also calls to freeze each group.`,
-          hint: `Map the key in loclizr.config.ts: identifiers: { '${message.key}': '${message.id}Message' }`,
+          message: `The key "${keyOnOneLine(message.key)}" produces the identifier "${message.id}", which the generated groups module imports and also calls to freeze each group.`,
+          hint: `Map the key in loclizr.config.ts: identifiers: { '${keyOnOneLine(message.key)}': '${message.id}Message' }`,
           key: message.key,
           ...locationOf(message.key, sourceEntries),
         }),
@@ -713,9 +713,9 @@ function checkReservedIdentifiers(
         diag('identifier-reserved', {
           message:
             generated === message.namespace
-              ? `The top-level key segment "${namespaceOf(message.key)}" names the module "messages/${message.namespace}.js", which loclizr generates itself.`
-              : `The top-level key segment "${namespaceOf(message.key)}" names the module "messages/${message.namespace}.js", which a case-insensitive filesystem cannot tell apart from the generated "messages/${generated}.js".`,
-          hint: `Rename the segment, or map it in loclizr.config.ts: identifiers: { '${namespaceOf(message.key)}': 'app${pascalCase(message.namespace)}' }`,
+              ? `The top-level key segment "${keyOnOneLine(namespaceOf(message.key))}" names the module "messages/${message.namespace}.js", which loclizr generates itself.`
+              : `The top-level key segment "${keyOnOneLine(namespaceOf(message.key))}" names the module "messages/${message.namespace}.js", which a case-insensitive filesystem cannot tell apart from the generated "messages/${generated}.js".`,
+          hint: `Rename the segment, or map it in loclizr.config.ts: identifiers: { '${keyOnOneLine(namespaceOf(message.key))}': 'app${pascalCase(message.namespace)}' }`,
           key: message.key,
           ...locationOf(message.key, sourceEntries),
         }),
@@ -743,7 +743,7 @@ function checkConfusableKeys(
     if (first === undefined) continue
     diagnostics.push(
       diag('confusable-key', {
-        message: `${bucket.length} keys are indistinguishable after confusable folding: "${skeleton}".`,
+        message: `${bucket.length} keys are indistinguishable after confusable folding: "${keyOnOneLine(skeleton)}".`,
         hint: 'One of them carries a Cyrillic or Greek homoglyph, or an invisible character. Retype the key in Latin.',
         key: first.key,
         ...locationOf(first.key, sourceEntries),
@@ -822,11 +822,11 @@ function checkOrphanIdentifiers(
     const closest = closestName(entry, candidates)
     diagnostics.push(
       diag('identifier-orphan', {
-        message: `The identifiers entry "${entry}" matches no catalog key, top-level key segment or group name, so it renames nothing.`,
+        message: `The identifiers entry "${keyOnOneLine(entry)}" matches no catalog key, top-level key segment or group name, so it renames nothing.`,
         hint:
           closest === null
             ? 'Remove the entry from loclizr.config.ts.'
-            : `The closest existing name is "${closest}". Fix the entry in loclizr.config.ts: identifiers: { '${closest}': '${config.identifiers[entry] ?? ''}' }, or remove it.`,
+            : `The closest existing name is "${keyOnOneLine(closest)}". Fix the entry in loclizr.config.ts: identifiers: { '${keyOnOneLine(closest)}': '${config.identifiers[entry] ?? ''}' }, or remove it.`,
       }),
     )
   }
@@ -1021,8 +1021,8 @@ function checkGroupMemberIds(
     if (key === undefined) continue
     diagnostics.push(
       diag('identifier-collision', {
-        message: `The group "${group.name}" and the key "${key}" both produce the identifier "${group.id}" in the generated groups module.`,
-        hint: `Rename the group, or map the key in loclizr.config.ts: identifiers: { '${key}': '${group.id}Message' }`,
+        message: `The group "${group.name}" and the key "${keyOnOneLine(key)}" both produce the identifier "${group.id}" in the generated groups module.`,
+        hint: `Rename the group, or map the key in loclizr.config.ts: identifiers: { '${keyOnOneLine(key)}': '${group.id}Message' }`,
         key,
         ...locationOf(key, sourceEntries),
       }),
@@ -1051,7 +1051,7 @@ function checkMemberProperties(
     if (property === PROTOTYPE_PROPERTY) {
       diagnostics.push(
         diag('identifier-reserved', {
-          message: `The key "${first.key}" becomes the member "${property}" of the group "${name}", which the group literal already defines as null.`,
+          message: `The key "${keyOnOneLine(first.key)}" becomes the member "${property}" of the group "${name}", which the group literal already defines as null.`,
           hint: 'Rename the key. The group literal uses __proto__ to give each group a null prototype, so no member can take that name.',
           key: first.key,
           ...locationOf(first.key, sourceEntries),
