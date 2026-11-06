@@ -391,11 +391,13 @@ header and wherever the message or `fix` line quotes the key or one of its segme
 }
 ```
 
-After deleting `nav.home` and `cart.greeting` from `de.json`, diagnostics elided:
+After deleting `nav.home` and `cart.greeting` from `de.json`, diagnostics elided. The five errors
+are three `LZ3001` (sparse `de-AT` inherits the `nav.home` gap from `de`) and two `LZ5002`, since
+`messages/cart.js` and `messages/nav.js` on disk still hold the German text:
 
 ```json title="npx loclizr check --reporter json, two German strings deleted"
   "summary": {
-    "errors": 3,
+    "errors": 5,
     "warnings": 0,
     "messages": 26,
     "locales": 3,

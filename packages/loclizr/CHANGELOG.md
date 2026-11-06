@@ -31,6 +31,7 @@ a minor release may break an invariant, and this file says so when it does.
 - A usage after an expression-bodied arrow written without a semicolon, such as `const pick = (x) => x` or `const Icon = () => <svg />`, no longer records that arrow as its `scope`; it records the enclosing function, `null` at module level, or the component name in the markup of a `.svelte`, `.vue` or `.astro` file. A word such as `with` or an entity such as `&nbsp;` in the text of a JSX body no longer ends that body, so the usages after it in the element keep the arrow's name. `usage` is projected out of the record gates, so `loclizr check` results are unchanged.
 - The language-switching guide now says that generated code inserts placeholder values with no bidi isolation marks, and shows the two ways to isolate a value in a mixed-direction app: wrap the string in U+2068 and U+2069, or put the argument inside a tag whose handler renders `<bdi>` or adds the marks. Generated output is unchanged (#94).
 - The pipeline diagram on the How it works page now says the check step runs 60 rules, not 56, matching the rule table; a test keeps the two in step.
+- The CLI reference's `loclizr check --reporter json` sample with two German strings deleted now shows `"errors": 5`, as a real run reports, not 3: `check` also raises `LZ5002 output-stale` for the two message files still holding the German text. The page names the five errors.
 
 ## 0.2.0 - 2026-10-13
 
