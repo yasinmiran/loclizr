@@ -205,10 +205,14 @@ export function resolveConfig(input: {
     )
   }
 
+  // Runtime matching ignores case and ends at the source locale, so a base the
+  // source already speaks, en under a source en-US, reaches the right language.
+  const reachedBases = new Set(locales.map((locale) => locale.toLowerCase()))
+  reachedBases.add((baseTagOf(sourceLocale) ?? sourceLocale).toLowerCase())
   for (const locale of locales) {
     if (locale === sourceLocale) continue
     const base = baseTagOf(locale)
-    if (base === null || declaredSet.has(base)) continue
+    if (base === null || reachedBases.has(base.toLowerCase())) continue
     diagnostics.push(
       diag('locale-base-missing', {
         message: `\`${locale}\` is declared and its base tag \`${base}\` is not, so a browser sending \`Accept-Language: ${base}\` gets \`${sourceLocale}\`.`,

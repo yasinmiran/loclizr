@@ -871,6 +871,23 @@ describe('LZ1018 locale-base-missing', () => {
     ])
     expect(codes(result.diagnostics)).not.toContain('LZ1018')
   })
+
+  it('does not fire on a locale sharing the source language, since Accept-Language: en already gets English', () => {
+    const result = run({ locales: ['en-US', 'en-GB', 'fr-CA'], sourceLocale: 'en-US' }, [
+      catalog('en-US'),
+      catalog('en-GB'),
+      catalog('fr-CA'),
+    ])
+    expect(only(result.diagnostics, 'LZ1018').locale).toBe('fr-CA')
+  })
+
+  it('compares the source language without regard to case, as runtime matching does', () => {
+    const result = run({ locales: ['en', 'EN-GB'], sourceLocale: 'en' }, [
+      catalog('en'),
+      catalog('EN-GB'),
+    ])
+    expect(codes(result.diagnostics)).not.toContain('LZ1018')
+  })
 })
 
 describe('determinism', () => {
