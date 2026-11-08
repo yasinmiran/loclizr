@@ -89,7 +89,7 @@ Optional: the defaults below apply without one. Groups and format styles need a 
 | Catalog, undeclared | `LZ1006 catalog-undeclared` at warn, file ignored |
 | `sourceLocale` unset, no `en.json`, not exactly one locale | `LZ1004 source-catalog-missing`; the hint is a config file to paste, its `locales` one line per discovered locale and file |
 | `sourceLocale` not in `locales` | `LZ1001` |
-| A region tag whose base is undeclared (`de-AT` without `de`) | `LZ1018 locale-base-missing` at warn: runtime matching truncates subtags, so `Accept-Language: de` would silently get English |
+| A region tag whose base is undeclared and is not the source language (`de-AT` without `de`) | `LZ1018 locale-base-missing` at warn: runtime matching truncates subtags, so `Accept-Language: de` would silently get English |
 
 ## `catalogs`
 

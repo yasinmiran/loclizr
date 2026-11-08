@@ -780,7 +780,10 @@ add `de`, or expect `Accept-Language: de` to fall back to `en`. The rule lives
 in M9, where the locale list already is. It never fires on the source locale:
 `Accept-Language: en` against a source `en-US` falls to `en-US`, the same
 language, so the failure the rule exists for cannot occur there, and firing
-would warn every `en-US` project with no fix but a fake `en` catalog.
+would warn every `en-US` project with no fix but a fake `en` catalog. The
+same holds for any locale whose base tag is the source locale's own language,
+`en-GB` beside a source `en-US`, so the rule skips those too. Both comparisons
+ignore case, as runtime matching does.
 
 ## 5. The message model
 
@@ -3275,7 +3278,7 @@ claim one. Ranges are thematic and a range may span two owners.
 | LZ1015 | `meta-orphan` | warn | never | M2 | a meta entry for a key absent from the source catalog |
 | LZ1016 | `i18next-markup-literal` | warn | never | M2 | an i18next value contained tag-shaped text, which was escaped to literal text |
 | LZ1017 | `i18next-context-detected` | warn | never | M2 | a key `X_male` or `X_female` beside a bare `X`, which i18next picked at run time and which is now its own message with no selector. No other suffix is a context, because `X_<word>` beside `X` is ordinary snake_case naming |
-| LZ1018 | `locale-base-missing` | warn | never | M9 | a declared non-source locale carries a subtag, region or script, whose base tag is not also declared |
+| LZ1018 | `locale-base-missing` | warn | never | M9 | a declared non-source locale carries a subtag, region or script, whose base tag is neither declared nor the source locale's language |
 | LZ1019 | `icu-data-incomplete` | warn | never | M10 | the build machine's `Intl` has truncated ICU data |
 | LZ1020 | `icu-in-i18next-file` | warn | never | M2 | a file read as i18next contains a single-brace run shaped like a typed ICU argument, which will render as literal text |
 | LZ1021 | `outdir-foreign-file` | warn | never | M10 | a file under `outDir` does not carry the generated header, so it was neither overwritten nor pruned; or a symlink sits at an emitted path, so it was neither read nor replaced; or a headered orphan the prune could not delete |
