@@ -1116,7 +1116,11 @@ exactly on the mistake. The hint names the construct that fired it, in the
 file's own syntax: inside a nested select, move the `#` out of the select or
 write `{a, number}`; a quoted `'#'` with no select, write `#` without the quotes
 or `{a, number}`; in an i18next file, `#` is always the character, so write
-`{{a}}` for the count.
+`{{a}}` for the count. Where the span falls back to `context.span` (a value
+read as i18next, or an ICU value whose JSON escapes shift the offsets, see
+section 13), every such node in the value reports the same place, so M3 raises
+one `LZ2008` per value and hint there rather than identical copies that would
+each count as a warning.
 
 ### 5.4 Markup
 
@@ -3321,7 +3325,7 @@ so a truncated ICU makes **no** category claims rather than wrong ones.
 | LZ2005 | `select-other-missing` | error | message | M3 | `MISSING_OTHER_CLAUSE` on a select |
 | LZ2006 | `plural-category-unknown` | error | never | M3 | a branch keyword that is neither a CLDR category nor `=N` |
 | LZ2007 | `arg-name-invalid` | error | never | M3 | an argument name outside the predicate below |
-| LZ2008 | `pound-literal` | warn | never | M3 | a literal text node containing `#` lexically inside a plural body (section 5.3) |
+| LZ2008 | `pound-literal` | warn | never | M3 | a literal text node containing `#` lexically inside a plural body, one per span and hint (section 5.3) |
 | LZ2009 | `arg-type-conflict-local` | error | message | M3 | one name used at two irreconcilable types inside **one** value, such as `{x, number} of {x, date, short}` |
 
 `LZ2001`'s span depends on the format the file was read as, which
