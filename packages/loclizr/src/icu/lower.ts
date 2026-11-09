@@ -164,12 +164,14 @@ function lowerElement(state: State, element: MessageFormatElement, scope: Scope)
   switch (element.type) {
     case TYPE.literal: {
       if (scope.plural !== null && element.value.includes('#')) {
-        state.diagnostics.push(
-          report(state, 'pound-literal', rangeOf(element.location), {
-            message: 'A literal "#" inside a plural body renders as the character, not the count.',
-            hint: poundHint(state.context.catalogFormat, scope.plural, scope.select),
-          }),
-        )
+        const found = report(state, 'pound-literal', rangeOf(element.location), {
+          message: 'A literal "#" inside a plural body renders as the character, not the count.',
+          hint: poundHint(state.context.catalogFormat, scope.plural, scope.select),
+        })
+        // Where the span falls back to the entry's, every # in the value reports
+        // the same place, and a second report would repeat the first word for
+        // word while counting as another warning.
+        if (!state.diagnostics.some((seen) => sameReport(seen, found))) state.diagnostics.push(found)
       }
       return { kind: 'text', value: element.value }
     }
@@ -619,6 +621,16 @@ function report(
     key: state.context.key,
     span: spanFor(state, range),
   })
+}
+
+function sameReport(a: Diagnostic, b: Diagnostic): boolean {
+  return (
+    a.code === b.code &&
+    a.message === b.message &&
+    a.hint === b.hint &&
+    a.span?.offset === b.span?.offset &&
+    a.span?.length === b.span?.length
+  )
 }
 
 // The parser's whole message is an ErrorKind name: searchable, and useless to the

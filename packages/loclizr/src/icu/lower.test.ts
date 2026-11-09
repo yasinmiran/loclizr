@@ -361,9 +361,39 @@ describe('lower, plural semantics', () => {
       "{count, plural, one {'#' item} other {'#' items}}",
       icuContext({ catalogFormat: 'i18next' }),
     )
-    const found = result.diagnostics.filter((diagnostic) => diagnostic.code === 'LZ2008')
-    expect(found).toHaveLength(2)
-    expect(found[0]?.hint).toBe('In an i18next file # is always the character. If you meant the count, write {{count}}.')
+    expect(only(result.diagnostics, 'LZ2008').hint).toBe(
+      'In an i18next file # is always the character. If you meant the count, write {{count}}.',
+    )
+  })
+
+  // A converted value, and an ICU value spelled with an escape JSON did not
+  // need, report the entry span for every # in it, so a second report there
+  // would repeat the first word for word and count as a second warning.
+  it('raises one LZ2008 per value where every # reports the entry span', () => {
+    const value = "{count, plural, one {'#'1 at {place}, '#'2} other {'#' many}}"
+    for (const context of [
+      icuContext({ catalogFormat: 'i18next' }),
+      icuContext({ span: { ...SPAN, length: value.length + 5 } }),
+    ]) {
+      expect(only(lower(value, context).diagnostics, 'LZ2008').span).toStrictEqual(context.span)
+    }
+  })
+
+  it('keeps one LZ2008 per # where each reports its own place in the value', () => {
+    const value = "{count, plural, one {'#'1 at {place}, '#'2} other {'#' many}}"
+    const result = lower(value, icuContext({ span: { ...SPAN, length: value.length } }))
+    const columns = result.diagnostics
+      .filter((diagnostic) => diagnostic.code === 'LZ2008')
+      .map((diagnostic) => diagnostic.span?.column)
+    expect(columns).toStrictEqual([SPAN.column + 21, SPAN.column + 36, SPAN.column + 51])
+  })
+
+  it('keeps an LZ2008 for each hint a value needs where both report the entry span', () => {
+    const value = "{a, plural, other {'#' and {b, select, other {#}}}}"
+    const hints = lower(value, icuContext({ span: { ...SPAN, length: value.length + 5 } }))
+      .diagnostics.filter((diagnostic) => diagnostic.code === 'LZ2008')
+      .map((diagnostic) => diagnostic.hint)
+    expect(new Set(hints).size).toBe(2)
   })
 
   it('raises LZ2006 for a branch keyword that is not a CLDR category', () => {
