@@ -3276,7 +3276,7 @@ claim one. Ranges are thematic and a range may span two owners.
 | LZ1016 | `i18next-markup-literal` | warn | never | M2 | an i18next value contained tag-shaped text, which was escaped to literal text |
 | LZ1017 | `i18next-context-detected` | warn | never | M2 | a key `X_male` or `X_female` beside a bare `X`, which i18next picked at run time and which is now its own message with no selector. No other suffix is a context, because `X_<word>` beside `X` is ordinary snake_case naming |
 | LZ1018 | `locale-base-missing` | warn | never | M9 | a declared non-source locale carries a subtag, region or script, whose base tag is not also declared |
-| LZ1019 | `icu-data-incomplete` | warn | never | M10 | the build machine's `Intl` has truncated ICU data |
+| LZ1019 | `icu-data-incomplete` | warn | never | M10 | the build machine's `Intl` has truncated ICU data; or, with full data, a declared locale has no plural data, once per such locale |
 | LZ1020 | `icu-in-i18next-file` | warn | never | M2 | a file read as i18next contains a single-brace run shaped like a typed ICU argument, which will render as literal text |
 | LZ1021 | `outdir-foreign-file` | warn | never | M10 | a file under `outDir` does not carry the generated header, so it was neither overwritten nor pruned; or a symlink sits at an emitted path, so it was neither read nor replaced; or a headered orphan the prune could not delete |
 | LZ1022 | `meta-placeholder-orphan` | warn | never | M8 | a `placeholders` key in the meta sidecar whose NFC name is no argument of its message, so the note reaches no `RecordArg`; the message names the arguments the message does take |
@@ -3300,7 +3300,7 @@ matches what i18next itself rendered; it is not silent because nobody writes
 `build` delete files at all: the compiler deletes what it can prove it wrote and
 reports everything else.
 
-`LZ1019` is a single startup probe:
+`LZ1019` has two triggers. The first is a single startup probe:
 `new Intl.PluralRules('ru').resolvedOptions().pluralCategories.length < 4`. A
 Node built `--with-intl=small-icu`, or a slim container image, silently resolves
 unknown locales to English data and returns `['one','other']` for Russian
@@ -3309,6 +3309,15 @@ and a developer's machine disagrees with CI, which is invariant 5 failing for
 the diagnostic set. When the probe fires, the diagnostic names `NODE_ICU_DATA`
 and a full-icu Node, and M10 forces `LZ3007` and `LZ3013` to `off` for that run,
 so a truncated ICU makes **no** category claims rather than wrong ones.
+
+The second runs only when the probe passes: a declared locale for which
+`Intl.PluralRules.supportedLocalesOf` returns nothing, such as a directory named
+`shared` that a `{ns}` pattern with `locales` unset turned into a locale, gets
+one `LZ1019` carrying that locale, and M10 drops `LZ3007` and `LZ3013` for that
+locale alone (section 16, M10 step 0). `Intl` answers such a locale with the
+build machine's own rules, so a category claim about it would differ between a
+laptop and CI for the same reason. The diagnostic never names the machine's
+locale, since naming it would put that divergence into the output.
 
 ### LZ2xxx, message syntax
 

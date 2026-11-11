@@ -280,8 +280,9 @@ not a type checker, so a type-position reference counts as a use.
   column and snippet stay in the JSON reporter and in `BuildResult.program.usages` from
   `loclizr/compiler`.
 - Host ICU data and Node version are not inputs. Only diagnostics read `Intl` at build time
-  (`LZ3007`, `LZ3013`, and `LZ1019` for small ICU), so a laptop and a runner can disagree on those,
-  never on this file. Pin Node (`engines` or `.nvmrc`) for the diagnostics.
+  (`LZ3007`, `LZ3013`, and `LZ1019` for small ICU or a locale with no plural data), so a laptop and
+  a runner can disagree on those, never on this file. Pin Node (`engines` or `.nvmrc`) for the
+  diagnostics.
 
 | Part, on the example | Share |
 | --- | --- |
