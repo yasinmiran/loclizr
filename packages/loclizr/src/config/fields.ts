@@ -95,9 +95,16 @@ const COOKIE_FIELDS: readonly string[] = ['name', 'domain', 'path', 'secure', 's
 
 const SAME_SITE: readonly string[] = ['lax', 'strict', 'none']
 
-const COOKIE_EXAMPLE = "cookie: { name: 'locale', domain: 'example.com', secure: true }"
-const SAME_SITE_EXAMPLE = "cookie: { name: 'locale', sameSite: 'none', secure: true }"
-const MAX_AGE_EXAMPLE = "cookie: { name: 'locale', maxAge: 2592000 }"
+// An example is pasted over the user's cookie entry, so it carries the name
+// they configured: a fixed name would rename the cookie, and every visitor's
+// saved choice would stop reading back. A cookie-name token can hold `'` but
+// no backslash, so escaping the quote is enough to keep the literal valid.
+function cookieExample(name: string, attributes: string): string {
+  return `cookie: { name: '${name.replaceAll("'", "\\'")}', ${attributes} }`
+}
+
+const COOKIE_ATTRIBUTES_EXAMPLE = "domain: 'example.com', secure: true"
+const COOKIE_EXAMPLE = cookieExample(DEFAULT_COOKIE, COOKIE_ATTRIBUTES_EXAMPLE)
 
 // Each attribute is written verbatim after the value, so a `;` would start an
 // attribute of its own, and a scheme, port or path is not a host the browser
@@ -274,8 +281,11 @@ function readCookie(
     issues.push(expected('cookie.name', 'a cookie name', COOKIE_EXAMPLE))
   }
   const name = readCookieName(value, 'name', 'cookie.name', COOKIE_EXAMPLE, issues)
+  const example = cookieExample(name, COOKIE_ATTRIBUTES_EXAMPLE)
+  const sameSiteExample = cookieExample(name, "sameSite: 'none', secure: true")
+  const maxAgeExample = cookieExample(name, 'maxAge: 2592000')
   const attributes: { -readonly [K in keyof CookieAttributes]: CookieAttributes[K] } = {}
-  const domain = readString(value, 'domain', COOKIE_EXAMPLE, issues, 'cookie.domain')
+  const domain = readString(value, 'domain', example, issues, 'cookie.domain')
   if (domain !== undefined && COOKIE_DOMAIN.test(domain)) {
     attributes.domain = domain
   } else if (domain !== undefined) {
@@ -284,7 +294,7 @@ function readCookie(
       hint: "a domain is a bare host with no scheme, port, path or `;`: domain: 'example.com'.",
     })
   }
-  const path = readString(value, 'path', COOKIE_EXAMPLE, issues, 'cookie.path')
+  const path = readString(value, 'path', example, issues, 'cookie.path')
   if (path !== undefined && COOKIE_PATH.test(path)) {
     attributes.path = path
   } else if (path !== undefined) {
@@ -297,11 +307,11 @@ function readCookie(
   if (secure !== undefined) attributes.secure = secure
   const sameSite = value['sameSite']
   if (sameSite !== undefined && (typeof sameSite !== 'string' || !SAME_SITE.includes(sameSite))) {
-    issues.push(expected('cookie.sameSite', "'lax', 'strict' or 'none'", SAME_SITE_EXAMPLE))
+    issues.push(expected('cookie.sameSite', "'lax', 'strict' or 'none'", sameSiteExample))
   } else if (sameSite === 'none' && secure !== true) {
     issues.push({
       message: "`cookie.sameSite` is `'none'` without `secure: true`, and browsers drop that cookie.",
-      hint: `SameSite=None needs Secure: ${SAME_SITE_EXAMPLE}. Leave sameSite out to keep 'lax'.`,
+      hint: `SameSite=None needs Secure: ${sameSiteExample}. Leave sameSite out to keep 'lax'.`,
     })
   } else if (sameSite !== undefined) {
     attributes.sameSite = sameSite as 'lax' | 'strict' | 'none'
@@ -312,10 +322,10 @@ function readCookie(
   } else if (maxAge === 0) {
     issues.push({
       message: '`cookie.maxAge` is `0`, which expires the cookie as `setLocale` writes it, so the choice never persists.',
-      hint: `leave maxAge out to keep one year, or pass a positive number of seconds: ${MAX_AGE_EXAMPLE}.`,
+      hint: `leave maxAge out to keep one year, or pass a positive number of seconds: ${maxAgeExample}.`,
     })
   } else if (maxAge !== undefined) {
-    issues.push(expected('cookie.maxAge', 'a whole number of seconds, 1 or more', MAX_AGE_EXAMPLE))
+    issues.push(expected('cookie.maxAge', 'a whole number of seconds, 1 or more', maxAgeExample))
   }
   return { name, attributes: Object.keys(attributes).length === 0 ? undefined : attributes }
 }

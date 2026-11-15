@@ -670,6 +670,10 @@ in section 11.3 already reports. When the attributes carry a `domain`,
 `setLocale` first expires a host-only cookie of the same name under the same
 path: a site that adds `domain` leaves one on every returning visitor, and
 every read, the server's included, finds it before the shared one.
+An `LZ1001` hint for an attribute prints a `cookie` entry carrying the name
+the config wrote, falling back to `locale` only when the name itself is the
+field at fault: the entry is pasted over the user's own, and a fixed name would
+rename the cookie and drop every visitor's saved choice.
 
 `augmentLocale` controls one block in the generated barrel's declarations, the
 `declare module 'loclizr' { interface LocaleRegistry ... }` augmentation. It is
