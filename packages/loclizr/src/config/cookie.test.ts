@@ -110,6 +110,19 @@ describe('cookie attributes that never hold', () => {
     expect(rejected(run({ name: 'a b' })).message).toContain('not a cookie name')
   })
 
+  // A hint is pasted over the cookie entry, so one that names another cookie
+  // renames it, and every visitor's saved choice stops reading back.
+  it.each([
+    [{ name: 'lang', sameSite: 'none' }, "cookie: { name: 'lang', sameSite: 'none', secure: true }"],
+    [{ name: 'lang', maxAge: 0 }, "cookie: { name: 'lang', maxAge: 2592000 }"],
+    [{ name: 'lang', maxAge: 1.5 }, "cookie: { name: 'lang', maxAge: 2592000 }"],
+    [{ name: 'lang', domain: 7 }, "cookie: { name: 'lang', domain: 'example.com', secure: true }"],
+    [{ name: 'lang', path: false }, "cookie: { name: 'lang', domain: 'example.com', secure: true }"],
+    [{ name: "it's", maxAge: 0 }, "cookie: { name: 'it\\'s', maxAge: 2592000 }"],
+  ])('keeps the configured name in the hint for %j', (cookie, example) => {
+    expect(rejected(run(cookie)).hint).toContain(example)
+  })
+
   it('names a misspelled attribute rather than dropping it', () => {
     const diagnostic = rejected(run({ name: 'lang', samesite: 'strict' }))
     expect(diagnostic.message).toContain('`cookie.samesite`')
