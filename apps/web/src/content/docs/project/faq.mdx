@@ -55,7 +55,7 @@ Yes: by default it fails `prebuild`.
 | Command | Result |
 | --- | --- |
 | `loclizr build` (`prebuild`) | Exits 1, but still writes the tree, filled from the fallback chain, so typecheck works. |
-| `loclizr build --no-fail` (`predev`, `prepare`) | Same diagnostics; exits 0 once output is written, so a dev server starts. |
+| `loclizr build --no-fail` (`predev`) | Same diagnostics; exits 0 once output is written, so a dev server starts. |
 | `loclizr check` (CI) | The gate; no `--no-fail`. |
 
 Translators work after the merge? `severity: { 'missing-translation': 'warn' }` trades the gate for
@@ -97,8 +97,10 @@ It stays yours across vendors.
 
 ## Should the generated files be in git?
 
-No by default: `build` writes a self-ignoring `.gitignore` in `src/loclizr`, and the `prepare`,
-`predev`, `prebuild` and `pretypecheck` scripts from `init` regenerate the tree on a fresh clone.
+No by default: `build` writes a self-ignoring `.gitignore` in `src/loclizr`, and on a fresh clone
+the `predev`, `prebuild` and `pretypecheck` scripts from `init` regenerate the tree before the dev
+server, the build or the typecheck runs. There is no `prepare` hook: `npm ci` would run it and
+rewrite the record before CI's `check` compares it.
 Commit `locales/loclizr.context.json` instead. To commit the tree, delete that `.gitignore`;
 `check` then compares it too.
 
