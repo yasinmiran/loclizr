@@ -192,6 +192,23 @@ describe('renderReport, what the run produced', () => {
     expect(text).not.toContain('commit locales/loclizr.context.json;')
   })
 
+  it('names a record whose path carries {sourceLocale} by the path it was written to', () => {
+    const base = program()
+    const text = renderReport(
+      buildResult({
+        program: { ...base, config: { ...base.config, record: 'ctx/{sourceLocale}.context.json' } },
+        written: ['src/loclizr/messages.js', 'ctx/en.context.json'],
+        summary: summary({ messages: 4, locales: 1 }),
+      }),
+      plain,
+    )
+
+    expect(text.split('\n').slice(0, 2)).toEqual([
+      'wrote src/loclizr (1 file) and ctx/en.context.json',
+      'commit ctx/en.context.json; `loclizr check` compares it',
+    ])
+  })
+
   it('names nothing on a run that wrote nothing, which is every check', () => {
     expect(renderReport(buildResult({ summary: summary({ messages: 4 }) }), plain)).not.toContain(
       'wrote',
