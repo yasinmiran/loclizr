@@ -1,5 +1,5 @@
 import { renderHuman, renderJson, sortDiagnostics } from '../diagnostics'
-import type { BuildResult, Config, Diagnostic, Program, Summary } from '../types'
+import type { BuildResult, Diagnostic, Program, Summary } from '../types'
 
 export interface ReportOptions {
   readonly reporter: 'human' | 'json'
@@ -50,7 +50,7 @@ function renderSummary(result: BuildResult, program: Program | null, options: Su
       ? [options.blocked]
       : options.quiet || program === null
         ? []
-        : [...artifactLines(result, program.config)]
+        : [...artifactLines(result, program)]
   if (options.showCounts) lines.push(counts(result.summary, program?.sourceLocale ?? null))
   // The fallback counts describe a tree, and a blocked run rendered none.
   if (options.showCounts && options.blocked === null && result.summary.fellBack.length > 0) {
@@ -80,8 +80,12 @@ function blockedLine(diagnostics: readonly Diagnostic[]): string | null {
 
 // The record is the artifact meant to land in the pull request, and a run that
 // names only its counts leaves the user to discover it from LZ5003 later.
-function artifactLines(result: BuildResult, config: Config): readonly string[] {
-  const record = typeof config.record === 'string' ? config.record : null
+// `Config.record` keeps a `{sourceLocale}` token, and `written` holds the path
+// the pipeline substituted it into, so the two compare only once resolved.
+function artifactLines(result: BuildResult, program: Program): readonly string[] {
+  const { config } = program
+  const record =
+    typeof config.record === 'string' ? config.record.replaceAll('{sourceLocale}', program.sourceLocale) : null
   const wroteRecord = record !== null && result.written.includes(record)
   const generated = result.written.filter((path) => path.startsWith(`${config.outDir}/`)).length
 

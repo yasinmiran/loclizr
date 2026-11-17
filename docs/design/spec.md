@@ -2679,7 +2679,8 @@ The human summary closes the report on every run except one that exits 2
 having built no program (section 9); a run blocked before analysis prints it
 without a source locale. Its lines come in
 this order. First, on `build`, the `wrote` line naming the generated tree and
-the record, when write-if-changed wrote anything, and the reminder to commit the
+the record by the path it was written to, with `{sourceLocale}` substituted,
+when write-if-changed wrote anything, and the reminder to commit the
 record unless `LZ5007` already says so. A run that blocked
 output instead prints `nothing generated: N fatal (LZ4001, LZ4002)` there,
 counting every diagnostic whose `fatal` is true and naming each distinct code
