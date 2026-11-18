@@ -91,7 +91,7 @@ No extractor: run this loop one screen at a time.
 | --- | --- |
 | Per-locale delivery | Every locale is inlined into each used message function; bundle size grows with locale count. Paraglide ships one locale per request. |
 | Extraction, codemod | Nothing reads or rewrites your components; catalogs are authored or imported. |
-| A second framework | React with Vite is the tested example; the message layer is framework free. Next.js is not first-class; next-intl is built for it. Servers: [Server rendering](/guides/server-rendering/). |
+| A second framework binding | `loclizr/react` is the only one; the message layer is framework free. Svelte, Vue, Solid, vanilla and Astro each have a guide and a tested example app that wires the store in a few lines. Next.js is not first-class; next-intl is built for it. Servers: [Server rendering](/guides/server-rendering/). |
 | Runtime catalogs or `format()` | A translation fix is a commit and a deploy. A TMS that opens pull requests fits; a dashboard for fixing a production typo live does not. |
 | `--watch` | `loclizr build --no-fail` in `predev`, plus a few inline lines in the example's own `vite.config.ts` that rebuild on catalog edits ([How it works](/start/how-it-works/)). |
 | Stability | `0.x`: a minor release may break. |

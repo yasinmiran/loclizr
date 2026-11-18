@@ -77,12 +77,18 @@ No `format()` for text that arrives at runtime, from a CMS or a feature flag: it
 parser, which the design never ships. It is deferred past v0.1, not promised, and would be a
 separate entry so the invariant holds for everyone else.
 
-## One framework demo
+## One framework binding
 
-React with Vite is the one tested example: locale negotiation, hydration agreement, language
-switcher. Messages are plain ESM that run anywhere JavaScript does; the server entry covers Web Fetch handlers and
-anything that can hand over two header strings. Under Jest, its default CommonJS transform
-needs [a config change](/guides/testing/#jest) first. Elsewhere you wire the locale in yourself.
+`loclizr/react` is the only framework entry. The repository's example apps cover React, Svelte,
+Vue, Solid and plain TypeScript on Vite, and Astro; CI builds and typechecks each one and runs a
+test in every one but the React app. Svelte, Vue and Solid wire the store in a few lines over
+`subscribe` and `getLocale`, and Astro wraps each render in `runWithLocale` from a middleware; each
+has a guide. No example app negotiates from `Accept-Language` or hydrates a server render: those
+paths are tested in the package, not in an app.
+
+Messages are plain ESM that run anywhere JavaScript does; the server entry covers Web Fetch
+handlers and anything that can hand over two header strings. Under Jest, its default CommonJS
+transform needs [a config change](/guides/testing/#jest) first.
 
 In React a message call subscribes to nothing: key the root on the locale, or pass
 `{ locale: useLocale() }` per call, one pattern per app. See
