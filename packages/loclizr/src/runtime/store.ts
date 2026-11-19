@@ -41,11 +41,7 @@ export function setLocale(locale: Locale, options?: SetLocaleOptions): void {
       const stored = locale.replace(/\p{Cs}/gu, '\uFFFD')
       const name = cookieName()
       const attributes = cookieAttributes()
-      // A host-only cookie left from a config without a domain is a separate
-      // cookie, and every read, the server's included, finds it first.
-      if (attributes.includes('; domain=')) {
-        document.cookie = `${name}=; ${expired(attributes.replace(/; domain=[^;]*/, ''))}`
-      }
+      expireHostOnly(name, attributes)
       document.cookie = `${name}=${encodeURIComponent(stored)}; ${attributes}`
       // A file:// page keeps no cookie while navigator.cookieEnabled says true.
       try {
@@ -79,7 +75,10 @@ export function resetLocale(): void {
   state.detected = null
   state.pendingLang = null
   if (typeof document !== 'undefined') {
-    document.cookie = `${cookieName()}=; ${expired(cookieAttributes())}`
+    const name = cookieName()
+    const attributes = cookieAttributes()
+    expireHostOnly(name, attributes)
+    document.cookie = `${name}=; ${expired(attributes)}`
     // Detection would read a leftover lang back as the locale just reset.
     document.documentElement.removeAttribute('lang')
   }
@@ -205,6 +204,13 @@ function cookieName(): string {
 // so the defaults live here.
 function cookieAttributes(): string {
   return storeState().setup?.cookieAttributes ?? 'path=/; max-age=31536000; SameSite=Lax'
+}
+
+// A host-only cookie left from a config without a domain is a separate cookie,
+// and every read, the server's included, finds it before the shared one.
+function expireHostOnly(name: string, attributes: string): void {
+  if (!attributes.includes('; domain=')) return
+  document.cookie = `${name}=; ${expired(attributes.replace(/; domain=[^;]*/, ''))}`
 }
 
 // A browser deletes a cookie only when the path and domain match the ones it

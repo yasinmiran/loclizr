@@ -668,7 +668,8 @@ absent when it wrote none. `secure: true` on a plain `http://` page other than
 `localhost` stores nothing, which is the case `setLocale`'s read-back warning
 in section 11.3 already reports. When the attributes carry a `domain`,
 `setLocale` first expires a host-only cookie of the same name under the same
-path: a site that adds `domain` leaves one on every returning visitor, and
+path, and `resetLocale` expires it beside the shared one: a site that adds
+`domain` leaves one on every returning visitor, and
 every read, the server's included, finds it before the shared one.
 
 `augmentLocale` controls one block in the generated barrel's declarations, the
@@ -2759,8 +2760,10 @@ in, for test setup.** It clears the stored tag, the latched detection and a
 pending `<html lang>` write, so the next read runs step 3 below again. With a
 `document` it expires the cookie under the registered name and attributes,
 since a browser keeps a cookie whose path or domain the expiry does not
-repeat, and removes the `lang` attribute, since detection would otherwise read back the locale
-`setLocale` wrote there. It notifies listeners, so a component left mounted
+repeat, and with a `domain` in those attributes also the host-only cookie of
+that name under the same path, as `setLocale` does before it writes. It
+removes the `lang` attribute, since detection would otherwise read back the
+locale `setLocale` wrote there. It notifies listeners, so a component left mounted
 across tests does not keep a stale snapshot. A listener that reads during that
 notification is step 3's first read: it detects against the cookie and `lang`
 the reset just cleared and latches the miss, so a test that writes a cookie

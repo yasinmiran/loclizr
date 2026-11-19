@@ -5,7 +5,7 @@ import { localeFromHeaders } from '../server/index'
 import type { LocaleSetup } from '../types'
 import { $configure1 } from './abi'
 import { resetRuntime } from './__fixtures__/reset'
-import { getLocale, setLocale } from './store'
+import { getLocale, resetLocale, setLocale } from './store'
 
 const SETUP: LocaleSetup = {
   locales: ['de', 'en'],
@@ -34,4 +34,16 @@ test('replaces a host-only cookie from a config without a domain', () => {
   resetRuntime()
   $configure1(SETUP)
   expect(getLocale()).toBe('de')
+})
+
+// The same leftover outlives a reset that expires only the shared cookie, and
+// the next read latches it again.
+test('a reset expires a host-only cookie as well as the shared one', () => {
+  vi.spyOn(console, 'warn').mockImplementation(() => {})
+  document.cookie = 'locale=de; path=/; max-age=31536000; SameSite=Lax'
+  $configure1(SETUP)
+  expect(getLocale()).toBe('de')
+  resetLocale()
+  expect(document.cookie).toBe('')
+  expect(getLocale()).toBe('en')
 })
