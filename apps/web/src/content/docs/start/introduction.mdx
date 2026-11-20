@@ -80,7 +80,8 @@ No extractor: run this loop one screen at a time.
    severity: { 'unused-message': 'warn' }
    ```
 
-   It lists keys with no call found, and fires only once the scan finds a generated import, so a
+   It warns once per message with no call found, naming the generated function, such as
+   `nav_home` for the key `nav.home`, and fires only once the scan finds a generated import, so a
    wrong glob costs one warning, not one per key.
 
 </Steps>
