@@ -623,10 +623,16 @@ would silently coerce rather than refuse (`hour12: NaN` builds); a
 config does not have, `outdir` for `outDir`, because a JavaScript config gets
 no type check and a misspelled path field would otherwise fall back to its
 default and send output, or the record CI compares, somewhere the user never
-chose. Its hint names the nearest field within two edits, compared without
-case, or lists the fields when none is that close. Every unknown field is its
-own diagnostic, in the config's own key order. Declared locale tags are kept
-verbatim, never canonicalized through `Intl.getCanonicalLocales`, because
+chose. The same holds one level down, for a key of `scan` other than
+`include` and `exclude` and a key of `formats` other than `timeZone`, `number`
+and `dateTime`: `scan.includes` would scan the default tree, and
+`formats.timezone` would render server dates in the machine's zone, with the
+build green either way. The named styles under `formats.number` and
+`formats.dateTime` are the user's own names and are not checked this way. The
+hint names the nearest field within two edits, compared without case, or lists
+the fields when none is that close, those of `scan` or `formats` for a nested
+key. Every unknown field is its own diagnostic, in the config's own key
+order. Declared locale tags are kept verbatim, never canonicalized through `Intl.getCanonicalLocales`, because
 canonicalizing would change `Config.locales`, the emitted arms and the
 `AppLocale` union; `de-at` declared against `de-AT.json` on disk is therefore
 `LZ1005` plus `LZ1006`, not a match. A `fallback` key that is not a locale tag

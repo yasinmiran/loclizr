@@ -24,8 +24,9 @@ Optional: the defaults below apply without one. Groups and format styles need a 
   unless `--config` names one. TypeScript loads through `jiti`.
 - Fields are re-checked at load time: a failure is `LZ1001 config-invalid`, exit 2, hint a
   pasteable example.
-- A field the config does not have is `LZ1001` too, so a typo in a JavaScript config, which gets no
-  type check, cannot fall back to the default in silence. The hint names the nearest field:
+- A field the config does not have is `LZ1001` too, at the top level and inside `scan` and
+  `formats` (`formats.timezone` for `formats.timeZone`), so a typo in a JavaScript config, which
+  gets no type check, cannot fall back to the default in silence. The hint names the nearest field:
 
   ```txt title="outdir: 'src/i18n'"
   error  LZ1001  config-invalid  loclizr.config.js

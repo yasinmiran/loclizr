@@ -75,6 +75,13 @@ const FIELDS: readonly string[] = [
   'severity',
 ]
 
+// The same typo one level down falls back just as silently: `scan.includes`
+// scans the default tree, and `formats.timezone` renders server dates in the
+// machine's zone while the build stays green.
+const SCAN_FIELDS: readonly string[] = ['include', 'exclude']
+
+const FORMATS_FIELDS: readonly string[] = ['timeZone', 'number', 'dateTime']
+
 // Two edits catch a dropped, doubled or swapped letter; a wider net offers
 // unrelated short fields, `meta` for `mode`.
 const MAX_SUGGESTION_DISTANCE = 2
@@ -127,8 +134,8 @@ export function readFields(user: LoclizrConfig): FieldsResult {
   // whatever its declared type says.
   const raw = user as unknown as Readonly<Record<string, unknown>>
   rejectUnknownFields(raw, issues)
-  const scan = readNested(raw, 'scan', INCLUDE_EXAMPLE, issues)
-  const formats = readNested(raw, 'formats', ZONE_EXAMPLE, issues)
+  const scan = readNested(raw, 'scan', SCAN_FIELDS, INCLUDE_EXAMPLE, issues)
+  const formats = readNested(raw, 'formats', FORMATS_FIELDS, ZONE_EXAMPLE, issues)
   const cookie = readCookie(raw, issues)
   return {
     fields: {
@@ -163,7 +170,7 @@ export function readFields(user: LoclizrConfig): FieldsResult {
 function rejectUnknownFields(raw: Readonly<Record<string, unknown>>, issues: FieldIssue[]): void {
   for (const field of Object.keys(raw)) {
     if (FIELDS.includes(field)) continue
-    const meant = nearestField(field)
+    const meant = nearestField(field, FIELDS)
     issues.push({
       message: `\`${field}\` is not a config field.`,
       hint:
@@ -174,10 +181,10 @@ function rejectUnknownFields(raw: Readonly<Record<string, unknown>>, issues: Fie
   }
 }
 
-function nearestField(field: string): string | null {
+function nearestField(field: string, fields: readonly string[]): string | null {
   let nearest: string | null = null
   let best = MAX_SUGGESTION_DISTANCE + 1
-  for (const candidate of FIELDS) {
+  for (const candidate of fields) {
     const distance = editDistance(field.toLowerCase(), candidate.toLowerCase())
     if (distance < best) {
       nearest = candidate
@@ -203,6 +210,7 @@ function editDistance(a: string, b: string): number {
 function readNested(
   raw: Readonly<Record<string, unknown>>,
   field: string,
+  fields: readonly string[],
   example: string,
   issues: FieldIssue[],
 ): Readonly<Record<string, unknown>> {
@@ -211,6 +219,17 @@ function readNested(
   if (!isPlainObject(value)) {
     issues.push(expected(field, 'an object', example))
     return {}
+  }
+  for (const key of Object.keys(value)) {
+    if (fields.includes(key)) continue
+    const meant = nearestField(key, fields)
+    issues.push({
+      message: `\`${field}.${key}\` is not a config field.`,
+      hint:
+        meant === null
+          ? `the fields of \`${field}\` are ${fields.map((one) => `\`${one}\``).join(', ')}.`
+          : `did you mean \`${field}.${meant}\`?`,
+    })
   }
   return value
 }

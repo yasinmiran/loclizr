@@ -118,6 +118,40 @@ describe('a field the config does not have', () => {
     expect(diagnostic.hint).toContain('`locales`')
     expect(diagnostic.hint).toContain('`severity`')
   })
+
+  it('rejects a misspelled field inside scan and names the one it meant', () => {
+    const result = loose({ sourceLocale: 'en', scan: { includes: ['app/**/*.ts'] } }, 'en')
+    expect(result.config).toBeNull()
+    const diagnostic = only(result.diagnostics, 'LZ1001')
+    expect(diagnostic.message).toBe('`scan.includes` is not a config field.')
+    expect(diagnostic.hint).toBe('did you mean `scan.include`?')
+  })
+
+  it('rejects a timeZone spelled in another case inside formats', () => {
+    const result = loose({ sourceLocale: 'en', formats: { timezone: 'UTC' } }, 'en')
+    expect(result.config).toBeNull()
+    const diagnostic = only(result.diagnostics, 'LZ1001')
+    expect(diagnostic.message).toBe('`formats.timezone` is not a config field.')
+    expect(diagnostic.hint).toBe('did you mean `formats.timeZone`?')
+  })
+
+  it('lists the fields of a nested object when nothing is close', () => {
+    const result = loose({ sourceLocale: 'en', formats: { currency: {} } }, 'en')
+    expect(result.config).toBeNull()
+    const diagnostic = only(result.diagnostics, 'LZ1001')
+    expect(diagnostic.message).toBe('`formats.currency` is not a config field.')
+    expect(diagnostic.hint).toBe(
+      'the fields of `formats` are `timeZone`, `number`, `dateTime`.',
+    )
+  })
+
+  it('keeps named styles under formats.number free to take any name', () => {
+    const result = loose(
+      { sourceLocale: 'en', formats: { number: { compactish: { notation: 'compact' } } } },
+      'en',
+    )
+    expect(result.diagnostics).toEqual([])
+  })
 })
 
 describe('fields the rest of the compiler reads', () => {
