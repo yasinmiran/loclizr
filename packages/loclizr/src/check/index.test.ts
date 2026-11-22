@@ -661,6 +661,19 @@ describe('unreachable plural branches', () => {
     expect(only(runChecks(branchMessage('en', 'many')), 'LZ3013').message).toContain('many')
   })
 
+  // A hint that offers =2 for a one branch moves "# item" onto the count 2.
+  it('names the exact branch a one or two branch stood for, and no number for few or many', () => {
+    expect(only(runChecks(branchMessage('ja', 'one')), 'LZ3013').hint).toBe(
+      'ja never selects one; delete the branch, or use the exact branch =1',
+    )
+    expect(only(runChecks(branchMessage('en', 'two')), 'LZ3013').hint).toBe(
+      'en never selects two; delete the branch, or use the exact branch =2',
+    )
+    expect(only(runChecks(branchMessage('en', 'many')), 'LZ3013').hint).toBe(
+      'en never selects many; delete the branch, or use an exact branch =N for each value it stood for',
+    )
+  })
+
   it('leaves a keyword that is not a CLDR category to the parser rule', () => {
     expect(withCode(runChecks(branchMessage('en', 'banana')), 'LZ3013')).toEqual([])
   })
