@@ -1081,7 +1081,11 @@ also a warning: an ICU-native
 other check while the `zero` body is dead forever, which is exactly the failure
 section 2.1 spends three paragraphs preventing on the import path, left open on
 the format we call our own. Hint: German never selects `zero`; use the exact
-branch `=0`. A branch keyword that is neither a CLDR category nor `=N` is
+branch `=0`. A `one` or `two` branch names the count it was written for, so its
+hint offers deleting it or the exact branch `=1` or `=2`; `few` and `many` name
+no single count, so theirs offers deleting it or an exact branch `=N` for each
+value it stood for. An i18next file's hint names the suffixed key to delete
+instead. A branch keyword that is neither a CLDR category nor `=N` is
 `LZ2006 plural-category-unknown`.
 
 `requiresOtherClause: true` makes a missing `other` a parser error with a

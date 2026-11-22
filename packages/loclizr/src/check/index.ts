@@ -308,13 +308,24 @@ function checkPluralCategories(program: Program, message: Message, out: Diagnost
           `${body.locale} never selects "${branch.keyword}", so this branch of ${argRef(format, node.name)} never renders.`,
           format === 'i18next'
             ? `${body.locale} never selects ${branch.keyword}; delete ${i18nextPluralKey(program, message, body.locale, node.ordinal, branch.keyword)} from ${file}`
-            : branch.keyword === 'zero'
-              ? `${body.locale} never selects zero; use the exact branch =0`
-              : `${body.locale} never selects ${branch.keyword}; delete the branch, or use an exact branch such as =2`,
+            : unreachableHint(body.locale, branch.keyword),
         )
       }
     })
   }
+}
+
+// zero, one and two are written for the count they name, so the exact branch
+// to offer is that count; a fixed example would move the body onto another
+// number. few and many name no single count.
+const NAMED_COUNT: Readonly<Record<string, string>> = { one: '=1', two: '=2' }
+
+function unreachableHint(locale: string, keyword: string): string {
+  if (keyword === 'zero') return `${locale} never selects zero; use the exact branch =0`
+  const exact = NAMED_COUNT[keyword]
+  return exact === undefined
+    ? `${locale} never selects ${keyword}; delete the branch, or use an exact branch =N for each value it stood for`
+    : `${locale} never selects ${keyword}; delete the branch, or use the exact branch ${exact}`
 }
 
 function argRef(format: 'icu' | 'i18next', name: string): string {
