@@ -454,6 +454,44 @@ describe('argument types across locales', () => {
     expect(conflict.related[0]).toMatchObject({ locale: 'de', key: 'cart.total' })
   })
 
+  it('skips a target select on a bare source argument, so a third locale may still narrow it', () => {
+    const diagnostics = runChecks(
+      program({
+        config: config({ locales: ['de', 'en', 'fr'] }),
+        messages: [
+          message({
+            key: 'cart.items',
+            bodies: [
+              body('en', { nodes: [argNode('n')], args: [stringishArg('n')] }),
+              body('de', { args: [selectArg('n', ['one', 'other'])] }),
+              body('fr', { args: [numberArg('n')] }),
+            ],
+          }),
+        ],
+      }),
+    )
+
+    expect(diagnostics).toEqual([])
+  })
+
+  it('still reports a target select on a source number, which no call can match', () => {
+    const diagnostics = runChecks(
+      program({
+        messages: [
+          message({
+            key: 'cart.items',
+            bodies: [
+              body('en', { args: [numberArg('n')] }),
+              body('de', { args: [selectArg('n', ['one', 'other'])] }),
+            ],
+          }),
+        ],
+      }),
+    )
+
+    expect(only(diagnostics, 'LZ3006')).toMatchObject({ locale: 'de', key: 'cart.items' })
+  })
+
   it('points at the source locale when the source itself carries the other type', () => {
     const diagnostics = runChecks(
       program({

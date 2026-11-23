@@ -148,6 +148,11 @@ function checkArgs(comparison: Comparison, folded: Map<string, FoldState>, out: 
       )
       continue
     }
+    // analyze leaves a target's select on a bare source argument out of
+    // Message.args, so folding it here would report a conflict against a third
+    // locale's number or date that the generated type does not have. A select
+    // on a source number or date still conflicts: it can never match.
+    if (mine.kind === 'select' && arg.type.kind === 'stringish') continue
     foldArgType(comparison, folded, arg.name, mine, out)
   }
   for (const arg of body.args) {
