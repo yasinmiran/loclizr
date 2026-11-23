@@ -908,7 +908,12 @@ disagreeing.
 
 **M5 re-runs the same pairwise comparison** over `Body.args` and raises `LZ3004`
 through `LZ3009` for the mismatches it finds, including
-`LZ3006 arg-type-conflict` wherever `unify` returned `null`. This keeps every
+`LZ3006 arg-type-conflict` wherever `unify` returned `null`. It skips a target's
+`select` on a bare source argument exactly as the `Message.args` fold does, so
+`{n}` in the source, a `select` on it in `de` and `{n, number}` in `fr` raise
+nothing and type `n: number`. A target's `select` on a source `number` or
+`date` is still compared, and fails: no call that passes that type can match a
+branch. This keeps every
 cross-locale diagnostic in one module without making emit wait on checks, and
 neither module re-parses anything.
 
