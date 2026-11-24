@@ -63,6 +63,14 @@ Add this step to CI, before any step that runs loclizr build:
 
 - Create-only: an existing file is kept, and the output says so. `package.json` is never edited.
 - Takes `--cwd` and `--config`. `--no-fail` is a usage error.
+- When config discovery would not find the file `--config` names, every printed script and the CI
+  step pass it on, so the hooks load the config `init` wrote:
+
+```txt title="npx loclizr init --config tools/loclizr.config.ts, the scripts it prints"
+  "predev": "loclizr build --no-fail --config tools/loclizr.config.ts",
+  "prebuild": "loclizr build --config tools/loclizr.config.ts",
+  "pretypecheck": "loclizr build --config tools/loclizr.config.ts"
+```
 
 `init` first reports catalogs on disk (`found 3 locales at locales/{locale}.json: de, de-AT, en`):
 

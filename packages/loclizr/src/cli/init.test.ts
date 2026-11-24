@@ -463,6 +463,44 @@ describe('runInit, --config', () => {
   })
 })
 
+describe('runInit, the wiring for a config discovery cannot find', () => {
+  it('passes a --config path outside the discovery names to every printed command', async () => {
+    const { output } = await runInit({ cwd: root, configPath: 'tools/loclizr.config.ts' })
+
+    expect(output).toContain('"predev": "loclizr build --no-fail --config tools/loclizr.config.ts"')
+    expect(output).toContain('"prebuild": "loclizr build --config tools/loclizr.config.ts"')
+    expect(output).toContain('"pretypecheck": "loclizr build --config tools/loclizr.config.ts"')
+    expect(output).toContain('- run: npx loclizr check --config tools/loclizr.config.ts')
+  })
+
+  it('passes a discovery name that an earlier discovery name shadows', async () => {
+    await write('loclizr.config.ts', 'export default {}\n')
+
+    const { output } = await runInit({ cwd: root, configPath: 'loclizr.config.js' })
+
+    expect(output).toContain('"prebuild": "loclizr build --config loclizr.config.js"')
+    expect(output).toContain('- run: npx loclizr check --config loclizr.config.js')
+  })
+
+  it('quotes a path the shell would split', async () => {
+    const { output } = await runInit({ cwd: root, configPath: 'my tools/loclizr.config.ts' })
+
+    expect(output).toContain('"prebuild": "loclizr build --config \\"my tools/loclizr.config.ts\\""')
+    expect(output).toContain('- run: npx loclizr check --config "my tools/loclizr.config.ts"')
+  })
+
+  it('prints the plain commands when discovery finds the config', async () => {
+    const written = await runInit({ cwd: root, configPath: 'loclizr.config.js' })
+    const kept = await runInit({ cwd: root })
+
+    for (const { output } of [written, kept]) {
+      expect(output).toContain('"prebuild": "loclizr build"')
+      expect(output).toContain('- run: npx loclizr check\n')
+      expect(output).not.toContain('--config')
+    }
+  })
+})
+
 describe('runInit, failure', () => {
   it('reports an unwritable target and skips the wiring', async () => {
     await write('locales', '')
