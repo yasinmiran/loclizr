@@ -107,14 +107,30 @@ export function installNote(configPath: string): string {
 // context record before `loclizr check` compares it and the gate would pass
 // on a stale record. The three `pre*` hooks cover every command a developer
 // runs; a fresh clone has no generated tree until the first of them.
-export const PACKAGE_SCRIPTS: string = `Add these scripts to package.json:
+// `config` is the config path to pass on, or null when discovery finds it:
+// without the flag these commands would run on defaults and drop the config
+// init wrote or kept.
+export function packageScripts(config: string | null): string {
+  const flag = configFlag(config)
+  const script = (command: string): string => JSON.stringify(`${command}${flag}`)
+  return `Add these scripts to package.json:
 
-  "predev": "loclizr build --no-fail",
-  "prebuild": "loclizr build",
-  "pretypecheck": "loclizr build"`
+  "predev": ${script('loclizr build --no-fail')},
+  "prebuild": ${script('loclizr build')},
+  "pretypecheck": ${script('loclizr build')}`
+}
 
-export const CI_SNIPPET: string = `Add this step to CI, before any step that runs loclizr build:
+export function ciSnippet(config: string | null): string {
+  return `Add this step to CI, before any step that runs loclizr build:
 
   # loclizr check compares the committed context record against this tree.
   # loclizr build would rewrite that record in the CI workspace and pass.
-  - run: npx loclizr check`
+  - run: npx loclizr check${configFlag(config)}`
+}
+
+// Double quotes are the one quoting that sh and cmd.exe, which npm runs
+// scripts through on Windows, both read.
+function configFlag(config: string | null): string {
+  if (config === null) return ''
+  return /^[\w./@+-]+$/.test(config) ? ` --config ${config}` : ` --config "${config}"`
+}

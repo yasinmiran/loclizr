@@ -5,7 +5,6 @@ import { toPosix } from '../util'
 import type { CatalogLayout } from './discover'
 import { discoverLayouts } from './discover'
 import {
-  CI_SNIPPET,
   CONFIG_FILENAME,
   CONFIG_FILENAMES,
   DEFAULT_CATALOGS,
@@ -13,12 +12,13 @@ import {
   RECORD_NAME,
   DEFAULT_SOURCE_LOCALE,
   GENERATED_MARKER,
-  PACKAGE_SCRIPTS,
   SEED_CATALOG,
   SEED_OUT_DIR,
   catalogPath,
+  ciSnippet,
   configTemplate,
   installNote,
+  packageScripts,
 } from './templates'
 
 export interface InitOptions {
@@ -67,8 +67,9 @@ export async function runInit(options: InitOptions): Promise<InitResult> {
 
   const lines = [...describeLayouts(layouts), describeOutcome(config), describeOutcome(catalog)]
   const ok = config.kind !== 'failed' && catalog.kind !== 'failed'
+  const passed = ok && (await firstConfigPresent(root)) !== config.path ? config.path : null
   const blocks = ok
-    ? [lines.join('\n'), installNote(config.path), PACKAGE_SCRIPTS, CI_SNIPPET]
+    ? [lines.join('\n'), installNote(config.path), packageScripts(passed), ciSnippet(passed)]
     : [lines.join('\n')]
   return { ok, output: `${blocks.join('\n\n')}\n` }
 }

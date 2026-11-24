@@ -2475,6 +2475,13 @@ is to make a working tree exist for a dev server, so it alone runs
 "pretypecheck": "loclizr build"
 ```
 
+When the config `init` wrote or kept is not the one discovery finds at
+`--cwd`, a `--config` target in a subdirectory or a `loclizr.config.js` that a
+`loclizr.config.ts` beside it shadows, each of the three scripts and the CI
+step end in `--config <path>`, relative to `--cwd` and double-quoted when it
+holds a character outside `[A-Za-z0-9_./@+-]`. Without it every hook would run
+on defaults and drop the config `init` just wrote.
+
 `init` prints no `prepare` hook. `prepare` runs on `npm ci`, so a CI job that
 installed and then ran `loclizr check` would compare a record its own install
 had just rewritten, and the gate would pass on a stale record. The CI snippet
@@ -5072,7 +5079,8 @@ does not exist.
 The `init` templates write an **ICU** seed catalog and never emit a
 `catalogFormat` line, per section 10, and the `package.json` scripts it prints
 are the three in that section: `predev` on `loclizr build --no-fail`,
-`prebuild` and `pretypecheck` on `loclizr build`, and no `prepare`. The install
+`prebuild` and `pretypecheck` on `loclizr build`, and no `prepare`, each
+ending in `--config <path>` when discovery would not find the config. The install
 note names a regular dependency (`npm i loclizr`), because the generated
 functions import the locale store from `loclizr` at run time, and it names the
 config `init` wrote or left unchanged, relative to `--cwd`, so a
