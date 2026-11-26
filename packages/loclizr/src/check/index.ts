@@ -92,8 +92,8 @@ function checkOrigins(program: Program, message: Message, out: Diagnostic[]): vo
           ? `The ${entry.locale} value is empty, so this message renders ${program.sourceLocale} text.`
           : `The ${entry.locale} catalog has no value for this key, so this message renders ${program.sourceLocale} text.`,
         hint: blank
-          ? `write a ${entry.locale} value for "${message.key}" in ${file}`
-          : `add "${message.key}" to ${file}`,
+          ? `write a ${entry.locale} value for "${fileKey(program, message)}" in ${file}`
+          : `add "${fileKey(program, message)}" to ${file}`,
         file,
         locale: entry.locale,
         key: message.key,
@@ -322,9 +322,17 @@ function argRef(format: 'icu' | 'i18next', name: string): string {
 }
 
 // The key the user types into the file. Under `{ns}` the namespace is the file
-// itself, not a segment of its keys. M2 folds an ordinal group to
-// `base_ordinal` only when that file also holds a cardinal group on `base`, and
-// to `base` otherwise, so a key ending in `_ordinal` alone is not that case.
+// itself, not a segment of its keys, so a hint naming the full key would have
+// the user write the namespace twice.
+function fileKey(program: Program, message: Message): string {
+  return program.config.catalogs.includes('{ns}')
+    ? message.key.slice(message.key.indexOf('.') + 1)
+    : message.key
+}
+
+// M2 folds an ordinal group to `base_ordinal` only when that file also holds a
+// cardinal group on `base`, and to `base` otherwise, so a key ending in
+// `_ordinal` alone is not that case.
 function i18nextPluralKey(
   program: Program,
   message: Message,
@@ -332,9 +340,7 @@ function i18nextPluralKey(
   ordinal: boolean,
   category: string,
 ): string {
-  const key = program.config.catalogs.includes('{ns}')
-    ? message.key.slice(message.key.indexOf('.') + 1)
-    : message.key
+  const key = fileKey(program, message)
   const base = message.key.slice(0, -'_ordinal'.length)
   const besideCardinal =
     message.key.endsWith('_ordinal') &&

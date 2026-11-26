@@ -98,6 +98,32 @@ describe('missing and blank translations', () => {
     expect(only(diagnostics, 'LZ3001').file).toBe('public/locales/de/common.json')
   })
 
+  it('names a split-catalog key as written in its file, without the namespace', () => {
+    const diagnostics = runChecks(
+      program({
+        config: config({ catalogs: 'public/locales/{locale}/{ns}.json' }),
+        messages: [
+          message({
+            key: 'common.nav.home',
+            bodies: [body('en')],
+            origins: [translated('en'), fellBack('de', 'en', 'missing'), fellBack('fr', 'en', 'blank')],
+            spans: [
+              at('en', 1, 1, 'public/locales/en/common.json'),
+              at('fr', 3, 5, 'public/locales/fr/common.json'),
+            ],
+          }),
+        ],
+      }),
+    )
+
+    const missing = only(diagnostics, 'LZ3001')
+    expect(missing.key).toBe('common.nav.home')
+    expect(missing.hint).toBe('add "nav.home" to public/locales/de/common.json')
+    const blank = only(diagnostics, 'LZ3002')
+    expect(blank.key).toBe('common.nav.home')
+    expect(blank.hint).toBe('write a fr value for "nav.home" in public/locales/fr/common.json')
+  })
+
   it('reports a blank value at the span the catalog gave it', () => {
     const diagnostics = runChecks(
       program({
