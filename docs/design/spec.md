@@ -4695,7 +4695,10 @@ for `LZ3007` and `LZ3013`. `LZ3001` for a key absent from a target catalog has
 no entry in `Message.spans`, so its `file` is `config.catalogs` with
 `{locale}` substituted and `{ns}` replaced by the key's first segment,
 which it can do because section 3 fixes what that pattern is relative to and
-section 2 fixes every key of a split catalog as `<ns>.<rest>`. `LZ3008` and
+section 2 fixes every key of a split catalog as `<ns>.<rest>`. For the same
+reason the fix lines of `LZ3001` and `LZ3002` name the key as written in that
+file, `<rest>` under `{ns}`, while the diagnostic's `key` stays the full key:
+`add "nav.home" to public/locales/de/common.json` for `common.nav.home`. `LZ3008` and
 `LZ3009` read the source's reachable option set from the `select` `ArgType` in
 `comparison.source.args`, which `lower` already folded into the union of every
 `select` on that name (section 5.1), and the target's from the union of every
